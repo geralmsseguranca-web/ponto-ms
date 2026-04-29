@@ -1666,7 +1666,36 @@ function renderColabPonto() {
 
 function selectColab(c) {
   selectedColab = selectedColab?.id === c.id ? null : c;
-  document.getElementById('ponto-btns').style.display = selectedColab ? 'grid' : 'none';
+  const btnsDiv = document.getElementById('ponto-btns');
+  if (selectedColab) {
+    btnsDiv.style.display = 'grid';
+    // Determina próximo tipo baseado no último registro
+    const ult = ultimoReg(selectedColab.id);
+    const proximoEntrada = !ult || ult.tipo === 'saida';
+    const btnEntrada = document.querySelector('.btn-entrada');
+    const btnSaida   = document.querySelector('.btn-saida');
+    if (btnEntrada && btnSaida) {
+      if (proximoEntrada) {
+        // Próximo deve ser ENTRADA
+        btnEntrada.style.opacity = '1';
+        btnEntrada.style.transform = 'scale(1.04)';
+        btnEntrada.style.boxShadow = '0 0 0 3px #22c55e66';
+        btnSaida.style.opacity = '0.45';
+        btnSaida.style.transform = 'scale(1)';
+        btnSaida.style.boxShadow = 'none';
+      } else {
+        // Próximo deve ser SAÍDA
+        btnSaida.style.opacity = '1';
+        btnSaida.style.transform = 'scale(1.04)';
+        btnSaida.style.boxShadow = '0 0 0 3px #ef444466';
+        btnEntrada.style.opacity = '0.45';
+        btnEntrada.style.transform = 'scale(1)';
+        btnEntrada.style.boxShadow = 'none';
+      }
+    }
+  } else {
+    btnsDiv.style.display = 'none';
+  }
   renderColabPonto();
 }
 
