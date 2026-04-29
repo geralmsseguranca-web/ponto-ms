@@ -1769,8 +1769,9 @@ async function cameraAction() {
       document.getElementById('face-success').style.display = 'flex';
       document.getElementById('camera-wrap').className = 'camera-wrap done';
       setTimeout(() => {
+        const tipoConfirmado = pendingTipo; // salva antes de fechar
         closeFaceModal();
-        registrarPonto();
+        registrarPonto(tipoConfirmado);
       }, 900);
     }, 2400);
   }
@@ -1782,18 +1783,19 @@ function stopCam() {
   if (vid) { vid.srcObject=null; }
 }
 
-function registrarPonto() {
+function registrarPonto(tipoParam) {
+  const tipoFinal = tipoParam || pendingTipo;
   const reg = {
     id: uid(),
     colaboradorId: selectedColab.id,
     colaboradorNome: selectedColab.nome,
     posto: selectedColab.posto,
-    tipo: pendingTipo,
+    tipo: tipoFinal,
     timestamp: Date.now()
   };
   registros.unshift(reg);
   saveRegistros();
-  showFeedback(pendingTipo, selectedColab.nome);
+  showFeedback(tipoFinal, selectedColab.nome);
   selectedColab = null;
   pendingTipo = null;
   document.getElementById('ponto-btns').style.display = 'none';
