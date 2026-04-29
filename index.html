@@ -1123,6 +1123,7 @@ footer {
       <div class="filter-meta">
         <span class="filter-count" id="filter-count">0 registros</span>
         <button class="btn-clear" onclick="clearFilters()">Limpar filtros</button>
+        <button class="btn-del" id="btn-limpar-todos" onclick="confirmarLimparTodos()" style="display:none;margin-left:8px;padding:8px 14px;font-size:13px">🗑️ Excluir selecionados</button>
       </div>
     </div>
     <div class="table-wrap">
@@ -1130,7 +1131,7 @@ footer {
         <table>
           <thead>
             <tr>
-              <th>Data</th><th>Hora</th><th>Colaborador</th><th>Posto</th><th>Tipo</th>
+              <th>Data</th><th>Hora</th><th>Colaborador</th><th>Posto</th><th>Tipo</th><th id="th-acao" style="display:none">Ação</th>
             </tr>
           </thead>
           <tbody id="hist-tbody"></tbody>
@@ -1848,6 +1849,11 @@ function _renderHistTabla() {
   if (!slice.length) {
     tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Nenhum registro encontrado</td></tr>';
   } else {
+    const thAcao = document.getElementById('th-acao');
+    const btnLimpar = document.getElementById('btn-limpar-todos');
+    if (thAcao) thAcao.style.display = isAdmin ? '' : 'none';
+    if (btnLimpar) btnLimpar.style.display = isAdmin && slice.length ? '' : 'none';
+
     tbody.innerHTML = slice.map(r=>`
       <tr>
         <td class="td-data">${fmtData(r.timestamp)}</td>
@@ -1857,6 +1863,7 @@ function _renderHistTabla() {
         <td><span class="tipo-tag ${r.tipo==='entrada'?'tipo-entrada':'tipo-saida'}">
           ${r.tipo==='entrada'?'▲ ENTRADA':'▼ SAÍDA'}
         </span></td>
+        ${isAdmin ? `<td><button class="btn-del" style="padding:4px 10px;font-size:12px" onclick="excluirRegistro('${r.id}')">🗑️</button></td>` : '<td style="display:none"></td>'}
       </tr>
     `).join('');
   }
@@ -1868,6 +1875,23 @@ function _renderHistTabla() {
     document.getElementById('btn-prev').disabled=(histPage===1);
     document.getElementById('btn-next').disabled=(histPage===pages);
   } else { pagEl.style.display='none'; }
+}
+
+// ─── EXCLUSÃO DE REGISTROS ───────────────────────────────────────────────────
+function excluirRegistro(id) {
+  if (!confirm('Excluir este registro?')) return;
+  registros = registros.filter(r => r.id !== id);
+  saveRegistros();
+  _renderHistTabla();
+}
+
+function confirmarLimparTodos() {
+  const total = _filtrados.length;
+  if (!confirm(`Excluir ${total} registro(s) filtrado(s)? Esta ação não pode ser desfeita.`)) return;
+  const ids = new Set(_filtrados.map(r => r.id));
+  registros = registros.filter(r => !ids.has(r.id));
+  saveRegistros();
+  _renderHistTabla();
 }
 
 // ─── RENDER: COLABORADORES ────────────────────────────────────────────────────
