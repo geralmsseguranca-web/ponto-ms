@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
+<!-- SheetJS para Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -1072,6 +1074,7 @@ footer {
       <button class="tab-btn" onclick="showTab('historico',this)">📋 Histórico</button>
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-usuarios" onclick="showTab('usuarios',this)" style="display:none">🔑 Usuários</button>
+      <button class="tab-btn admin-tab" id="tab-btn-relatorios" onclick="showTab('relatorios',this)" style="display:none">📊 Relatórios</button>
     </nav>
   </div>
 </header>
@@ -1143,6 +1146,70 @@ footer {
         <button class="btn-page" id="btn-next" onclick="changePage(1)">Próxima ›</button>
       </div>
     </div>
+  </section>
+
+  <!-- ─── ABA: RELATÓRIOS ─── -->
+  <section id="tab-relatorios" class="tab-content">
+    <div class="card" style="margin-bottom:20px">
+      <p class="card-title">📊 Gerar Relatório</p>
+      <div class="filter-grid">
+        <select class="input" id="rel-colab">
+          <option value="">Todos os colaboradores</option>
+        </select>
+        <select class="input" id="rel-posto">
+          <option value="">Todos os postos</option>
+        </select>
+        <select class="input" id="rel-tipo">
+          <option value="">Entrada e Saída</option>
+          <option value="entrada">🟢 Apenas Entradas</option>
+          <option value="saida">🔴 Apenas Saídas</option>
+        </select>
+        <input class="input" id="rel-data-ini" type="date" placeholder="Data início"/>
+        <input class="input" id="rel-data-fim" type="date" placeholder="Data fim"/>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+        <button class="btn-primary" onclick="gerarRelatorio()" style="flex:1;min-width:140px">🔍 Filtrar</button>
+        <button class="btn-secondary" onclick="exportarPDF()" id="btn-export-pdf" style="flex:1;min-width:140px;background:var(--red-bg);border-color:#ef444455;color:var(--red)" disabled>📄 Baixar PDF</button>
+        <button class="btn-secondary" onclick="exportarExcel()" id="btn-export-excel" style="flex:1;min-width:140px;background:var(--green-bg);border-color:#22c55e55;color:var(--green)" disabled>📊 Baixar Excel</button>
+      </div>
+    </div>
+
+    <!-- Resumo -->
+    <div id="rel-resumo" style="display:none;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
+        <div class="card" style="text-align:center;padding:16px">
+          <div style="font-size:28px;font-weight:700;color:var(--accent)" id="rel-total">0</div>
+          <div style="font-size:12px;color:var(--muted);letter-spacing:1px">TOTAL</div>
+        </div>
+        <div class="card" style="text-align:center;padding:16px">
+          <div style="font-size:28px;font-weight:700;color:var(--green)" id="rel-entradas">0</div>
+          <div style="font-size:12px;color:var(--muted);letter-spacing:1px">ENTRADAS</div>
+        </div>
+        <div class="card" style="text-align:center;padding:16px">
+          <div style="font-size:28px;font-weight:700;color:var(--red)" id="rel-saidas">0</div>
+          <div style="font-size:12px;color:var(--muted);letter-spacing:1px">SAÍDAS</div>
+        </div>
+        <div class="card" style="text-align:center;padding:16px">
+          <div style="font-size:28px;font-weight:700;color:var(--gold)" id="rel-colaboradores-count">0</div>
+          <div style="font-size:12px;color:var(--muted);letter-spacing:1px">COLABORADORES</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela prévia -->
+    <div class="table-wrap" id="rel-table-wrap" style="display:none">
+      <div style="overflow-x:auto">
+        <table id="rel-table">
+          <thead>
+            <tr>
+              <th>Data</th><th>Hora</th><th>Colaborador</th><th>Posto</th><th>Tipo</th>
+            </tr>
+          </thead>
+          <tbody id="rel-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <p id="rel-vazio" style="display:none;text-align:center;color:var(--muted);padding:32px">Nenhum registro encontrado para os filtros selecionados.</p>
   </section>
 
   <!-- ─── ABA: COLABORADORES ─── -->
@@ -1427,6 +1494,7 @@ function entrarSistema(usuario) {
   const isAdmin = usuario.role === 'admin';
   document.getElementById('tab-btn-colaboradores').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-usuarios').style.display = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-relatorios').style.display = isAdmin ? '' : 'none';
 
   // Se colaborador: pré-seleciona ele na lista de ponto
   if (!isAdmin) {
@@ -1628,8 +1696,9 @@ function showTab(id, btn) {
   document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
-  if (id==='historico') { updatePostoFilter(); renderHistorico(); }
-  if (id==='usuarios')  { renderUsuarios(); }
+  if (id==='historico')  { updatePostoFilter(); renderHistorico(); }
+  if (id==='usuarios')   { renderUsuarios(); }
+  if (id==='relatorios') { initRelatorioFiltros(); }
 }
 
 // ─── RENDER: LISTA PONTO ──────────────────────────────────────────────────────
@@ -2162,6 +2231,200 @@ function copiarConfig(btn) {
   }).catch(() => {
     btn.textContent = '⚠️ Selecione e copie manualmente';
   });
+}
+
+// ─── RELATÓRIOS ──────────────────────────────────────────────────────────────
+let relFiltrados = [];
+
+function initRelatorioFiltros() {
+  // Preencher selects de colaborador e posto
+  const selColab = document.getElementById('rel-colab');
+  const selPosto = document.getElementById('rel-posto');
+  if (!selColab || !selPosto) return;
+
+  const nomes = [...new Set(registros.map(r => r.colaboradorNome))].sort();
+  const postos = [...new Set(registros.map(r => r.posto))].sort();
+
+  selColab.innerHTML = '<option value="">Todos os colaboradores</option>' +
+    nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  selPosto.innerHTML = '<option value="">Todos os postos</option>' +
+    postos.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+
+  // Data padrão: mês atual
+  const hoje = new Date();
+  const ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  document.getElementById('rel-data-ini').value = ini.toISOString().slice(0,10);
+  document.getElementById('rel-data-fim').value = hoje.toISOString().slice(0,10);
+}
+
+function gerarRelatorio() {
+  const colab   = document.getElementById('rel-colab').value;
+  const posto   = document.getElementById('rel-posto').value;
+  const tipo    = document.getElementById('rel-tipo').value;
+  const dataIni = document.getElementById('rel-data-ini').value;
+  const dataFim = document.getElementById('rel-data-fim').value;
+
+  const ini = dataIni ? new Date(dataIni + 'T00:00:00').getTime() : 0;
+  const fim = dataFim ? new Date(dataFim + 'T23:59:59').getTime() : Infinity;
+
+  relFiltrados = registros.filter(r => {
+    return (!colab || r.colaboradorNome === colab) &&
+           (!posto || r.posto === posto) &&
+           (!tipo  || r.tipo === tipo) &&
+           r.timestamp >= ini && r.timestamp <= fim;
+  });
+
+  // Resumo
+  const entradas = relFiltrados.filter(r => r.tipo === 'entrada').length;
+  const saidas   = relFiltrados.filter(r => r.tipo === 'saida').length;
+  const colabs   = new Set(relFiltrados.map(r => r.colaboradorNome)).size;
+
+  document.getElementById('rel-total').textContent = relFiltrados.length;
+  document.getElementById('rel-entradas').textContent = entradas;
+  document.getElementById('rel-saidas').textContent = saidas;
+  document.getElementById('rel-colaboradores-count').textContent = colabs;
+
+  const resumoEl = document.getElementById('rel-resumo');
+  const tableWrap = document.getElementById('rel-table-wrap');
+  const vazioEl = document.getElementById('rel-vazio');
+
+  if (relFiltrados.length === 0) {
+    resumoEl.style.display = 'none';
+    tableWrap.style.display = 'none';
+    vazioEl.style.display = 'block';
+    document.getElementById('btn-export-pdf').disabled = true;
+    document.getElementById('btn-export-excel').disabled = true;
+    return;
+  }
+
+  resumoEl.style.display = 'block';
+  tableWrap.style.display = 'block';
+  vazioEl.style.display = 'none';
+  document.getElementById('btn-export-pdf').disabled = false;
+  document.getElementById('btn-export-excel').disabled = false;
+
+  const tbody = document.getElementById('rel-tbody');
+  tbody.innerHTML = relFiltrados.map(r => `
+    <tr>
+      <td class="td-data">${fmtData(r.timestamp)}</td>
+      <td class="td-hora">${fmtHora(r.timestamp)}</td>
+      <td class="td-nome">${esc(r.colaboradorNome)}</td>
+      <td class="td-posto">${esc(r.posto)}</td>
+      <td><span class="tipo-tag ${r.tipo==='entrada'?'tipo-entrada':'tipo-saida'}">
+        ${r.tipo==='entrada'?'▲ ENTRADA':'▼ SAÍDA'}
+      </span></td>
+    </tr>
+  `).join('');
+}
+
+function exportarExcel() {
+  if (!relFiltrados.length) return;
+
+  const dados = relFiltrados.map(r => ({
+    'Data':         fmtData(r.timestamp),
+    'Hora':         fmtHora(r.timestamp),
+    'Colaborador':  r.colaboradorNome,
+    'Posto':        r.posto,
+    'Tipo':         r.tipo === 'entrada' ? 'ENTRADA' : 'SAÍDA'
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(dados);
+
+  // Largura das colunas
+  ws['!cols'] = [
+    {wch:12}, {wch:10}, {wch:28}, {wch:28}, {wch:10}
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Ponto Eletrônico');
+
+  const dataHoje = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  XLSX.writeFile(wb, `Relatorio_Ponto_${dataHoje}.xlsx`);
+}
+
+function exportarPDF() {
+  if (!relFiltrados.length) return;
+
+  const dataHoje = new Date().toLocaleDateString('pt-BR');
+  const entradas = relFiltrados.filter(r => r.tipo === 'entrada').length;
+  const saidas   = relFiltrados.filter(r => r.tipo === 'saida').length;
+  const colabs   = [...new Set(relFiltrados.map(r => r.colaboradorNome))];
+
+  const linhas = relFiltrados.map(r => `
+    <tr>
+      <td>${fmtData(r.timestamp)}</td>
+      <td>${fmtHora(r.timestamp)}</td>
+      <td>${esc(r.colaboradorNome)}</td>
+      <td>${esc(r.posto)}</td>
+      <td style="color:${r.tipo==='entrada'?'#16a34a':'#dc2626'};font-weight:600">
+        ${r.tipo==='entrada'?'▲ ENTRADA':'▼ SAÍDA'}
+      </td>
+    </tr>
+  `).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<title>Relatório de Ponto — Grupo M.S</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; padding: 32px; }
+  .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; border-bottom:3px solid #1e40af; padding-bottom:16px; }
+  .company { font-size:22px; font-weight:900; color:#1e40af; letter-spacing:1px; }
+  .subtitle { font-size:11px; color:#555; margin-top:2px; letter-spacing:2px; text-transform:uppercase; }
+  .report-title { font-size:14px; font-weight:700; color:#333; text-align:right; }
+  .report-date { font-size:11px; color:#777; margin-top:2px; }
+  .resumo { display:flex; gap:16px; margin-bottom:20px; }
+  .card { flex:1; border:1px solid #e0e0e0; border-radius:8px; padding:12px 16px; text-align:center; }
+  .card .num { font-size:24px; font-weight:900; }
+  .card .lbl { font-size:10px; color:#777; letter-spacing:1.5px; text-transform:uppercase; margin-top:2px; }
+  .num-total   { color: #1e40af; }
+  .num-entrada { color: #16a34a; }
+  .num-saida   { color: #dc2626; }
+  .num-colab   { color: #d97706; }
+  table { width:100%; border-collapse:collapse; margin-top:8px; }
+  th { background:#1e40af; color:#fff; padding:8px 10px; text-align:left; font-size:11px; letter-spacing:1px; text-transform:uppercase; }
+  td { padding:7px 10px; border-bottom:1px solid #f0f0f0; font-size:11px; }
+  tr:nth-child(even) td { background:#f8f9ff; }
+  .footer { margin-top:24px; text-align:center; font-size:10px; color:#aaa; border-top:1px solid #eee; padding-top:12px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="company">GRUPO M.S</div>
+      <div class="subtitle">Segurança e Serviços · Ponto Eletrônico</div>
+    </div>
+    <div>
+      <div class="report-title">📋 Relatório de Registros</div>
+      <div class="report-date">Gerado em: ${dataHoje}</div>
+    </div>
+  </div>
+
+  <div class="resumo">
+    <div class="card"><div class="num num-total">${relFiltrados.length}</div><div class="lbl">Total</div></div>
+    <div class="card"><div class="num num-entrada">${entradas}</div><div class="lbl">Entradas</div></div>
+    <div class="card"><div class="num num-saida">${saidas}</div><div class="lbl">Saídas</div></div>
+    <div class="card"><div class="num num-colab">${colabs.length}</div><div class="lbl">Colaboradores</div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Data</th><th>Hora</th><th>Colaborador</th><th>Posto</th><th>Tipo</th></tr>
+    </thead>
+    <tbody>${linhas}</tbody>
+  </table>
+
+  <div class="footer">Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v2.0 &nbsp;·&nbsp; ${dataHoje}</div>
+</body>
+</html>`;
+
+  const janela = window.open('', '_blank');
+  janela.document.write(html);
+  janela.document.close();
+  janela.focus();
+  setTimeout(() => janela.print(), 500);
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
