@@ -1371,13 +1371,10 @@ function fazerLogin() {
   btn.disabled = true;
   btn.textContent = '⏳ Verificando...';
 
-  // Pequeno delay visual
-  setTimeout(() => {
-    const usuario = usuarios.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaVal);
-
+  function tentarLogin(lista) {
+    const usuario = lista.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaVal);
     if (usuario) {
       currentUser = usuario;
-      // Salvar sessão
       sessionStorage.setItem('ms_session', JSON.stringify(usuario));
       entrarSistema(usuario);
     } else {
@@ -1385,7 +1382,21 @@ function fazerLogin() {
       btn.disabled = false;
       btn.textContent = '🔐 ENTRAR';
     }
-  }, 600);
+  }
+
+  // Se Firebase disponível, busca usuários direto do banco (sempre atualizado)
+  if (window._firebaseReady) {
+    window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
+      const data = snap.val();
+      const lista = data ? fromFirebaseObj(data) : [];
+      if (lista.length) usuarios = lista;
+      tentarLogin(lista.length ? lista : usuarios);
+    }).catch(() => {
+      tentarLogin(usuarios);
+    });
+  } else {
+    setTimeout(() => tentarLogin(usuarios), 600);
+  }
 }
 
 function mostrarErroLogin(msg) {
