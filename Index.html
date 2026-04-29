@@ -1,0 +1,2106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Grupo M.S — Ponto Eletrônico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, push, set, onValue, remove, update, get }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // ══════════════════════════════════════════════════════
+  //  🔧 SUBSTITUA AQUI COM SUAS CREDENCIAIS DO FIREBASE
+  // ══════════════════════════════════════════════════════
+  const firebaseConfig = {
+    apiKey: "SUA_API_KEY",
+    authDomain: "SEU_PROJETO.firebaseapp.com",
+    databaseURL: "https://SEU_PROJETO-default-rtdb.firebaseio.com",
+    projectId: "SEU_PROJETO",
+    storageBucket: "SEU_PROJETO.appspot.com",
+    messagingSenderId: "SEU_SENDER_ID",
+    appId: "SEU_APP_ID"
+  };
+
+  let db;
+  try {
+    const app = initializeApp(firebaseConfig);
+    db = getDatabase(app);
+    window._firebaseReady = true;
+    window._db = db;
+    window._fbRef = ref;
+    window._fbPush = push;
+    window._fbSet = set;
+    window._fbOnValue = onValue;
+    window._fbRemove = remove;
+    window._fbUpdate = update;
+    window._fbGet = get;
+    console.log("✅ Firebase conectado");
+  } catch(e) {
+    console.warn("⚠️ Firebase não configurado, usando localStorage:", e.message);
+    window._firebaseReady = false;
+  }
+</script>
+
+<style>
+:root {
+  --bg:        #070d1a;
+  --surface:   #0d1829;
+  --surface2:  #112035;
+  --border:    #1a3050;
+  --border2:   #0f2540;
+  --accent:    #0ea5e9;
+  --accent2:   #1e40af;
+  --green:     #22c55e;
+  --green-bg:  #052e0f;
+  --red:       #ef4444;
+  --red-bg:    #2d0808;
+  --text:      #e2eaf5;
+  --muted:     #4a6080;
+  --muted2:    #2a4060;
+  --gold:      #f59e0b;
+  --font-head: 'Rajdhani', sans-serif;
+  --font-body: 'Noto Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content:'';
+  position:fixed; inset:0; pointer-events:none; z-index:0;
+  background-image:
+    linear-gradient(var(--border2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border2) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 30%, transparent 100%);
+  opacity: 0.5;
+}
+
+/* ══════════════════════════════════════════
+   LOGIN SCREEN
+══════════════════════════════════════════ */
+#login-screen {
+  position: fixed; inset: 0; z-index: 999;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+#login-screen::before {
+  content:'';
+  position:absolute; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(var(--border2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border2) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 30%, transparent 100%);
+  opacity: 0.5;
+}
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 48px 40px;
+  width: 100%; max-width: 440px;
+  position: relative; z-index: 1;
+  box-shadow: 0 32px 80px #000b, 0 0 0 1px #1a305033;
+  animation: slideUp .35s ease;
+}
+
+.login-logo {
+  width: 64px; height: 64px; border-radius: 18px;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 32px #0ea5e955;
+  margin: 0 auto 20px;
+  position: relative; overflow: hidden;
+}
+.login-logo::after {
+  content:''; position:absolute; inset:0;
+  background: linear-gradient(135deg, rgba(255,255,255,.15) 0%, transparent 60%);
+}
+
+.login-title {
+  font-family: var(--font-head);
+  font-size: 28px; font-weight: 700; letter-spacing: 1px;
+  text-align: center; color: var(--text); margin-bottom: 4px;
+}
+.login-subtitle {
+  text-align: center; font-size: 12px; color: var(--muted);
+  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 36px;
+}
+
+.login-field { margin-bottom: 16px; }
+.login-label {
+  display: block; font-size: 12px; color: var(--muted);
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px;
+  font-family: var(--font-mono);
+}
+.login-input {
+  width: 100%;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; color: var(--text); padding: 14px 16px;
+  font-size: 15px; font-family: var(--font-body); outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.login-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px #0ea5e920;
+}
+
+.btn-login {
+  width: 100%; margin-top: 8px;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: #fff; border: none; border-radius: 12px;
+  padding: 16px; font-family: var(--font-head); font-size: 18px;
+  font-weight: 700; cursor: pointer; letter-spacing: 1px;
+  transition: all .2s; box-shadow: 0 4px 20px #0ea5e933;
+}
+.btn-login:hover { transform: translateY(-2px); box-shadow: 0 8px 32px #0ea5e955; }
+.btn-login:active { transform: scale(.98); }
+.btn-login:disabled { background: var(--surface2); color: var(--muted); transform: none; box-shadow: none; cursor: not-allowed; }
+
+.login-error {
+  background: var(--red-bg); border: 1px solid #dc262655;
+  color: var(--red); border-radius: 10px; padding: 12px 16px;
+  font-size: 14px; text-align: center; margin-bottom: 16px;
+  display: none; animation: fadeUp .2s ease;
+}
+.login-error.show { display: block; }
+
+.login-divider {
+  text-align: center; font-size: 11px; color: var(--muted2);
+  margin-top: 24px; font-family: var(--font-mono);
+  border-top: 1px solid var(--border2); padding-top: 16px;
+}
+
+/* ══════════════════════════════════════════
+   HEADER
+══════════════════════════════════════════ */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: linear-gradient(180deg, #0a1422 0%, #070d1aee 100%);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 40px #000a;
+}
+
+.header-inner {
+  max-width: 960px; margin: 0 auto;
+  padding: 16px 20px 0;
+}
+
+.brand {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 20px;
+}
+
+.brand-logo {
+  width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 24px #0ea5e955;
+  position: relative; overflow: hidden;
+}
+.brand-logo::after {
+  content:''; position:absolute; inset:0;
+  background: linear-gradient(135deg, rgba(255,255,255,.15) 0%, transparent 60%);
+}
+.brand-logo svg { filter: drop-shadow(0 0 6px #fff8); }
+
+.brand-text h1 {
+  font-family: var(--font-head);
+  font-size: 24px; font-weight: 700; letter-spacing: 1px;
+  color: var(--text); line-height: 1;
+}
+.brand-text p {
+  font-size: 11px; color: var(--muted); letter-spacing: 2px;
+  text-transform: uppercase; margin-top: 3px;
+}
+
+.header-right {
+  margin-left: auto; display: flex; align-items: center; gap: 10px;
+}
+
+.status-badge {
+  font-size: 11px; font-family: var(--font-mono);
+  background: #052e0f; color: var(--green);
+  border: 1px solid #16a34a55; border-radius: 6px;
+  padding: 5px 12px; display: flex; align-items: center; gap: 6px;
+  font-weight: 600;
+}
+.status-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 #22c55e66} 50%{opacity:.8;box-shadow:0 0 0 5px transparent} }
+
+/* User chip */
+.user-chip {
+  font-size: 12px; font-family: var(--font-mono);
+  background: var(--surface2); color: var(--accent);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 12px; display: flex; align-items: center; gap: 6px;
+  cursor: pointer; transition: all .2s;
+}
+.user-chip:hover { border-color: var(--accent); }
+
+/* ── TABS ── */
+.tabs { display: flex; gap: 0; }
+.tab-btn {
+  background: transparent; border: none; cursor: pointer;
+  padding: 14px 22px; font-family: var(--font-head);
+  font-size: 15px; font-weight: 600; letter-spacing: 0.5px;
+  color: var(--muted); border-bottom: 3px solid transparent;
+  transition: all .2s; white-space: nowrap; position: relative;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn.active::before {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:3px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  filter: blur(4px);
+}
+.tab-btn.admin-tab { color: var(--gold); }
+.tab-btn.admin-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+/* ── MAIN ── */
+main {
+  max-width: 960px; margin: 0 auto;
+  padding: 36px 20px 60px; position: relative; z-index: 1;
+}
+
+.tab-content { display: none; animation: fadeUp .25s ease; }
+.tab-content.active { display: block; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── CLOCK ── */
+.clock-wrap { text-align: center; margin-bottom: 36px; }
+.clock-time {
+  font-family: var(--font-mono);
+  font-size: 72px; font-weight: 600; letter-spacing: -2px;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  line-height: 1;
+}
+.clock-date {
+  font-size: 14px; color: var(--muted); margin-top: 6px;
+  text-transform: capitalize; letter-spacing: 0.5px;
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px; padding: 24px;
+  transition: border-color .2s;
+}
+.card:hover { border-color: var(--border2); }
+.card-title {
+  font-family: var(--font-head); font-size: 13px; font-weight: 600;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 16px;
+}
+
+/* ── COLABORADOR ITEM ── */
+.colab-list { display: grid; gap: 10px; margin-bottom: 24px; }
+.colab-item {
+  background: var(--surface); border: 2px solid var(--border);
+  border-radius: 14px; padding: 16px 18px;
+  display: flex; align-items: center; gap: 14px;
+  cursor: pointer; transition: all .2s; position: relative; overflow: hidden;
+}
+.colab-item::before {
+  content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+  background: var(--border); transition: background .2s;
+}
+.colab-item:hover { border-color: var(--accent2); }
+.colab-item.selected {
+  border-color: var(--accent); background: #0ea5e910;
+  box-shadow: 0 0 30px #0ea5e915;
+}
+.colab-item.selected::before { background: var(--accent); }
+
+.avatar {
+  width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head); font-size: 22px; font-weight: 700; color: #fff;
+}
+.colab-name { font-weight: 700; font-size: 16px; color: var(--text); }
+.colab-posto { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+.status-tag {
+  margin-left: auto; text-align: right; flex-shrink: 0;
+}
+.status-tag span {
+  font-size: 11px; font-family: var(--font-mono); font-weight: 600;
+  padding: 4px 10px; border-radius: 6px; display: inline-block;
+}
+.tag-in  { background: var(--green-bg); color: var(--green); border: 1px solid #16a34a44; }
+.tag-out { background: var(--red-bg);   color: var(--red);   border: 1px solid #dc262644; }
+.status-time { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--font-mono); }
+
+/* ── PONTO BUTTONS ── */
+.ponto-btns {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px;
+}
+.btn-ponto {
+  border: none; border-radius: 20px; cursor: pointer;
+  padding: 30px 20px; font-family: var(--font-head);
+  font-size: 28px; font-weight: 700; color: #fff;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  transition: transform .12s, box-shadow .2s; position: relative; overflow: hidden;
+  letter-spacing: 1px;
+}
+.btn-ponto::after {
+  content:''; position:absolute; inset:0;
+  background: linear-gradient(135deg, rgba(255,255,255,.12) 0%, transparent 60%);
+}
+.btn-ponto:hover { transform: translateY(-3px); }
+.btn-ponto:active { transform: scale(.97); }
+.btn-entrada {
+  background: linear-gradient(135deg, #14532d, #16a34a);
+  box-shadow: 0 8px 36px #22c55e33;
+}
+.btn-entrada:hover { box-shadow: 0 12px 48px #22c55e55; }
+.btn-saida {
+  background: linear-gradient(135deg, #7f1d1d, #b91c1c);
+  box-shadow: 0 8px 36px #ef444433;
+}
+.btn-saida:hover { box-shadow: 0 12px 48px #ef444455; }
+.btn-ponto .icon { font-size: 46px; line-height: 1; }
+
+/* ── FEEDBACK BANNER ── */
+.feedback {
+  border-radius: 14px; padding: 18px 24px;
+  margin-bottom: 24px; text-align: center;
+  animation: fadeUp .3s ease;
+}
+.feedback.entrada { background: var(--green-bg); border: 2px solid #16a34a66; }
+.feedback.saida   { background: var(--red-bg);   border: 2px solid #dc262666; }
+.feedback-title { font-family: var(--font-head); font-size: 22px; font-weight: 700; }
+.feedback.entrada .feedback-title { color: var(--green); }
+.feedback.saida   .feedback-title { color: var(--red); }
+.feedback-sub { font-size: 13px; color: var(--muted); margin-top: 4px; font-family: var(--font-mono); }
+
+/* ── FACE MODAL ── */
+.overlay {
+  position: fixed; inset: 0; background: #000c; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn .2s ease;
+}
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.face-modal {
+  background: var(--surface); border-radius: 28px; padding: 36px;
+  max-width: 420px; width: 94%; text-align: center;
+  border: 1px solid var(--border); box-shadow: 0 24px 80px #000a;
+  animation: slideUp .25s ease;
+}
+@keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+.face-label { font-size: 13px; color: var(--muted); margin-bottom: 4px; letter-spacing: 1px; }
+.face-name  { font-family: var(--font-head); font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 28px; }
+.camera-wrap {
+  width: 200px; height: 200px; margin: 0 auto 24px;
+  border-radius: 50%; overflow: hidden; position: relative;
+  border: 3px solid var(--border); transition: border-color .3s, box-shadow .3s;
+  background: var(--surface2);
+}
+.camera-wrap.scanning { border-color: var(--green); box-shadow: 0 0 40px #22c55e55; }
+.camera-wrap.done { border-color: var(--green); box-shadow: 0 0 60px #22c55e88; }
+.camera-wrap video { width:100%; height:100%; object-fit:cover; display:block; }
+.camera-placeholder {
+  width:100%; height:100%; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:8px;
+}
+.camera-placeholder .face-icon { font-size: 56px; opacity: .4; }
+.camera-placeholder p { font-size: 12px; color: var(--muted); }
+.scan-line {
+  position:absolute; inset:0; pointer-events:none;
+  background: linear-gradient(180deg, transparent 30%, #22c55e22 50%, transparent 70%);
+  animation: scanAnim 1.5s ease-in-out infinite;
+}
+@keyframes scanAnim { 0%,100%{transform:translateY(-100%)} 50%{transform:translateY(100%)} }
+.face-success {
+  width:100%; height:100%; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; background:var(--green-bg);
+}
+.face-success .check { font-size: 64px; }
+.btn-camera {
+  background: var(--accent2); color: #fff; border: none;
+  border-radius: 12px; padding: 14px 32px; font-size: 16px;
+  font-family: var(--font-head); font-weight: 700; cursor: pointer;
+  letter-spacing: 0.5px; transition: all .2s; box-shadow: 0 4px 20px #1e40af44;
+}
+.btn-camera:hover { background: #1d4ed8; box-shadow: 0 6px 28px #1e40af66; }
+.btn-camera:disabled { background: var(--surface2); color: var(--muted); cursor:wait; box-shadow:none; }
+.btn-camera.scanning { background: var(--surface2); color: var(--green); }
+.btn-cancel {
+  margin-top: 14px; background: transparent; border: 1px solid var(--border);
+  color: var(--muted); border-radius: 10px; padding: 10px 22px;
+  cursor: pointer; font-size: 14px; transition: all .2s;
+}
+.btn-cancel:hover { border-color: var(--muted); color: var(--text); }
+
+/* ── HISTORICO ── */
+.filter-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;
+}
+@media(max-width:600px){ .filter-grid { grid-template-columns: 1fr; } }
+.filter-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 10px; margin-bottom: 0;
+}
+.filter-count { font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+.input {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); padding: 11px 14px;
+  font-size: 14px; font-family: var(--font-body); outline: none;
+  width: 100%; transition: border-color .2s;
+}
+.input:focus { border-color: var(--accent); }
+.input option { background: var(--surface2); }
+.table-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden; margin-top: 16px;
+}
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: #050d18; }
+th {
+  padding: 13px 16px; text-align: left; font-family: var(--font-head);
+  font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--muted);
+  text-transform: uppercase;
+}
+td { padding: 12px 16px; font-size: 14px; border-top: 1px solid var(--border2); }
+tbody tr:nth-child(even) { background: #0a1220; }
+tbody tr:hover { background: #0d1930; }
+.td-nome { font-weight: 600; color: var(--text); }
+.td-hora { font-family: var(--font-mono); font-size: 13px; color: var(--text); }
+.td-data { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.td-posto { font-size: 13px; color: var(--muted); }
+.tipo-tag {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  padding: 4px 10px; border-radius: 6px; white-space: nowrap; display: inline-block;
+}
+.tipo-entrada { background: var(--green-bg); color: var(--green); }
+.tipo-saida   { background: var(--red-bg);   color: var(--red); }
+.empty-row td { padding: 40px; text-align: center; color: var(--muted); }
+.pagination {
+  display: flex; justify-content: center; align-items: center;
+  gap: 10px; padding: 14px; border-top: 1px solid var(--border);
+}
+.btn-page {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; padding: 7px 16px;
+  cursor: pointer; font-size: 14px; transition: all .2s;
+}
+.btn-page:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn-page:disabled { opacity: .4; cursor: default; }
+.page-info { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+.btn-clear {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 8px; padding: 7px 14px;
+  cursor: pointer; font-size: 13px; transition: all .2s;
+}
+.btn-clear:hover { color: var(--text); border-color: var(--muted); }
+
+/* ── COLABORADORES GESTÃO ── */
+.form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.form-row .input { flex: 1; min-width: 200px; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: #fff; border: none; border-radius: 10px;
+  padding: 12px 24px; font-family: var(--font-head); font-size: 16px;
+  font-weight: 700; cursor: pointer; letter-spacing: 0.5px;
+  transition: all .2s; box-shadow: 0 4px 16px #0ea5e933;
+  white-space: nowrap;
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 24px #0ea5e955; }
+.btn-primary:disabled { background: var(--surface2); color: var(--muted); transform:none; box-shadow:none; }
+.btn-secondary {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 10px; padding: 12px 20px;
+  font-size: 14px; cursor: pointer; transition: all .2s;
+}
+.btn-secondary:hover { color: var(--text); }
+.colab-admin-list { display: grid; gap: 10px; }
+.colab-admin-item {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px 18px;
+  display: flex; align-items: center; gap: 14px; transition: all .2s;
+}
+.colab-admin-item.inactive { opacity: .45; }
+.colab-admin-info { flex: 1; }
+.colab-admin-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.btn-edit {
+  background: #1d4ed822; border: 1px solid #1d4ed844; color: #60a5fa;
+  border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px; transition: all .2s;
+}
+.btn-edit:hover { background: #1d4ed844; }
+.btn-del {
+  background: #dc262622; border: 1px solid #dc262644; color: var(--red);
+  border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px; transition: all .2s;
+}
+.btn-del:hover { background: #dc262644; }
+.btn-reativar {
+  background: #16a34a22; border: 1px solid #16a34a44; color: var(--green);
+  border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px;
+}
+.inactive-badge {
+  font-size: 10px; font-family: var(--font-mono);
+  background: #2d0808; color: var(--red); border: 1px solid #dc262644;
+  padding: 2px 7px; border-radius: 4px; margin-left: 8px; vertical-align: middle;
+}
+.confirm-modal {
+  background: var(--surface); border-radius: 20px; padding: 32px;
+  max-width: 380px; width: 94%; text-align: center;
+  border: 1px solid #dc262655; box-shadow: 0 24px 80px #000a;
+  animation: slideUp .2s ease;
+}
+.confirm-modal h3 { font-family: var(--font-head); font-size: 22px; margin: 12px 0 8px; }
+.confirm-modal p  { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+.confirm-btns { display: flex; gap: 12px; justify-content: center; }
+.card.editing { border-color: var(--accent); box-shadow: 0 0 30px #0ea5e920; }
+
+/* ══════════════════════════════════════════
+   GESTÃO DE USUÁRIOS (ABA ADMIN)
+══════════════════════════════════════════ */
+.user-list { display: grid; gap: 10px; }
+.user-item {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px 18px;
+  display: flex; align-items: center; gap: 14px; transition: all .2s;
+}
+.user-item .user-info { flex: 1; }
+.user-item .user-login {
+  font-family: var(--font-mono); font-size: 14px;
+  color: var(--accent); font-weight: 600;
+}
+.user-item .user-name-sub {
+  font-size: 13px; color: var(--muted); margin-top: 2px;
+}
+.user-item .user-role {
+  font-size: 11px; font-family: var(--font-mono); font-weight: 600;
+  padding: 3px 9px; border-radius: 5px; margin-right: 8px;
+}
+.role-admin { background: #451a0333; color: var(--gold); border: 1px solid #f59e0b44; }
+.role-colab { background: #0c2a1e44; color: var(--green); border: 1px solid #22c55e44; }
+
+.pass-preview {
+  font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+  letter-spacing: 2px;
+}
+
+.info-box {
+  background: #0c2040; border: 1px solid #1e40af55;
+  border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;
+  font-size: 13px; color: #93c5fd; line-height: 1.6;
+}
+.info-box strong { color: var(--accent); }
+
+/* ── FOOTER ── */
+footer {
+  text-align: center; padding: 24px;
+  border-top: 1px solid var(--border2); color: var(--muted2);
+  font-size: 12px; font-family: var(--font-mono);
+  position: relative; z-index: 1;
+}
+
+/* ── RESPONSIVE ── */
+@media(max-width:600px) {
+  .clock-time { font-size: 52px; }
+  .ponto-btns { grid-template-columns: 1fr; }
+  .colab-admin-actions { flex-direction: column; }
+  .tab-btn { padding: 12px 14px; font-size: 13px; }
+  .login-card { padding: 36px 24px; }
+  .colab-admin-item { flex-wrap: wrap; }
+}
+
+/* ══════════════════════════════════════════
+   SETUP WIZARD
+══════════════════════════════════════════ */
+#setup-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: #000d;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.setup-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  width: 100%; max-width: 600px;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 40px 100px #000c;
+  animation: slideUp .3s ease;
+  position: relative;
+}
+.setup-header {
+  padding: 28px 32px 20px;
+  border-bottom: 1px solid var(--border2);
+  position: sticky; top: 0;
+  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+  z-index: 1;
+}
+.setup-header h2 {
+  font-family: var(--font-head); font-size: 22px; font-weight: 700;
+  color: var(--text); margin-bottom: 4px;
+}
+.setup-header p { font-size: 13px; color: var(--muted); }
+
+/* Progress bar */
+.setup-progress {
+  display: flex; gap: 6px; margin-top: 16px;
+}
+.prog-step {
+  flex: 1; height: 4px; border-radius: 99px;
+  background: var(--border); transition: background .3s;
+}
+.prog-step.done  { background: var(--green); }
+.prog-step.active { background: var(--accent); }
+
+/* Step panels */
+.setup-body { padding: 24px 32px; }
+.setup-step { display: none; }
+.setup-step.active { display: block; animation: fadeUp .2s ease; }
+
+.step-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  color: var(--accent); background: #0ea5e915;
+  border: 1px solid #0ea5e933; border-radius: 6px;
+  padding: 4px 12px; margin-bottom: 14px;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.step-title {
+  font-family: var(--font-head); font-size: 20px; font-weight: 700;
+  color: var(--text); margin-bottom: 8px;
+}
+.step-desc {
+  font-size: 14px; color: var(--muted); line-height: 1.7;
+  margin-bottom: 20px;
+}
+
+/* Instruction blocks */
+.instr-block {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px; margin-bottom: 16px;
+}
+.instr-block h4 {
+  font-family: var(--font-head); font-size: 14px; font-weight: 700;
+  color: var(--accent); margin-bottom: 12px; letter-spacing: 0.5px;
+}
+.instr-list { list-style: none; display: grid; gap: 10px; }
+.instr-list li {
+  display: flex; gap: 12px; align-items: flex-start;
+  font-size: 13px; color: var(--text); line-height: 1.5;
+}
+.instr-list li .num {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  background: var(--accent2); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  margin-top: 1px;
+}
+.instr-list li .num.green { background: #16a34a; }
+.code-inline {
+  display: inline-block;
+  font-family: var(--font-mono); font-size: 12px;
+  background: #0c1e36; border: 1px solid var(--border);
+  color: var(--accent); border-radius: 5px; padding: 1px 7px;
+}
+.code-block {
+  font-family: var(--font-mono); font-size: 12px;
+  background: #040c18; border: 1px solid var(--border);
+  color: #7dd3fc; border-radius: 10px; padding: 14px 16px;
+  margin: 10px 0; line-height: 1.7; white-space: pre; overflow-x: auto;
+}
+.highlight { color: var(--gold); }
+.highlight-green { color: var(--green); }
+
+/* Firebase config inputs */
+.fb-fields { display: grid; gap: 10px; margin-top: 16px; }
+.fb-field label {
+  display: block; font-size: 11px; color: var(--muted);
+  font-family: var(--font-mono); letter-spacing: 1px; margin-bottom: 5px;
+  text-transform: uppercase;
+}
+.fb-field input {
+  width: 100%;
+  background: #040c18; border: 1px solid var(--border);
+  border-radius: 10px; color: var(--accent);
+  padding: 10px 14px; font-size: 13px;
+  font-family: var(--font-mono); outline: none;
+  transition: border-color .2s;
+}
+.fb-field input:focus { border-color: var(--accent); }
+.fb-field input::placeholder { color: var(--muted2); }
+
+.btn-copy {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 8px; padding: 6px 14px;
+  cursor: pointer; font-size: 12px; font-family: var(--font-mono);
+  transition: all .2s; margin-top: 6px;
+}
+.btn-copy:hover { color: var(--text); border-color: var(--accent); }
+.btn-copy.copied { color: var(--green); border-color: var(--green); }
+
+/* Navigation buttons */
+.setup-nav {
+  display: flex; gap: 10px; justify-content: space-between;
+  align-items: center; padding: 20px 32px 28px;
+  border-top: 1px solid var(--border2);
+  position: sticky; bottom: 0; background: var(--surface);
+  border-radius: 0 0 24px 24px;
+}
+.setup-nav-info { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+.btn-setup-next {
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: #fff; border: none; border-radius: 10px;
+  padding: 12px 28px; font-family: var(--font-head); font-size: 16px;
+  font-weight: 700; cursor: pointer; letter-spacing: 0.5px;
+  transition: all .2s; box-shadow: 0 4px 16px #0ea5e933;
+}
+.btn-setup-next:hover { transform: translateY(-1px); box-shadow: 0 6px 24px #0ea5e955; }
+.btn-setup-next.green-btn {
+  background: linear-gradient(135deg, #14532d, #16a34a);
+  box-shadow: 0 4px 16px #22c55e33;
+}
+.btn-setup-back {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); border-radius: 10px;
+  padding: 12px 20px; font-size: 14px; cursor: pointer; transition: all .2s;
+}
+.btn-setup-back:hover { color: var(--text); border-color: var(--muted); }
+.btn-setup-skip {
+  background: transparent; border: none; color: var(--muted2);
+  font-size: 12px; cursor: pointer; text-decoration: underline;
+  font-family: var(--font-mono);
+}
+.btn-setup-skip:hover { color: var(--muted); }
+
+/* Warning / tip boxes */
+.tip-box {
+  background: #0c1e0c; border: 1px solid #22c55e33;
+  border-radius: 10px; padding: 12px 16px; margin-top: 14px;
+  font-size: 13px; color: #86efac; line-height: 1.6;
+}
+.warn-box {
+  background: #1c1000; border: 1px solid #f59e0b44;
+  border-radius: 10px; padding: 12px 16px; margin-top: 14px;
+  font-size: 13px; color: #fcd34d; line-height: 1.6;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ SETUP WIZARD (aparece quando Firebase não está configurado) ══ -->
+<div id="setup-overlay" style="display:none">
+  <div class="setup-modal">
+
+    <!-- Header com progresso -->
+    <div class="setup-header">
+      <h2>⚙️ Assistente de Configuração</h2>
+      <p>Configure o Firebase e publique no GitHub Pages em minutos</p>
+      <div class="setup-progress">
+        <div class="prog-step active" id="prog-1"></div>
+        <div class="prog-step" id="prog-2"></div>
+        <div class="prog-step" id="prog-3"></div>
+        <div class="prog-step" id="prog-4"></div>
+        <div class="prog-step" id="prog-5"></div>
+      </div>
+    </div>
+
+    <div class="setup-body">
+
+      <!-- ── PASSO 1: Criar projeto Firebase ── -->
+      <div class="setup-step active" id="step-1">
+        <div class="step-badge">🔥 Passo 1 de 5 &nbsp;·&nbsp; Firebase</div>
+        <div class="step-title">Criar projeto no Firebase</div>
+        <div class="step-desc">O Firebase vai guardar todos os dados na nuvem — colaboradores, registros de ponto e usuários — sincronizados em todos os dispositivos em tempo real.</div>
+
+        <div class="instr-block">
+          <h4>📋 Siga estes passos:</h4>
+          <ul class="instr-list">
+            <li><span class="num">1</span><span>Acesse <span class="code-inline">console.firebase.google.com</span> e faça login com sua conta Google</span></li>
+            <li><span class="num">2</span><span>Clique em <strong>"Criar um projeto"</strong> (ou "Add project")</span></li>
+            <li><span class="num">3</span><span>Dê um nome ao projeto, ex: <span class="code-inline">grupo-ms-ponto</span></span></li>
+            <li><span class="num">4</span><span>Desative o Google Analytics (não é necessário) e clique <strong>"Criar projeto"</strong></span></li>
+            <li><span class="num">5</span><span>Aguarde a criação e clique <strong>"Continuar"</strong></span></li>
+          </ul>
+        </div>
+        <div class="tip-box">✅ O projeto Firebase é <strong>gratuito</strong> no plano Spark — suficiente para uso diário com colaboradores.</div>
+      </div>
+
+      <!-- ── PASSO 2: Ativar Realtime Database ── -->
+      <div class="setup-step" id="step-2">
+        <div class="step-badge">🗄️ Passo 2 de 5 &nbsp;·&nbsp; Banco de Dados</div>
+        <div class="step-title">Ativar o Realtime Database</div>
+        <div class="step-desc">O Realtime Database é o banco de dados que vai armazenar os registros de ponto em tempo real.</div>
+
+        <div class="instr-block">
+          <h4>📋 No console do Firebase:</h4>
+          <ul class="instr-list">
+            <li><span class="num">1</span><span>No menu lateral esquerdo, clique em <strong>"Build"</strong> → <strong>"Realtime Database"</strong></span></li>
+            <li><span class="num">2</span><span>Clique em <strong>"Create Database"</strong></span></li>
+            <li><span class="num">3</span><span>Selecione a localização: escolha <strong>"United States"</strong> (padrão) e clique Next</span></li>
+            <li><span class="num">4</span><span>Em "Security rules", selecione <strong>"Start in test mode"</strong> e clique <strong>"Enable"</strong></span></li>
+          </ul>
+        </div>
+
+        <div class="instr-block" style="margin-top:14px">
+          <h4>🔒 Configurar regras de segurança:</h4>
+          <ul class="instr-list">
+            <li><span class="num">5</span><span>Após criar, clique na aba <strong>"Rules"</strong> no Realtime Database</span></li>
+            <li><span class="num">6</span><span>Substitua o conteúdo pelas regras abaixo e clique <strong>"Publish"</strong>:</span></li>
+          </ul>
+          <div class="code-block">{
+  <span class="highlight">"rules"</span>: {
+    <span class="highlight">".read"</span>: <span class="highlight-green">true</span>,
+    <span class="highlight">".write"</span>: <span class="highlight-green">true</span>
+  }
+}</div>
+          <button class="btn-copy" onclick="copiarRegras(this)">📋 Copiar regras</button>
+        </div>
+
+        <div class="warn-box">⚠️ Essas regras permitem acesso aberto — adequado para uso interno. Para maior segurança futura, consulte a documentação do Firebase Authentication.</div>
+      </div>
+
+      <!-- ── PASSO 3: Obter credenciais ── -->
+      <div class="setup-step" id="step-3">
+        <div class="step-badge">🔑 Passo 3 de 5 &nbsp;·&nbsp; Credenciais</div>
+        <div class="step-title">Registrar app e copiar credenciais</div>
+        <div class="step-desc">Agora você vai conectar este arquivo ao seu projeto Firebase. Preencha os dados abaixo com as informações do seu projeto.</div>
+
+        <div class="instr-block">
+          <h4>📋 Obter as credenciais:</h4>
+          <ul class="instr-list">
+            <li><span class="num">1</span><span>Na tela inicial do seu projeto, clique no ícone <strong>"&lt;/&gt;"</strong> (Web app)</span></li>
+            <li><span class="num">2</span><span>Dê um apelido ao app, ex: <span class="code-inline">ponto-web</span>, e clique <strong>"Register app"</strong></span></li>
+            <li><span class="num">3</span><span>Você verá o bloco <span class="code-inline">firebaseConfig</span> — copie os valores e cole nos campos abaixo:</span></li>
+          </ul>
+        </div>
+
+        <div class="fb-fields">
+          <div class="fb-field">
+            <label>apiKey</label>
+            <input id="fb-apiKey" type="text" placeholder="AIzaSy..."/>
+          </div>
+          <div class="fb-field">
+            <label>authDomain</label>
+            <input id="fb-authDomain" type="text" placeholder="meu-projeto.firebaseapp.com"/>
+          </div>
+          <div class="fb-field">
+            <label>databaseURL</label>
+            <input id="fb-databaseURL" type="text" placeholder="https://meu-projeto-default-rtdb.firebaseio.com"/>
+          </div>
+          <div class="fb-field">
+            <label>projectId</label>
+            <input id="fb-projectId" type="text" placeholder="meu-projeto"/>
+          </div>
+          <div class="fb-field">
+            <label>storageBucket</label>
+            <input id="fb-storageBucket" type="text" placeholder="meu-projeto.appspot.com"/>
+          </div>
+          <div class="fb-field">
+            <label>messagingSenderId</label>
+            <input id="fb-messagingSenderId" type="text" placeholder="123456789"/>
+          </div>
+          <div class="fb-field">
+            <label>appId</label>
+            <input id="fb-appId" type="text" placeholder="1:123456789:web:abc..."/>
+          </div>
+        </div>
+        <div class="tip-box" style="margin-top:14px">💡 Após preencher e salvar, o arquivo <strong>index.html</strong> será atualizado automaticamente com suas credenciais.</div>
+      </div>
+
+      <!-- ── PASSO 4: GitHub Pages ── -->
+      <div class="setup-step" id="step-4">
+        <div class="step-badge">🐙 Passo 4 de 5 &nbsp;·&nbsp; GitHub Pages</div>
+        <div class="step-title">Publicar no GitHub Pages</div>
+        <div class="step-desc">O GitHub Pages hospeda seu sistema gratuitamente com um link fixo que você pode enviar para os colaboradores. Não precisa pagar hospedagem.</div>
+
+        <div class="instr-block">
+          <h4>📋 Criar conta e repositório:</h4>
+          <ul class="instr-list">
+            <li><span class="num">1</span><span>Acesse <span class="code-inline">github.com</span> e crie uma conta gratuita (ou faça login)</span></li>
+            <li><span class="num">2</span><span>Clique em <strong>"New repository"</strong> (botão verde no canto superior direito)</span></li>
+            <li><span class="num">3</span><span>Nome do repositório: <span class="code-inline">ponto-ms</span> — deixe como <strong>Public</strong> e clique <strong>"Create repository"</strong></span></li>
+          </ul>
+        </div>
+
+        <div class="instr-block" style="margin-top:14px">
+          <h4>📤 Fazer upload do arquivo:</h4>
+          <ul class="instr-list">
+            <li><span class="num">4</span><span>Na página do repositório criado, clique em <strong>"uploading an existing file"</strong></span></li>
+            <li><span class="num">5</span><span>Arraste o arquivo <strong>index.html</strong> (este arquivo, já com as credenciais salvas) para a área de upload</span></li>
+            <li><span class="num">6</span><span>Clique em <strong>"Commit changes"</strong> para salvar</span></li>
+          </ul>
+        </div>
+
+        <div class="instr-block" style="margin-top:14px">
+          <h4>🌐 Ativar o GitHub Pages:</h4>
+          <ul class="instr-list">
+            <li><span class="num">7</span><span>Vá em <strong>Settings</strong> (engrenagem no menu do repositório)</span></li>
+            <li><span class="num">8</span><span>No menu lateral, clique em <strong>"Pages"</strong></span></li>
+            <li><span class="num">9</span><span>Em "Branch", selecione <strong>main</strong> e clique <strong>"Save"</strong></span></li>
+            <li><span class="num green">10</span><span>Aguarde ~1 minuto. Seu link aparecerá no formato:<br>
+              <span class="code-inline">https://seu-usuario.github.io/ponto-ms/</span></span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ── PASSO 5: Finalizar ── -->
+      <div class="setup-step" id="step-5">
+        <div class="step-badge">🎉 Passo 5 de 5 &nbsp;·&nbsp; Pronto!</div>
+        <div class="step-title">Sistema pronto para uso!</div>
+        <div class="step-desc">Configure o Firebase no arquivo e publique no GitHub. O sistema funcionará com dados sincronizados na nuvem.</div>
+
+        <div class="instr-block">
+          <h4>✅ Resumo do que foi feito:</h4>
+          <ul class="instr-list">
+            <li><span class="num green">✓</span><span><strong>Firebase:</strong> banco de dados em nuvem criado e configurado</span></li>
+            <li><span class="num green">✓</span><span><strong>GitHub Pages:</strong> hospedagem gratuita com link fixo</span></li>
+            <li><span class="num green">✓</span><span><strong>Login:</strong> acesso admin padrão — usuário <span class="code-inline">admin</span> senha <span class="code-inline">admin123</span></span></li>
+          </ul>
+        </div>
+
+        <div class="instr-block" style="margin-top:14px">
+          <h4>📱 Como enviar acesso para colaboradores:</h4>
+          <ul class="instr-list">
+            <li><span class="num">1</span><span>Entre no sistema como admin e vá na aba <strong>🔑 Usuários</strong></span></li>
+            <li><span class="num">2</span><span>Crie um acesso para cada colaborador com usuário e senha</span></li>
+            <li><span class="num">3</span><span>Envie o <strong>link do GitHub Pages</strong> + <strong>usuário</strong> + <strong>senha</strong> para cada um</span></li>
+          </ul>
+        </div>
+
+        <div class="warn-box">⚠️ Lembre-se de trocar a senha do admin padrão após o primeiro acesso!</div>
+        <div class="tip-box" style="margin-top:10px">💡 Este assistente não aparecerá novamente após fechar. Para reabri-lo, limpe o localStorage do navegador.</div>
+      </div>
+
+    </div><!-- /setup-body -->
+
+    <!-- Navegação -->
+    <div class="setup-nav">
+      <div>
+        <button class="btn-setup-back" id="btn-setup-back" onclick="setupPrev()" style="display:none">← Voltar</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <button class="btn-setup-skip" onclick="fecharSetup()">Pular configuração</button>
+        <button class="btn-setup-next" id="btn-setup-next" onclick="setupNext()">Próximo →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ TELA DE LOGIN ══ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2L3 6.5V12c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V6.5L12 2Z"
+          fill="white" opacity=".2" stroke="white" stroke-width="1.5"/>
+        <path d="M8.5 12.5l2.5 2.5 4.5-5" stroke="white" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="login-title">GRUPO M.S</div>
+    <div class="login-subtitle">Ponto Eletrônico &nbsp;·&nbsp; Acesso Seguro</div>
+
+    <div class="login-error" id="login-error">❌ Usuário ou senha incorretos</div>
+
+    <div class="login-field">
+      <label class="login-label" for="l-user">Usuário</label>
+      <input class="login-input" id="l-user" type="text"
+        placeholder="Digite seu usuário"
+        autocomplete="username"
+        onkeydown="if(event.key==='Enter') document.getElementById('l-pass').focus()"/>
+    </div>
+    <div class="login-field">
+      <label class="login-label" for="l-pass">Senha</label>
+      <input class="login-input" id="l-pass" type="password"
+        placeholder="Digite sua senha"
+        autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') fazerLogin()"/>
+    </div>
+    <button class="btn-login" id="btn-entrar" onclick="fazerLogin()">🔐 ENTRAR</button>
+
+    <div class="login-divider">Solicite seu acesso ao administrador do sistema</div>
+  </div>
+</div>
+
+<!-- ══ HEADER (oculto até login) ══ -->
+<header id="main-header" style="display:none">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L3 6.5V12c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V6.5L12 2Z"
+            fill="white" opacity=".2" stroke="white" stroke-width="1.5"/>
+          <path d="M8.5 12.5l2.5 2.5 4.5-5" stroke="white" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>GRUPO M.S</h1>
+        <p>Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico</p>
+      </div>
+      <div class="header-right">
+        <div class="status-badge">
+          <span class="status-dot"></span> ONLINE
+        </div>
+        <div class="user-chip" onclick="sairSistema()" title="Clique para sair">
+          <span id="chip-user-icon">👤</span>
+          <span id="chip-user-name">...</span>
+          &nbsp;·&nbsp; Sair
+        </div>
+      </div>
+    </div>
+    <nav class="tabs" id="nav-tabs">
+      <button class="tab-btn active" onclick="showTab('ponto',this)">🕐 Bater Ponto</button>
+      <button class="tab-btn" onclick="showTab('historico',this)">📋 Histórico</button>
+      <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
+      <button class="tab-btn admin-tab" id="tab-btn-usuarios" onclick="showTab('usuarios',this)" style="display:none">🔑 Usuários</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ══ MAIN ══ -->
+<main id="main-content" style="display:none">
+
+  <!-- ─── ABA: PONTO ─── -->
+  <section id="tab-ponto" class="tab-content active">
+    <div class="clock-wrap">
+      <div class="clock-time" id="clock">00:00:00</div>
+      <div class="clock-date" id="clock-date"></div>
+    </div>
+
+    <div id="feedback-banner" style="display:none"></div>
+
+    <p id="ponto-instrucao" style="text-align:center;color:var(--muted);margin-bottom:18px;font-size:15px;">
+      Selecione seu nome e registre o ponto
+    </p>
+
+    <div class="colab-list" id="colab-list-ponto"></div>
+
+    <div class="ponto-btns" id="ponto-btns" style="display:none">
+      <button class="btn-ponto btn-entrada" onclick="baterPonto('entrada')">
+        <span class="icon">🟢</span> ENTRADA
+      </button>
+      <button class="btn-ponto btn-saida" onclick="baterPonto('saida')">
+        <span class="icon">🔴</span> SAÍDA
+      </button>
+    </div>
+  </section>
+
+  <!-- ─── ABA: HISTÓRICO ─── -->
+  <section id="tab-historico" class="tab-content">
+    <div class="card" style="margin-bottom:20px">
+      <p class="card-title">🔍 Filtros Dinâmicos</p>
+      <div class="filter-grid">
+        <input class="input" id="f-nome"  type="text"   placeholder="Buscar colaborador..."  oninput="renderHistorico()"/>
+        <select class="input" id="f-posto" onchange="renderHistorico()">
+          <option value="">Todos os postos</option>
+        </select>
+        <select class="input" id="f-tipo" onchange="renderHistorico()">
+          <option value="">Entrada e Saída</option>
+          <option value="entrada">🟢 Apenas Entradas</option>
+          <option value="saida">🔴 Apenas Saídas</option>
+        </select>
+        <input class="input" id="f-data" type="date" onchange="renderHistorico()"/>
+      </div>
+      <div class="filter-meta">
+        <span class="filter-count" id="filter-count">0 registros</span>
+        <button class="btn-clear" onclick="clearFilters()">Limpar filtros</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th><th>Hora</th><th>Colaborador</th><th>Posto</th><th>Tipo</th>
+            </tr>
+          </thead>
+          <tbody id="hist-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination" style="display:none">
+        <button class="btn-page" id="btn-prev" onclick="changePage(-1)">‹ Anterior</button>
+        <span class="page-info" id="page-info"></span>
+        <button class="btn-page" id="btn-next" onclick="changePage(1)">Próxima ›</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── ABA: COLABORADORES ─── -->
+  <section id="tab-colaboradores" class="tab-content">
+    <div class="card" id="form-card" style="margin-bottom:24px">
+      <p class="card-title" id="form-title">➕ Novo Colaborador</p>
+      <div class="form-row" style="margin-bottom:14px">
+        <input class="input" id="f-colab-nome" type="text" placeholder="Nome completo do colaborador"/>
+        <input class="input" id="f-colab-posto" type="text" list="postos-sugeridos" placeholder="Posto de serviço"/>
+        <datalist id="postos-sugeridos">
+          <option value="Portaria Principal"/>
+          <option value="Recepção Bloco A"/>
+          <option value="Ronda Perimetral"/>
+          <option value="Central de Monitoramento"/>
+          <option value="Estacionamento"/>
+          <option value="Sala de Controle"/>
+          <option value="Portaria Secundária"/>
+          <option value="Guarita Externa"/>
+        </datalist>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-primary" id="btn-salvar" onclick="salvarColaborador()">✅ Adicionar</button>
+        <button class="btn-secondary" id="btn-cancelar-edit" onclick="cancelarEdicao()" style="display:none">Cancelar</button>
+      </div>
+    </div>
+    <input class="input" id="f-busca-colab" type="text" placeholder="🔍 Buscar por nome ou posto..."
+      oninput="renderColaboradores()" style="margin-bottom:16px"/>
+    <div class="colab-admin-list" id="colab-admin-list"></div>
+  </section>
+
+  <!-- ─── ABA: USUÁRIOS (somente admin) ─── -->
+  <section id="tab-usuarios" class="tab-content">
+
+    <div class="info-box">
+      🔑 <strong>Gestão de Acessos:</strong> Crie usuário e senha para cada colaborador.
+      Envie o <strong>usuário</strong> e a <strong>senha</strong> para o colaborador acessar o sistema pelo link desta página.
+      <br>Perfil <strong>Admin</strong> vê todas as abas e pode gerenciar usuários. Perfil <strong>Colaborador</strong> acessa apenas "Bater Ponto" e "Histórico".
+    </div>
+
+    <div class="card" id="user-form-card" style="margin-bottom:24px">
+      <p class="card-title" id="user-form-title">➕ Novo Acesso</p>
+      <div class="form-row" style="margin-bottom:14px">
+        <input class="input" id="f-user-login" type="text" placeholder="Usuário (ex: carlos.silva)" style="min-width:180px"/>
+        <input class="input" id="f-user-senha" type="text" placeholder="Senha" style="min-width:150px"/>
+        <input class="input" id="f-user-nome" type="text" placeholder="Nome completo (exibição)" style="min-width:200px"/>
+        <select class="input" id="f-user-role" style="min-width:150px">
+          <option value="colaborador">👷 Colaborador</option>
+          <option value="admin">🛡️ Admin</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn-primary" id="btn-salvar-user" onclick="salvarUsuario()">✅ Criar Acesso</button>
+        <button class="btn-secondary" id="btn-cancelar-user" onclick="cancelarEdicaoUser()" style="display:none">Cancelar</button>
+      </div>
+    </div>
+
+    <input class="input" id="f-busca-user" type="text" placeholder="🔍 Buscar usuário..."
+      oninput="renderUsuarios()" style="margin-bottom:16px"/>
+
+    <div class="user-list" id="user-admin-list"></div>
+  </section>
+
+</main>
+
+<footer id="main-footer" style="display:none">© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v2.0</footer>
+
+<!-- ══ MODAL FACIAL ══ -->
+<div class="overlay" id="face-overlay" style="display:none">
+  <div class="face-modal">
+    <p class="face-label" id="face-tipo-label"></p>
+    <p class="face-name" id="face-nome-label"></p>
+    <div class="camera-wrap" id="camera-wrap">
+      <div class="camera-placeholder" id="cam-placeholder">
+        <span class="face-icon">👤</span>
+        <p>Câmera inativa</p>
+      </div>
+      <video id="cam-video" autoplay playsinline muted style="display:none;width:100%;height:100%;object-fit:cover"></video>
+      <div class="scan-line" id="scan-line" style="display:none"></div>
+      <div class="face-success" id="face-success" style="display:none">
+        <span class="check">✅</span>
+      </div>
+    </div>
+    <button class="btn-camera" id="btn-camera-action" onclick="cameraAction()">Ativar Câmera</button>
+    <br/>
+    <button class="btn-cancel" onclick="closeFaceModal()">← Voltar</button>
+  </div>
+</div>
+
+<!-- ══ MODAL CONFIRMAR EXCLUSÃO ══ -->
+<div class="overlay" id="del-overlay" style="display:none">
+  <div class="confirm-modal">
+    <p style="font-size:40px">⚠️</p>
+    <h3 style="color:var(--text)">Remover colaborador?</h3>
+    <p>O colaborador será marcado como inativo e não poderá registrar ponto.</p>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="document.getElementById('del-overlay').style.display='none'">Cancelar</button>
+      <button style="background:#b91c1c;color:#fff;border:none;border-radius:10px;padding:12px 24px;cursor:pointer;font-weight:700;font-size:15px"
+        onclick="confirmarExclusao()">Remover</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL EXCLUIR USUÁRIO ══ -->
+<div class="overlay" id="del-user-overlay" style="display:none">
+  <div class="confirm-modal">
+    <p style="font-size:40px">🔑</p>
+    <h3 style="color:var(--text)">Remover acesso?</h3>
+    <p>Este usuário não conseguirá mais fazer login no sistema.</p>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="document.getElementById('del-user-overlay').style.display='none'">Cancelar</button>
+      <button style="background:#b91c1c;color:#fff;border:none;border-radius:10px;padding:12px 24px;cursor:pointer;font-weight:700;font-size:15px"
+        onclick="confirmarDelUser()">Remover</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SCRIPT PRINCIPAL ══ -->
+<script>
+// ─── ESTADO ───────────────────────────────────────────────────────────────────
+let colaboradores  = [];
+let registros      = [];
+let usuarios       = [];       // lista de acessos
+let currentUser    = null;     // usuário logado
+let selectedColab  = null;
+let pendingTipo    = null;
+let editId         = null;
+let delTargetId    = null;
+let editUserId     = null;
+let delUserTargetId = null;
+let histPage       = 1;
+const POR_PAGINA   = 15;
+
+// ─── STORAGE (Firebase ou localStorage) ──────────────────────────────────────
+function saveColabs() {
+  if (window._firebaseReady) {
+    window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'));
+  }
+  localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+}
+
+function saveRegistros() {
+  if (window._firebaseReady) {
+    window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'));
+  }
+  localStorage.setItem('ms_registros', JSON.stringify(registros));
+}
+
+function saveUsuarios() {
+  if (window._firebaseReady) {
+    window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'));
+  }
+  localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+}
+
+function toFirebaseObj(arr, key) {
+  const obj = {};
+  arr.forEach(item => { obj[item[key]] = item; });
+  return obj;
+}
+function fromFirebaseObj(obj) {
+  return obj ? Object.values(obj) : [];
+}
+
+function loadData() {
+  if (window._firebaseReady) {
+    window._fbOnValue(window._fbRef(window._db, 'colaboradores'), snap => {
+      const data = snap.val();
+      if (data) {
+        colaboradores = fromFirebaseObj(data);
+        if (!colaboradores.length) seedColaboradores();
+      } else { seedColaboradores(); }
+      renderAll();
+    });
+    window._fbOnValue(window._fbRef(window._db, 'registros'), snap => {
+      const data = snap.val();
+      registros = data ? fromFirebaseObj(data).sort((a,b)=>b.timestamp-a.timestamp) : [];
+      renderAll();
+    });
+    window._fbOnValue(window._fbRef(window._db, 'usuarios'), snap => {
+      const data = snap.val();
+      if (data) {
+        usuarios = fromFirebaseObj(data);
+        if (!usuarios.length) seedAdminUser();
+      } else { seedAdminUser(); }
+      renderUsuarios();
+    });
+  } else {
+    try { colaboradores = JSON.parse(localStorage.getItem('ms_colaboradores')) || []; } catch { colaboradores=[]; }
+    try { registros = JSON.parse(localStorage.getItem('ms_registros')) || []; } catch { registros=[]; }
+    try { usuarios = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuarios=[]; }
+    if (!colaboradores.length) seedColaboradores();
+    if (!usuarios.length) seedAdminUser();
+    renderAll();
+    renderUsuarios();
+  }
+}
+
+function seedColaboradores() {
+  colaboradores = [
+    { id: uid(), nome: "Carlos Silva",    posto: "Portaria Principal",       ativo: true },
+    { id: uid(), nome: "Ana Souza",       posto: "Recepção Bloco A",         ativo: true },
+    { id: uid(), nome: "João Ferreira",   posto: "Ronda Perimetral",         ativo: true },
+    { id: uid(), nome: "Maria Oliveira",  posto: "Central de Monitoramento", ativo: true },
+  ];
+  saveColabs();
+}
+
+function seedAdminUser() {
+  // Cria usuário admin padrão na primeira vez
+  usuarios = [
+    { id: uid(), login: 'admin', senha: 'admin123', nome: 'Administrador', role: 'admin' }
+  ];
+  saveUsuarios();
+}
+
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
+function fazerLogin() {
+  const loginVal = document.getElementById('l-user').value.trim().toLowerCase();
+  const senhaVal = document.getElementById('l-pass').value;
+
+  if (!loginVal || !senhaVal) {
+    mostrarErroLogin('Preencha usuário e senha');
+    return;
+  }
+
+  const btn = document.getElementById('btn-entrar');
+  btn.disabled = true;
+  btn.textContent = '⏳ Verificando...';
+
+  // Pequeno delay visual
+  setTimeout(() => {
+    const usuario = usuarios.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaVal);
+
+    if (usuario) {
+      currentUser = usuario;
+      // Salvar sessão
+      sessionStorage.setItem('ms_session', JSON.stringify(usuario));
+      entrarSistema(usuario);
+    } else {
+      mostrarErroLogin('Usuário ou senha incorretos');
+      btn.disabled = false;
+      btn.textContent = '🔐 ENTRAR';
+    }
+  }, 600);
+}
+
+function mostrarErroLogin(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = '❌ ' + msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function entrarSistema(usuario) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-header').style.display = 'block';
+  document.getElementById('main-content').style.display = 'block';
+  document.getElementById('main-footer').style.display = 'block';
+
+  // Chip do usuário logado
+  document.getElementById('chip-user-name').textContent = usuario.nome || usuario.login;
+  document.getElementById('chip-user-icon').textContent = usuario.role === 'admin' ? '🛡️' : '👤';
+
+  // Controle de abas por perfil
+  const isAdmin = usuario.role === 'admin';
+  document.getElementById('tab-btn-colaboradores').style.display = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-usuarios').style.display = isAdmin ? '' : 'none';
+
+  // Se colaborador: pré-seleciona ele na lista de ponto
+  if (!isAdmin) {
+    const nomeUser = usuario.nome;
+    const instrucao = document.getElementById('ponto-instrucao');
+    if (instrucao) instrucao.textContent = `Olá, ${nomeUser}! Registre sua entrada ou saída:`;
+  }
+
+  loadData();
+}
+
+function sairSistema() {
+  sessionStorage.removeItem('ms_session');
+  currentUser = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('main-header').style.display = 'none';
+  document.getElementById('main-content').style.display = 'none';
+  document.getElementById('main-footer').style.display = 'none';
+  document.getElementById('l-user').value = '';
+  document.getElementById('l-pass').value = '';
+  document.getElementById('btn-entrar').disabled = false;
+  document.getElementById('btn-entrar').textContent = '🔐 ENTRAR';
+}
+
+// Verificar sessão existente ao carregar
+function checkSession() {
+  // Usuários já foram carregados do localStorage no init
+  // Tenta restaurar sessão salva
+  try {
+    const saved = sessionStorage.getItem('ms_session');
+    if (saved) {
+      const u = JSON.parse(saved);
+      const valid = usuarios.find(x => x.id === u.id && x.login === u.login && x.senha === u.senha);
+      if (valid) {
+        currentUser = valid;
+        entrarSistema(valid);
+        return;
+      }
+    }
+  } catch(e) {}
+  // Nenhuma sessão válida: mostra tela de login normalmente
+}
+
+// ─── GESTÃO DE USUÁRIOS ───────────────────────────────────────────────────────
+function salvarUsuario() {
+  const login = document.getElementById('f-user-login').value.trim().toLowerCase();
+  const senha = document.getElementById('f-user-senha').value.trim();
+  const nome  = document.getElementById('f-user-nome').value.trim();
+  const role  = document.getElementById('f-user-role').value;
+
+  if (!login || !senha || !nome) {
+    alert('Preencha todos os campos: usuário, senha e nome.');
+    return;
+  }
+
+  // Verificar login duplicado (exceto no edit)
+  const duplicado = usuarios.find(u => u.login.toLowerCase() === login && u.id !== editUserId);
+  if (duplicado) {
+    alert(`O usuário "${login}" já existe. Escolha outro.`);
+    return;
+  }
+
+  if (editUserId) {
+    usuarios = usuarios.map(u => u.id === editUserId ? { ...u, login, senha, nome, role } : u);
+    // Atualizar sessão se editou o próprio usuário
+    if (currentUser && currentUser.id === editUserId) {
+      currentUser = usuarios.find(u => u.id === editUserId);
+      sessionStorage.setItem('ms_session', JSON.stringify(currentUser));
+      document.getElementById('chip-user-name').textContent = currentUser.nome || currentUser.login;
+    }
+    cancelarEdicaoUser();
+  } else {
+    usuarios.push({ id: uid(), login, senha, nome, role });
+  }
+  saveUsuarios();
+  limparFormUser();
+  renderUsuarios();
+}
+
+function limparFormUser() {
+  document.getElementById('f-user-login').value = '';
+  document.getElementById('f-user-senha').value = '';
+  document.getElementById('f-user-nome').value  = '';
+  document.getElementById('f-user-role').value  = 'colaborador';
+}
+
+function editarUsuario(id) {
+  const u = usuarios.find(u => u.id === id);
+  if (!u) return;
+  editUserId = id;
+  document.getElementById('f-user-login').value = u.login;
+  document.getElementById('f-user-senha').value = u.senha;
+  document.getElementById('f-user-nome').value  = u.nome;
+  document.getElementById('f-user-role').value  = u.role;
+  document.getElementById('user-form-title').textContent = '✏️ Editando Acesso';
+  document.getElementById('btn-salvar-user').textContent = '💾 Salvar Alterações';
+  document.getElementById('btn-cancelar-user').style.display = 'inline-block';
+  document.getElementById('user-form-card').classList.add('editing');
+  document.getElementById('f-user-login').focus();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function cancelarEdicaoUser() {
+  editUserId = null;
+  limparFormUser();
+  document.getElementById('user-form-title').textContent = '➕ Novo Acesso';
+  document.getElementById('btn-salvar-user').textContent = '✅ Criar Acesso';
+  document.getElementById('btn-cancelar-user').style.display = 'none';
+  document.getElementById('user-form-card').classList.remove('editing');
+}
+
+function confirmarDelUser_prompt(id) {
+  delUserTargetId = id;
+  document.getElementById('del-user-overlay').style.display = 'flex';
+}
+
+function confirmarDelUser() {
+  // Não permite excluir o próprio usuário logado
+  if (currentUser && currentUser.id === delUserTargetId) {
+    alert('Você não pode remover seu próprio acesso enquanto estiver logado.');
+    document.getElementById('del-user-overlay').style.display = 'none';
+    return;
+  }
+  usuarios = usuarios.filter(u => u.id !== delUserTargetId);
+  saveUsuarios();
+  delUserTargetId = null;
+  document.getElementById('del-user-overlay').style.display = 'none';
+  renderUsuarios();
+}
+
+function renderUsuarios() {
+  const busca = (document.getElementById('f-busca-user')?.value || '').toLowerCase();
+  const lista = usuarios.filter(u =>
+    u.login.toLowerCase().includes(busca) ||
+    u.nome.toLowerCase().includes(busca)
+  );
+
+  const container = document.getElementById('user-admin-list');
+  if (!container) return;
+
+  if (!lista.length) {
+    container.innerHTML = '<p style="color:var(--muted);text-align:center;padding:32px">Nenhum usuário encontrado</p>';
+    return;
+  }
+
+  container.innerHTML = lista.map(u => {
+    const isSelf = currentUser && currentUser.id === u.id;
+    return `
+    <div class="user-item">
+      <div class="avatar" style="background:${avatarColor(u.nome || u.login)};font-size:18px">
+        ${(u.nome || u.login).charAt(0).toUpperCase()}
+      </div>
+      <div class="user-info">
+        <div class="user-login">@${esc(u.login)}
+          ${isSelf ? '<span style="font-size:10px;color:var(--muted);font-family:var(--font-mono);margin-left:8px">(você)</span>' : ''}
+        </div>
+        <div class="user-name-sub">
+          <span class="user-role ${u.role==='admin'?'role-admin':'role-colab'}">
+            ${u.role === 'admin' ? '🛡️ Admin' : '👷 Colaborador'}
+          </span>
+          ${esc(u.nome)}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0;align-items:center">
+        <span class="pass-preview" title="Senha">🔒 ${esc(u.senha)}</span>
+        <button class="btn-edit" onclick="editarUsuario('${u.id}')">✏️ Editar</button>
+        ${!isSelf ? `<button class="btn-del" onclick="confirmarDelUser_prompt('${u.id}')">🗑️</button>` : ''}
+      </div>
+    </div>
+  `}).join('');
+}
+
+// ─── UTILITÁRIOS ──────────────────────────────────────────────────────────────
+function uid() { return Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+function fmtHora(ts) { return new Date(ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function fmtData(ts) { return new Date(ts).toLocaleDateString('pt-BR'); }
+function avatarColor(nome) { return `hsl(${(nome.charCodeAt(0)*7+(nome.charCodeAt(1)||0)*13)%360},50%,35%)`; }
+function ultimoReg(colabId) {
+  const regs = registros.filter(r=>r.colaboradorId===colabId);
+  return regs.length ? regs.reduce((a,b)=>a.timestamp>b.timestamp?a:b) : null;
+}
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── RELÓGIO ──────────────────────────────────────────────────────────────────
+function tickClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('clock-date').textContent =
+    now.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+}
+setInterval(tickClock,1000); tickClock();
+
+// ─── TABS ─────────────────────────────────────────────────────────────────────
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+  if (id==='historico') { updatePostoFilter(); renderHistorico(); }
+  if (id==='usuarios')  { renderUsuarios(); }
+}
+
+// ─── RENDER: LISTA PONTO ──────────────────────────────────────────────────────
+function renderColabPonto() {
+  const isAdmin = currentUser?.role === 'admin';
+  let ativos = colaboradores.filter(c=>c.ativo);
+
+  // Se colaborador comum: mostra só ele mesmo (por nome)
+  if (!isAdmin && currentUser) {
+    const nomeUser = currentUser.nome;
+    const mine = ativos.find(c => c.nome.toLowerCase() === nomeUser.toLowerCase());
+    ativos = mine ? [mine] : ativos; // se não achar, mostra todos
+  }
+
+  const container = document.getElementById('colab-list-ponto');
+  container.innerHTML = '';
+  ativos.forEach(c => {
+    const ult = ultimoReg(c.id);
+    const isSelected = selectedColab?.id === c.id;
+    const div = document.createElement('div');
+    div.className = 'colab-item' + (isSelected ? ' selected' : '');
+    div.onclick = () => selectColab(c);
+    div.innerHTML = `
+      <div class="avatar" style="background:${avatarColor(c.nome)}">${c.nome.charAt(0)}</div>
+      <div>
+        <div class="colab-name">${esc(c.nome)}</div>
+        <div class="colab-posto">📍 ${esc(c.posto)}</div>
+      </div>
+      ${ult ? `
+      <div class="status-tag">
+        <span class="${ult.tipo==='entrada'?'tag-in':'tag-out'}">
+          ${ult.tipo==='entrada'?'▲ DENTRO':'▼ FORA'}
+        </span>
+        <div class="status-time">${fmtHora(ult.timestamp)}</div>
+      </div>` : '<div class="status-tag"><span style="color:var(--muted);font-size:12px">–</span></div>'}
+    `;
+    container.appendChild(div);
+  });
+}
+
+function selectColab(c) {
+  selectedColab = selectedColab?.id === c.id ? null : c;
+  document.getElementById('ponto-btns').style.display = selectedColab ? 'grid' : 'none';
+  renderColabPonto();
+}
+
+// ─── BATER PONTO ─────────────────────────────────────────────────────────────
+function baterPonto(tipo) {
+  if (!selectedColab) return;
+  pendingTipo = tipo;
+  openFaceModal();
+}
+
+// ─── MODAL FACIAL ────────────────────────────────────────────────────────────
+let camStream = null;
+let camState  = 'idle';
+
+function openFaceModal() {
+  const label = pendingTipo === 'entrada' ? '🟢 Registrar ENTRADA' : '🔴 Registrar SAÍDA';
+  document.getElementById('face-tipo-label').textContent = label;
+  document.getElementById('face-nome-label').textContent = selectedColab.nome;
+  document.getElementById('face-overlay').style.display = 'flex';
+  resetCamera();
+}
+
+function closeFaceModal() {
+  stopCam();
+  document.getElementById('face-overlay').style.display = 'none';
+  camState = 'idle';
+  pendingTipo = null;
+}
+
+function resetCamera() {
+  camState = 'idle';
+  document.getElementById('cam-placeholder').style.display = 'flex';
+  document.getElementById('cam-video').style.display = 'none';
+  document.getElementById('scan-line').style.display = 'none';
+  document.getElementById('face-success').style.display = 'none';
+  document.getElementById('camera-wrap').className = 'camera-wrap';
+  document.getElementById('btn-camera-action').textContent = 'Ativar Câmera';
+  document.getElementById('btn-camera-action').disabled = false;
+  document.getElementById('btn-camera-action').className = 'btn-camera';
+}
+
+async function cameraAction() {
+  if (camState === 'idle') {
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
+      const vid = document.getElementById('cam-video');
+      vid.srcObject = camStream;
+      vid.style.display = 'block';
+      document.getElementById('cam-placeholder').style.display = 'none';
+      camState = 'streaming';
+      document.getElementById('btn-camera-action').textContent = '📸 Verificar Identidade';
+    } catch(e) {
+      document.getElementById('cam-placeholder').innerHTML = '<span class="face-icon">👤</span><p style="color:var(--muted);font-size:12px">Câmera indisponível<br>Modo simulado</p>';
+      camState = 'streaming';
+      document.getElementById('btn-camera-action').textContent = '📸 Verificar Identidade';
+    }
+  } else if (camState === 'streaming') {
+    camState = 'scanning';
+    document.getElementById('camera-wrap').classList.add('scanning');
+    document.getElementById('scan-line').style.display = 'block';
+    document.getElementById('btn-camera-action').textContent = '⏳ Verificando...';
+    document.getElementById('btn-camera-action').className = 'btn-camera scanning';
+    document.getElementById('btn-camera-action').disabled = true;
+
+    setTimeout(() => {
+      camState = 'done';
+      stopCam();
+      document.getElementById('scan-line').style.display = 'none';
+      document.getElementById('cam-video').style.display = 'none';
+      document.getElementById('cam-placeholder').style.display = 'none';
+      document.getElementById('face-success').style.display = 'flex';
+      document.getElementById('camera-wrap').className = 'camera-wrap done';
+      setTimeout(() => {
+        closeFaceModal();
+        registrarPonto();
+      }, 900);
+    }, 2400);
+  }
+}
+
+function stopCam() {
+  if (camStream) { camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
+  const vid = document.getElementById('cam-video');
+  if (vid) { vid.srcObject=null; }
+}
+
+function registrarPonto() {
+  const reg = {
+    id: uid(),
+    colaboradorId: selectedColab.id,
+    colaboradorNome: selectedColab.nome,
+    posto: selectedColab.posto,
+    tipo: pendingTipo,
+    timestamp: Date.now()
+  };
+  registros.unshift(reg);
+  saveRegistros();
+  showFeedback(pendingTipo, selectedColab.nome);
+  selectedColab = null;
+  pendingTipo = null;
+  document.getElementById('ponto-btns').style.display = 'none';
+  renderColabPonto();
+}
+
+function showFeedback(tipo, nome) {
+  const el = document.getElementById('feedback-banner');
+  el.className = 'feedback ' + tipo;
+  el.innerHTML = `
+    <div class="feedback-title">${tipo==='entrada'?'✅ Entrada registrada!':'🚪 Saída registrada!'}</div>
+    <div class="feedback-sub">${esc(nome)} &nbsp;·&nbsp; ${fmtHora(Date.now())}</div>
+  `;
+  el.style.display = 'block';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(()=>{ el.style.display='none'; }, 4500);
+}
+
+// ─── RENDER: HISTÓRICO ────────────────────────────────────────────────────────
+function updatePostoFilter() {
+  const postos = [...new Set(colaboradores.map(c=>c.posto))].sort();
+  const sel = document.getElementById('f-posto');
+  const val = sel.value;
+  sel.innerHTML = '<option value="">Todos os postos</option>' +
+    postos.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  sel.value = val;
+}
+
+function clearFilters() {
+  ['f-nome','f-posto','f-tipo','f-data'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  histPage=1; renderHistorico();
+}
+
+let _filtrados = [];
+function renderHistorico() {
+  histPage = 1;
+  _renderHistTabla();
+}
+
+function changePage(delta) {
+  const pages = Math.ceil(_filtrados.length/POR_PAGINA);
+  histPage = Math.max(1, Math.min(pages, histPage+delta));
+  _renderHistTabla();
+}
+
+function _renderHistTabla() {
+  const nome  = (document.getElementById('f-nome')?.value||'').toLowerCase();
+  const posto = document.getElementById('f-posto')?.value||'';
+  const tipo  = document.getElementById('f-tipo')?.value||'';
+  const data  = document.getElementById('f-data')?.value||'';
+
+  // Colaborador só vê os próprios registros
+  const isAdmin = currentUser?.role === 'admin';
+  const nomeUser = currentUser?.nome || '';
+
+  _filtrados = registros.filter(r => {
+    const dataReg = fmtData(r.timestamp);
+    const dataFlt = data ? new Date(data+'T00:00:00').toLocaleDateString('pt-BR') : '';
+    const passaFiltro = (
+      (!nome  || r.colaboradorNome.toLowerCase().includes(nome)) &&
+      (!posto || r.posto===posto) &&
+      (!tipo  || r.tipo===tipo) &&
+      (!data  || dataReg===dataFlt)
+    );
+    // Se não é admin: filtra pelo próprio nome
+    if (!isAdmin) {
+      return passaFiltro && r.colaboradorNome.toLowerCase() === nomeUser.toLowerCase();
+    }
+    return passaFiltro;
+  });
+
+  const total = _filtrados.length;
+  const pages = Math.max(1, Math.ceil(total/POR_PAGINA));
+  histPage = Math.min(histPage, pages);
+  const slice = _filtrados.slice((histPage-1)*POR_PAGINA, histPage*POR_PAGINA);
+
+  document.getElementById('filter-count').textContent = `${total} registro(s) encontrado(s)`;
+
+  const tbody = document.getElementById('hist-tbody');
+  if (!slice.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Nenhum registro encontrado</td></tr>';
+  } else {
+    tbody.innerHTML = slice.map(r=>`
+      <tr>
+        <td class="td-data">${fmtData(r.timestamp)}</td>
+        <td class="td-hora">${fmtHora(r.timestamp)}</td>
+        <td class="td-nome">${esc(r.colaboradorNome)}</td>
+        <td class="td-posto">${esc(r.posto)}</td>
+        <td><span class="tipo-tag ${r.tipo==='entrada'?'tipo-entrada':'tipo-saida'}">
+          ${r.tipo==='entrada'?'▲ ENTRADA':'▼ SAÍDA'}
+        </span></td>
+      </tr>
+    `).join('');
+  }
+
+  const pagEl = document.getElementById('pagination');
+  if (pages>1) {
+    pagEl.style.display='flex';
+    document.getElementById('page-info').textContent=`Pág ${histPage} de ${pages}`;
+    document.getElementById('btn-prev').disabled=(histPage===1);
+    document.getElementById('btn-next').disabled=(histPage===pages);
+  } else { pagEl.style.display='none'; }
+}
+
+// ─── RENDER: COLABORADORES ────────────────────────────────────────────────────
+function renderColaboradores() {
+  const busca = (document.getElementById('f-busca-colab')?.value||'').toLowerCase();
+  const lista = colaboradores.filter(c=>
+    c.nome.toLowerCase().includes(busca) || c.posto.toLowerCase().includes(busca)
+  );
+
+  const container = document.getElementById('colab-admin-list');
+  if (!lista.length) {
+    container.innerHTML = '<p style="color:var(--muted);text-align:center;padding:32px">Nenhum colaborador encontrado</p>';
+    return;
+  }
+
+  container.innerHTML = lista.map(c=>`
+    <div class="colab-admin-item ${c.ativo?'':'inactive'}">
+      <div class="avatar" style="background:${c.ativo?avatarColor(c.nome):'var(--surface2)'};${c.ativo?'':'color:var(--muted)'}">${c.nome.charAt(0)}</div>
+      <div class="colab-admin-info">
+        <div class="colab-name">
+          ${esc(c.nome)}
+          ${!c.ativo?'<span class="inactive-badge">INATIVO</span>':''}
+        </div>
+        <div class="colab-posto">📍 ${esc(c.posto)}</div>
+      </div>
+      <div class="colab-admin-actions">
+        ${c.ativo ? `
+          <button class="btn-edit" onclick="editarColaborador('${c.id}')">✏️ Editar</button>
+          <button class="btn-del"  onclick="confirmarDel('${c.id}')">🗑️</button>
+        ` : `
+          <button class="btn-reativar" onclick="reativarColaborador('${c.id}')">↩️ Reativar</button>
+        `}
+      </div>
+    </div>
+  `).join('');
+}
+
+function salvarColaborador() {
+  const nome  = document.getElementById('f-colab-nome').value.trim();
+  const posto = document.getElementById('f-colab-posto').value.trim();
+  if (!nome || !posto) return;
+
+  if (editId) {
+    colaboradores = colaboradores.map(c=> c.id===editId ? {...c, nome, posto} : c);
+    cancelarEdicao();
+  } else {
+    colaboradores.push({ id: uid(), nome, posto, ativo: true });
+  }
+  saveColabs();
+  document.getElementById('f-colab-nome').value='';
+  document.getElementById('f-colab-posto').value='';
+  renderAll();
+}
+
+function editarColaborador(id) {
+  const c = colaboradores.find(c=>c.id===id);
+  if (!c) return;
+  editId = id;
+  document.getElementById('f-colab-nome').value = c.nome;
+  document.getElementById('f-colab-posto').value = c.posto;
+  document.getElementById('form-title').textContent = '✏️ Editando Colaborador';
+  document.getElementById('btn-salvar').textContent = '💾 Salvar Alterações';
+  document.getElementById('btn-cancelar-edit').style.display='inline-block';
+  document.getElementById('form-card').classList.add('editing');
+  document.getElementById('f-colab-nome').focus();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function cancelarEdicao() {
+  editId=null;
+  document.getElementById('f-colab-nome').value='';
+  document.getElementById('f-colab-posto').value='';
+  document.getElementById('form-title').textContent = '➕ Novo Colaborador';
+  document.getElementById('btn-salvar').textContent = '✅ Adicionar';
+  document.getElementById('btn-cancelar-edit').style.display='none';
+  document.getElementById('form-card').classList.remove('editing');
+}
+
+function confirmarDel(id) {
+  delTargetId = id;
+  document.getElementById('del-overlay').style.display='flex';
+}
+
+function confirmarExclusao() {
+  colaboradores = colaboradores.map(c=> c.id===delTargetId ? {...c, ativo:false} : c);
+  saveColabs();
+  delTargetId=null;
+  document.getElementById('del-overlay').style.display='none';
+  renderAll();
+}
+
+function reativarColaborador(id) {
+  colaboradores = colaboradores.map(c=> c.id===id ? {...c, ativo:true} : c);
+  saveColabs();
+  renderAll();
+}
+
+// ─── RENDER ALL ───────────────────────────────────────────────────────────────
+function renderAll() {
+  renderColabPonto();
+  if (currentUser?.role === 'admin') renderColaboradores();
+  updatePostoFilter();
+  _renderHistTabla();
+}
+
+// ─── SETUP WIZARD ────────────────────────────────────────────────────────────
+let setupCurrentStep = 1;
+const SETUP_TOTAL = 5;
+
+function mostrarSetupSeNecessario() {
+  // Mostra o wizard se o Firebase ainda não foi configurado
+  const jaConfigurou = localStorage.getItem('ms_setup_done');
+  if (!jaConfigurou) {
+    document.getElementById('setup-overlay').style.display = 'flex';
+  }
+}
+
+function fecharSetup() {
+  localStorage.setItem('ms_setup_done', '1');
+  document.getElementById('setup-overlay').style.display = 'none';
+}
+
+function setupNext() {
+  // Passo 3: salvar credenciais no arquivo (orientação)
+  if (setupCurrentStep === 3) {
+    const campos = ['apiKey','authDomain','databaseURL','projectId','storageBucket','messagingSenderId','appId'];
+    const vals = {};
+    let preenchido = 0;
+    campos.forEach(c => {
+      const v = document.getElementById('fb-'+c)?.value.trim();
+      if (v) { vals[c] = v; preenchido++; }
+    });
+    if (preenchido > 0) {
+      // Gera bloco de config para o usuário copiar
+      const config = `const firebaseConfig = {\n  apiKey: "${vals.apiKey||'SUA_API_KEY'}",\n  authDomain: "${vals.authDomain||'SEU_PROJETO.firebaseapp.com'}",\n  databaseURL: "${vals.databaseURL||'https://SEU_PROJETO-default-rtdb.firebaseio.com'}",\n  projectId: "${vals.projectId||'SEU_PROJETO'}",\n  storageBucket: "${vals.storageBucket||'SEU_PROJETO.appspot.com'}",\n  messagingSenderId: "${vals.messagingSenderId||'SEU_SENDER_ID'}",\n  appId: "${vals.appId||'SEU_APP_ID'}"\n};`;
+      localStorage.setItem('ms_fb_config_preview', config);
+      // Mostrar instrução de download
+      mostrarInstrucaoDownload(config);
+    }
+  }
+
+  if (setupCurrentStep < SETUP_TOTAL) {
+    setupIrPara(setupCurrentStep + 1);
+  } else {
+    fecharSetup();
+  }
+}
+
+function setupPrev() {
+  if (setupCurrentStep > 1) setupIrPara(setupCurrentStep - 1);
+}
+
+function setupIrPara(n) {
+  // Esconde step atual
+  document.getElementById('step-' + setupCurrentStep).classList.remove('active');
+  document.getElementById('prog-' + setupCurrentStep).classList.remove('active');
+  document.getElementById('prog-' + setupCurrentStep).classList.add('done');
+
+  setupCurrentStep = n;
+
+  // Mostra novo step
+  document.getElementById('step-' + n).classList.add('active');
+  // Atualiza progresso
+  for (let i = 1; i <= SETUP_TOTAL; i++) {
+    const el = document.getElementById('prog-' + i);
+    el.classList.remove('active','done');
+    if (i < n) el.classList.add('done');
+    else if (i === n) el.classList.add('active');
+  }
+
+  // Botão voltar
+  document.getElementById('btn-setup-back').style.display = n > 1 ? 'inline-block' : 'none';
+
+  // Botão next
+  const btnNext = document.getElementById('btn-setup-next');
+  if (n === SETUP_TOTAL) {
+    btnNext.textContent = '✅ Entrar no sistema';
+    btnNext.classList.add('green-btn');
+  } else if (n === 3) {
+    btnNext.textContent = 'Salvar e continuar →';
+    btnNext.classList.remove('green-btn');
+  } else {
+    btnNext.textContent = 'Próximo →';
+    btnNext.classList.remove('green-btn');
+  }
+
+  // Scroll to top
+  document.querySelector('.setup-modal').scrollTop = 0;
+}
+
+function mostrarInstrucaoDownload(config) {
+  // Injeta aviso no passo 3 para o usuário copiar e colar no arquivo
+  const existente = document.getElementById('instrucao-download');
+  if (existente) existente.remove();
+
+  const div = document.createElement('div');
+  div.id = 'instrucao-download';
+  div.className = 'instr-block';
+  div.style.marginTop = '14px';
+  div.style.borderColor = '#22c55e55';
+  div.innerHTML = `
+    <h4 style="color:var(--green)">📥 Substitua no arquivo index.html:</h4>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Abra o arquivo index.html em um editor de texto (Bloco de Notas, VS Code, etc.) e substitua o bloco <span class="code-inline">firebaseConfig</span> pelo código abaixo:</p>
+    <div class="code-block" id="config-preview" style="font-size:11px">${config.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    <button class="btn-copy" onclick="copiarConfig(this)">📋 Copiar configuração</button>
+  `;
+  document.getElementById('step-3').appendChild(div);
+}
+
+function copiarRegras(btn) {
+  const regras = `{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}`;
+  navigator.clipboard.writeText(regras).then(() => {
+    btn.textContent = '✅ Copiado!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copiar regras'; btn.classList.remove('copied'); }, 2000);
+  }).catch(() => {
+    btn.textContent = '⚠️ Copie manualmente';
+  });
+}
+
+function copiarConfig(btn) {
+  const config = document.getElementById('config-preview')?.textContent || '';
+  navigator.clipboard.writeText(config).then(() => {
+    btn.textContent = '✅ Copiado!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copiar configuração'; btn.classList.remove('copied'); }, 2000);
+  }).catch(() => {
+    btn.textContent = '⚠️ Selecione e copie manualmente';
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+// Carrega usuários do localStorage IMEDIATAMENTE (antes do Firebase)
+// Isso garante que o login funcione mesmo sem internet/Firebase
+(function initUsuariosLocal() {
+  try { usuarios = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuarios = []; }
+  if (!usuarios.length) {
+    usuarios = [{ id: uid(), login: 'admin', senha: 'admin123', nome: 'Administrador', role: 'admin' }];
+    localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+  }
+})();
+
+checkSession();
+mostrarSetupSeNecessario();
+</script>
+</body>
+</html>
