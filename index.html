@@ -1283,11 +1283,17 @@ function saveColabs() {
   localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
 }
 
-function saveRegistros() {
-  if (window._firebaseReady) {
-    window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'));
-  }
+function saveRegistros(novoReg) {
   localStorage.setItem('ms_registros', JSON.stringify(registros));
+  if (window._firebaseReady) {
+    if (novoReg) {
+      // Salva só o novo registro diretamente pelo id — evita race condition com onValue
+      window._fbSet(window._fbRef(window._db, 'registros/' + novoReg.id), novoReg);
+    } else {
+      // Fallback: reescreve tudo (usado em exclusões)
+      window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'));
+    }
+  }
 }
 
 function saveUsuarios() {
@@ -1702,7 +1708,9 @@ function selectColab(c) {
 // ─── BATER PONTO ─────────────────────────────────────────────────────────────
 function baterPonto(tipo) {
   if (!selectedColab) return;
+  // Guarda o tipo no atributo do elemento do overlay — não depende de variável global
   pendingTipo = tipo;
+  document.getElementById('face-overlay').dataset.tipo = tipo;
   openFaceModal();
 }
 
@@ -1711,7 +1719,8 @@ let camStream = null;
 let camState  = 'idle';
 
 function openFaceModal() {
-  const label = pendingTipo === 'entrada' ? '🟢 Registrar ENTRADA' : '🔴 Registrar SAÍDA';
+  const tipo = document.getElementById('face-overlay').dataset.tipo;
+  const label = tipo === 'entrada' ? '🟢 Registrar ENTRADA' : '🔴 Registrar SAÍDA';
   document.getElementById('face-tipo-label').textContent = label;
   document.getElementById('face-nome-label').textContent = selectedColab.nome;
   document.getElementById('face-overlay').style.display = 'flex';
@@ -1722,7 +1731,7 @@ function closeFaceModal() {
   stopCam();
   document.getElementById('face-overlay').style.display = 'none';
   camState = 'idle';
-  pendingTipo = null;
+  // NÃO zera pendingTipo aqui — será zerado após registrar
 }
 
 function resetCamera() {
@@ -1768,10 +1777,11 @@ async function cameraAction() {
       document.getElementById('cam-placeholder').style.display = 'none';
       document.getElementById('face-success').style.display = 'flex';
       document.getElementById('camera-wrap').className = 'camera-wrap done';
+      // Lê o tipo diretamente do DOM — 100% confiável
+      const tipoFinal = document.getElementById('face-overlay').dataset.tipo;
       setTimeout(() => {
-        const tipoConfirmado = pendingTipo; // salva antes de fechar
         closeFaceModal();
-        registrarPonto(tipoConfirmado);
+        registrarPonto(tipoFinal);
       }, 900);
     }, 2400);
   }
@@ -1794,7 +1804,7 @@ function registrarPonto(tipoParam) {
     timestamp: Date.now()
   };
   registros.unshift(reg);
-  saveRegistros();
+  saveRegistros(reg);
   showFeedback(tipoFinal, selectedColab.nome);
   selectedColab = null;
   pendingTipo = null;
