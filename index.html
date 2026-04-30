@@ -1984,7 +1984,12 @@ function showTab(id, btn) {
   btn.classList.add('active');
   if (id==='historico')  { updatePostoFilter(); renderHistorico(); }
   if (id==='usuarios')   { renderUsuarios(); }
-  if (id==='relatorios') { initRelatorioFiltros(); }
+  if (id==='relatorios') {
+    const jaFoiAberto = relFiltrados.length > 0 ||
+      document.getElementById('rel-data-ini').value !== '';
+    initRelatorioFiltros(jaFoiAberto);
+    if (relFiltrados.length > 0) gerarRelatorio();
+  }
 }
 
 // ─── UTILITÁRIO: normaliza string para comparação ─────────────────────────────
@@ -2521,6 +2526,12 @@ function renderAll() {
   if (currentUser?.role === 'admin') renderColaboradores();
   updatePostoFilter();
   _renderHistTabla();
+  // Se a aba Relatórios estiver ativa, sincroniza os filtros em tempo real
+  const tabRel = document.getElementById('tab-relatorios');
+  if (tabRel && tabRel.classList.contains('active')) {
+    initRelatorioFiltros(true);
+    if (relFiltrados.length > 0) gerarRelatorio();
+  }
 }
 
 // ─── SETUP WIZARD ────────────────────────────────────────────────────────────
@@ -2649,25 +2660,44 @@ function copiarConfig(btn) {
 // ─── RELATÓRIOS ──────────────────────────────────────────────────────────────
 let relFiltrados = [];
 
-function initRelatorioFiltros() {
+function initRelatorioFiltros(preservar) {
   // Preencher selects de colaborador e posto
   const selColab = document.getElementById('rel-colab');
   const selPosto = document.getElementById('rel-posto');
   if (!selColab || !selPosto) return;
 
-  const nomes = [...new Set(registros.map(r => r.colaboradorNome))].sort();
-  const postos = [...new Set(registros.map(r => r.posto))].sort();
+  // Guarda seleção atual para restaurar depois
+  const prevColab = selColab.value;
+  const prevPosto = selPosto.value;
+
+  // Combina nomes de registros E de colaboradores cadastrados
+  const nomesReg   = registros.map(r => r.colaboradorNome);
+  const nomesColab = colaboradores.filter(c => c.ativo).map(c => c.nome);
+  const nomes      = [...new Set([...nomesReg, ...nomesColab])].sort();
+
+  // Combina postos de registros E de colaboradores cadastrados
+  const postosReg   = registros.map(r => r.posto);
+  const postosColab = colaboradores.filter(c => c.ativo).map(c => c.posto);
+  const postos      = [...new Set([...postosReg, ...postosColab])].sort();
 
   selColab.innerHTML = '<option value="">Todos os colaboradores</option>' +
     nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
   selPosto.innerHTML = '<option value="">Todos os postos</option>' +
     postos.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
 
-  // Data padrão: mês atual
-  const hoje = new Date();
-  const ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  document.getElementById('rel-data-ini').value = ini.toISOString().slice(0,10);
-  document.getElementById('rel-data-fim').value = hoje.toISOString().slice(0,10);
+  // Restaura seleção anterior se ainda existir na lista
+  if (preservar) {
+    if ([...selColab.options].some(o => o.value === prevColab)) selColab.value = prevColab;
+    if ([...selPosto.options].some(o => o.value === prevPosto)) selPosto.value = prevPosto;
+  } else {
+    // Data padrão: mês atual (só na primeira abertura)
+    const hoje = new Date();
+    const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const iniEl = document.getElementById('rel-data-ini');
+    const fimEl = document.getElementById('rel-data-fim');
+    if (!iniEl.value) iniEl.value = ini.toISOString().slice(0,10);
+    if (!fimEl.value) fimEl.value = hoje.toISOString().slice(0,10);
+  }
 }
 
 function gerarRelatorio() {
