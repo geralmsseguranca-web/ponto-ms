@@ -2282,6 +2282,8 @@ function registrarPonto(tipoParam) {
 
   // Salva localmente primeiro (garantido)
   localStorage.setItem('ms_registros', JSON.stringify(registros));
+  // Atualiza a UI imediatamente (antes mesmo do Firebase confirmar)
+  renderAll();
 
   if (window._firebaseReady) {
     if (!_isOnline) {
@@ -2580,16 +2582,42 @@ function confirmarExclusaoPermanente() {
 }
 
 // ─── RENDER ALL ───────────────────────────────────────────────────────────────
+function getActiveTab() {
+  const active = document.querySelector('.tab-content.active');
+  return active ? active.id.replace('tab-', '') : 'ponto';
+}
+
+function flashUpdate(elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.style.transition = 'opacity 0.15s';
+  el.style.opacity = '0.4';
+  setTimeout(() => { el.style.opacity = '1'; }, 150);
+}
+
 function renderAll() {
+  const abaAtiva = getActiveTab();
+
+  // Sempre atualiza a lista de ponto (dados de presença em tempo real)
   renderColabPonto();
+
+  // Colaboradores (admin)
   if (currentUser?.role === 'admin') renderColaboradores();
+
+  // Histórico — atualiza sempre (está oculto mas dados devem estar frescos)
   updatePostoFilter();
   _renderHistTabla();
-  // Se a aba Relatórios estiver ativa, sincroniza os filtros em tempo real
-  const tabRel = document.getElementById('tab-relatorios');
-  if (tabRel && tabRel.classList.contains('active')) {
+  if (abaAtiva === 'historico') flashUpdate('hist-tbody');
+
+  // Relatórios — sincroniza filtros e re-aplica se estiver aberto
+  if (abaAtiva === 'relatorios') {
     initRelatorioFiltros(true);
-    if (relFiltrados.length > 0) gerarRelatorio();
+    if (relFiltrados.length > 0) {
+      gerarRelatorio();
+      flashUpdate('rel-tbody');
+    } else {
+      initRelatorioFiltros(false);
+    }
   }
 }
 
