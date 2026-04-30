@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Grupo M.S — Ponto Eletrônico v3.2</title>
+<title>Grupo M.S — Ponto Eletrônico v4.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
@@ -1644,56 +1644,76 @@ function fromFirebaseObj(obj) {
   return obj ? Object.values(obj) : [];
 }
 
-let _fbListenersAttached = false; // evita registrar onValue múltiplas vezes (re-login)
+// ─── LISTENERS FIREBASE (registrados uma única vez, globalmente) ──────────────
+let _fbListenersAttached = false;
 
-function loadData() {
-  if (window._firebaseReady) {
-    // Se os listeners já foram registrados (re-login), apenas re-renderiza com dados em memória
-    if (_fbListenersAttached) {
-      renderAll();
-      renderUsuarios();
-      return;
-    }
-    _fbListenersAttached = true;
+function attachFirebaseListeners() {
+  if (_fbListenersAttached || !window._firebaseReady) return;
+  _fbListenersAttached = true;
 
-    window._fbOnValue(window._fbRef(window._db, 'colaboradores'), snap => {
-      const data = snap.val();
-      if (data) {
-        const parsed = fromFirebaseObj(data);
-        // Só faz seed se o Firebase realmente não tem nada (nunca sobrescreve dados existentes)
-        if (parsed.length > 0) {
-          colaboradores = parsed;
-        } else {
-          // Firebase retornou objeto vazio — mantém o que já está em memória ou faz seed inicial
-          if (!colaboradores.length) seedColaboradores();
-        }
+  window._fbOnValue(window._fbRef(window._db, 'colaboradores'), snap => {
+    const data = snap.val();
+    if (data) {
+      const parsed = fromFirebaseObj(data);
+      if (parsed.length > 0) {
+        colaboradores = parsed;
+        // Mantém localStorage sempre sincronizado
+        localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
       } else {
-        // Nó não existe no Firebase ainda — seed apenas se memória também estiver vazia
         if (!colaboradores.length) seedColaboradores();
       }
-      renderAll();
-    });
+    } else {
+      if (!colaboradores.length) seedColaboradores();
+    }
+    if (currentUser) renderAll(); // só renderiza se houver sessão ativa
+  });
 
-    window._fbOnValue(window._fbRef(window._db, 'registros'), snap => {
-      const data = snap.val();
-      registros = data ? fromFirebaseObj(data).sort((a,b)=>b.timestamp-a.timestamp) : [];
-      renderAll();
-    });
+  window._fbOnValue(window._fbRef(window._db, 'registros'), snap => {
+    const data = snap.val();
+    const novosRegistros = data ? fromFirebaseObj(data).sort((a,b)=>b.timestamp-a.timestamp) : [];
+    // Mescla: prioriza Firebase, mas mantém pendentes locais que ainda não foram para o servidor
+    const pendentes = getPendingQueue()
+      .filter(p => p.type === 'registro')
+      .map(p => p.data);
+    const idsFirebase = new Set(novosRegistros.map(r => r.id));
+    const pendentesNovos = pendentes.filter(p => !idsFirebase.has(p.id));
+    registros = [...pendentesNovos, ...novosRegistros];
+    localStorage.setItem('ms_registros', JSON.stringify(novosRegistros)); // salva só o que veio do Firebase
+    if (currentUser) renderAll();
+  });
 
-    window._fbOnValue(window._fbRef(window._db, 'usuarios'), snap => {
-      const data = snap.val();
-      if (data) {
-        const parsed = fromFirebaseObj(data);
-        if (parsed.length > 0) {
-          usuarios = parsed;
-        } else {
-          if (!usuarios.length) seedAdminUser();
+  window._fbOnValue(window._fbRef(window._db, 'usuarios'), snap => {
+    const data = snap.val();
+    if (data) {
+      const parsed = fromFirebaseObj(data);
+      if (parsed.length > 0) {
+        usuarios = parsed;
+        localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+        // Atualiza sessão atual se o próprio usuário foi modificado
+        if (currentUser) {
+          const atualizado = usuarios.find(u => u.id === currentUser.id);
+          if (atualizado) {
+            currentUser = atualizado;
+            sessionStorage.setItem('ms_session', JSON.stringify(currentUser));
+          }
         }
       } else {
         if (!usuarios.length) seedAdminUser();
       }
-      renderUsuarios();
-    });
+    } else {
+      if (!usuarios.length) seedAdminUser();
+    }
+    if (currentUser) renderUsuarios();
+  });
+}
+
+function loadData() {
+  if (window._firebaseReady) {
+    // Garante que os listeners estão ativos (idempotente)
+    attachFirebaseListeners();
+    // Re-renderiza imediatamente com dados em memória (garante UI atualizada no re-login)
+    renderAll();
+    renderUsuarios();
   } else {
     try { colaboradores = JSON.parse(localStorage.getItem('ms_colaboradores')) || []; } catch { colaboradores=[]; }
     try { registros = JSON.parse(localStorage.getItem('ms_registros')) || []; } catch { registros=[]; }
@@ -1819,7 +1839,29 @@ function entrarSistema(usuario) {
     if (_isOnline && getPendingQueue().length > 0) {
       setTimeout(syncPendingQueue, 1500);
     }
-  }, 500);
+    // Força um polling imediato ao entrar no sistema para ter dados frescos
+    if (window._firebaseReady && _isOnline) {
+      window._fbGet(window._fbRef(window._db, 'registros')).then(snap => {
+        const data = snap.val();
+        if (data) {
+          registros = fromFirebaseObj(data).sort((a,b)=>b.timestamp-a.timestamp);
+          localStorage.setItem('ms_registros', JSON.stringify(registros));
+          renderAll();
+        }
+      }).catch(()=>{});
+      window._fbGet(window._fbRef(window._db, 'colaboradores')).then(snap => {
+        const data = snap.val();
+        if (data) {
+          const parsed = fromFirebaseObj(data);
+          if (parsed.length) {
+            colaboradores = parsed;
+            localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+            renderAll();
+          }
+        }
+      }).catch(()=>{});
+    }
+  }, 400);
 }
 
 function sairSistema() {
@@ -2020,6 +2062,38 @@ function tickClock() {
     now.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
 }
 setInterval(tickClock,1000); tickClock();
+
+// ─── POLLING DE SEGURANÇA ────────────────────────────────────────────────────
+// Garante que colaboradores e registros em memória fiquem sincronizados com
+// o Firebase a cada 30s — cobertura para redes que bloqueiam WebSocket/SSE
+let _lastPollHash = '';
+setInterval(async () => {
+  if (!window._firebaseReady || !_isOnline || !currentUser) return;
+  try {
+    const [snapReg, snapColab] = await Promise.all([
+      window._fbGet(window._fbRef(window._db, 'registros')),
+      window._fbGet(window._fbRef(window._db, 'colaboradores'))
+    ]);
+    const dataReg   = snapReg.val();
+    const dataColab = snapColab.val();
+
+    const novosReg   = dataReg   ? fromFirebaseObj(dataReg).sort((a,b)=>b.timestamp-a.timestamp) : [];
+    const novosColab = dataColab ? fromFirebaseObj(dataColab) : [];
+
+    // Usa hash simples para evitar re-render desnecessário
+    const hash = (novosReg.length + '-' + (novosReg[0]?.id||'') + '-' + novosColab.length);
+    if (hash !== _lastPollHash) {
+      _lastPollHash = hash;
+      registros     = novosReg;
+      colaboradores = novosColab.length ? novosColab : colaboradores;
+      localStorage.setItem('ms_registros',    JSON.stringify(registros));
+      localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+      renderAll();
+    }
+  } catch(e) {
+    // Silencia erros de polling — onValue ainda está ativo como primário
+  }
+}, 30000);
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
 function showTab(id, btn) {
@@ -2310,19 +2384,18 @@ function registrarPonto(tipoParam) {
     tipo: tipoFinal,
     timestamp: Date.now()
   };
-  registros.unshift(reg);
 
-  // Salva localmente primeiro (garantido)
+  // ── Atualização otimista imediata ──────────────────────────────
+  // Insere na memória ANTES de qualquer I/O, para garantir UI instantânea
+  registros.unshift(reg);
   localStorage.setItem('ms_registros', JSON.stringify(registros));
-  // Atualiza a UI imediatamente (antes mesmo do Firebase confirmar)
-  renderAll();
+  renderAll(); // atualiza horários de entrada/saída nos cards imediatamente
 
   if (window._firebaseReady) {
     if (!_isOnline) {
       addToPendingQueue({ type: 'registro', data: reg });
       showFeedback(tipoFinal, selectedColab.nome, false);
     } else {
-      // Feedback imediato enquanto aguarda confirmação Firebase
       showFeedback(tipoFinal, selectedColab.nome, true);
       window._fbSet(window._fbRef(window._db, 'registros/' + reg.id), reg)
         .catch(err => {
@@ -2337,7 +2410,7 @@ function registrarPonto(tipoParam) {
   selectedColab = null;
   pendingTipo = null;
   document.getElementById('ponto-btns').style.display = 'none';
-  renderColabPonto();
+  renderColabPonto(); // re-renderiza cards sem colaborador selecionado
 }
 
 function showFeedback(tipo, nome, fbOk) {
@@ -3017,6 +3090,11 @@ mostrarSetupSeNecessario();
 // Atualiza badge de status assim que o DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
   updateStatusBadge();
+  // Inicia listeners Firebase imediatamente (independente de login)
+  // Isso garante que onValue já esteja ouvindo quando o usuário fizer login
+  if (window._firebaseReady) {
+    attachFirebaseListeners();
+  }
   // Tenta sincronizar pendências ao carregar (se estiver online)
   if (_isOnline && getPendingQueue().length > 0) {
     setTimeout(syncPendingQueue, 2000);
