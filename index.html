@@ -1770,6 +1770,7 @@ function selectColab(c) {
     btnsDiv.style.display = 'grid';
     const NOVE_HORAS   = 9 * 60 * 60 * 1000;      // mínimo para saída após entrada
     const TRINTA_MIN   = 30 * 60 * 1000;           // mínimo para nova entrada após saída
+    const DUAS_HORAS   = 2 * 60 * 60 * 1000;       // mínimo entre entradas consecutivas
     const agora = Date.now();
     const btnEntrada = document.querySelector('.btn-entrada');
     const btnSaida   = document.querySelector('.btn-saida');
@@ -1799,17 +1800,37 @@ function selectColab(c) {
       }
     }
 
-    // Bloqueia ENTRADA se não passou 30min desde a última SAÍDA
-    const bloqueiaEntrada = ultSaida && (agora - ultSaida.timestamp) < TRINTA_MIN;
+    // Bloqueia ENTRADA: 30min após última saída OU 2h após última entrada (o que for maior)
+    const bloqueioPosSaida   = ultSaida   && (agora - ultSaida.timestamp)   < TRINTA_MIN;
+    const bloqueioPosEntrada = ultEntrada && (agora - ultEntrada.timestamp) < DUAS_HORAS;
+    const bloqueiaEntrada = bloqueioPosSaida || bloqueioPosEntrada;
     if (btnEntrada) {
       if (bloqueiaEntrada) {
-        const restante = TRINTA_MIN - (agora - ultSaida.timestamp);
-        const m = Math.floor(restante / 60000);
-        const s = Math.floor((restante % 60000) / 1000);
+        let restante, msg;
+        if (bloqueioPosSaida && bloqueioPosEntrada) {
+          // Mostra o maior bloqueio restante
+          const rSaida   = TRINTA_MIN - (agora - ultSaida.timestamp);
+          const rEntrada = DUAS_HORAS  - (agora - ultEntrada.timestamp);
+          restante = Math.max(rSaida, rEntrada);
+          const h = Math.floor(restante / 3600000);
+          const m = Math.floor((restante % 3600000) / 60000);
+          const s = Math.floor((restante % 60000) / 1000);
+          msg = h > 0 ? `Bloqueado — disponível em ${h}h ${m}min` : `Bloqueado — disponível em ${m}min ${s}s`;
+        } else if (bloqueioPosEntrada) {
+          restante = DUAS_HORAS - (agora - ultEntrada.timestamp);
+          const h = Math.floor(restante / 3600000);
+          const m = Math.floor((restante % 3600000) / 60000);
+          msg = `Bloqueado — nova entrada em ${h}h ${m}min`;
+        } else {
+          restante = TRINTA_MIN - (agora - ultSaida.timestamp);
+          const m = Math.floor(restante / 60000);
+          const s = Math.floor((restante % 60000) / 1000);
+          msg = `Bloqueado — nova entrada em ${m}min ${s}s`;
+        }
         btnEntrada.style.opacity   = '0.35';
         btnEntrada.style.transform = 'scale(1)';
         btnEntrada.style.boxShadow = 'none';
-        btnEntrada.title = `Bloqueado — nova entrada disponível em ${m}min ${s}s`;
+        btnEntrada.title = msg;
       } else {
         btnEntrada.style.opacity   = '1';
         btnEntrada.style.transform = 'scale(1.04)';
@@ -1829,6 +1850,7 @@ function baterPonto(tipo) {
 
   const NOVE_HORAS = 9 * 60 * 60 * 1000;   // saída só após 9h de entrada
   const TRINTA_MIN = 30 * 60 * 1000;        // nova entrada só após 30min de saída
+  const DUAS_HORAS = 2 * 60 * 60 * 1000;   // entrada bloqueada por 2h após última entrada
   const agora = Date.now();
 
   if (tipo === 'saida') {
@@ -1848,6 +1870,19 @@ function baterPonto(tipo) {
   }
 
   if (tipo === 'entrada') {
+    // Bloqueia ENTRADA se não passou 2h desde a última ENTRADA
+    const regsEntrada = registros.filter(r => r.colaboradorId === selectedColab.id && r.tipo === 'entrada');
+    const ultEntrada  = regsEntrada.length ? regsEntrada.reduce((a,b) => a.timestamp > b.timestamp ? a : b) : null;
+    if (ultEntrada && (agora - ultEntrada.timestamp) < DUAS_HORAS) {
+      const restante = DUAS_HORAS - (agora - ultEntrada.timestamp);
+      const horas   = Math.floor(restante / 3600000);
+      const minutos = Math.floor((restante % 3600000) / 60000);
+      mostrarAvisoBloqueio(
+        '⛔ ENTRADA não permitida ainda!',
+        `Aguarde ${horas}h ${minutos}min para registrar uma nova entrada.`
+      );
+      return;
+    }
     // Bloqueia ENTRADA se não passou 30min desde a última SAÍDA
     const regsSaida = registros.filter(r => r.colaboradorId === selectedColab.id && r.tipo === 'saida');
     const ultSaida  = regsSaida.length ? regsSaida.reduce((a,b) => a.timestamp > b.timestamp ? a : b) : null;
@@ -1857,7 +1892,7 @@ function baterPonto(tipo) {
       const segundos = Math.floor((restante % 60000) / 1000);
       mostrarAvisoBloqueio(
         '⛔ ENTRADA não permitida ainda!',
-        `Aguarde ${minutos}min ${segundos}s para registrar nova entrada.`
+        `Aguarde ${minutos}min ${segundos}s após a saída para registrar nova entrada.`
       );
       return;
     }
