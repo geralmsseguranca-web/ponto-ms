@@ -592,6 +592,12 @@ tbody tr:hover { background: #0d1930; }
   background: #16a34a22; border: 1px solid #16a34a44; color: var(--green);
   border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px;
 }
+.btn-del-perm {
+  background: #7f1d1d33; border: 1px solid #ef444466; color: #f87171;
+  border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px;
+  font-weight: 700; transition: all .2s; letter-spacing: 0.3px;
+}
+.btn-del-perm:hover { background: #b91c1c55; border-color: var(--red); color: #fff; }
 .inactive-badge {
   font-size: 10px; font-family: var(--font-mono);
   background: #2d0808; color: var(--red); border: 1px solid #dc262644;
@@ -1354,6 +1360,23 @@ footer {
   </div>
 </div>
 
+<!-- ══ MODAL EXCLUSÃO PERMANENTE COLABORADOR ══ -->
+<div class="overlay" id="del-perm-overlay" style="display:none">
+  <div class="confirm-modal" style="border-color:#ef444488">
+    <p style="font-size:40px">🗑️</p>
+    <h3 style="color:var(--red)">Excluir permanentemente?</h3>
+    <p id="del-perm-msg" style="color:var(--muted);font-size:14px;margin-bottom:8px"></p>
+    <p style="color:#f87171;font-size:13px;font-weight:600;margin-bottom:24px;background:var(--red-bg);border-radius:8px;padding:10px 14px;border:1px solid #ef444455">
+      ⚠️ Esta ação <strong>não pode ser desfeita</strong>.<br>Todos os dados do colaborador serão removidos.
+    </p>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="document.getElementById('del-perm-overlay').style.display='none'">Cancelar</button>
+      <button style="background:linear-gradient(135deg,#7f1d1d,#b91c1c);color:#fff;border:none;border-radius:10px;padding:12px 24px;cursor:pointer;font-weight:700;font-size:15px;letter-spacing:0.5px"
+        onclick="confirmarExclusaoPermanente()">🗑️ Excluir para sempre</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL EXCLUIR USUÁRIO ══ -->
 <div class="overlay" id="del-user-overlay" style="display:none">
   <div class="confirm-modal">
@@ -1387,6 +1410,7 @@ let editId         = null;
 let delTargetId    = null;
 let editUserId     = null;
 let delUserTargetId = null;
+let delPermTargetId = null;
 let histPage       = 1;
 const POR_PAGINA   = 15;
 
@@ -2305,9 +2329,11 @@ function renderColaboradores() {
       <div class="colab-admin-actions">
         ${c.ativo ? `
           <button class="btn-edit" onclick="editarColaborador('${c.id}')">✏️ Editar</button>
-          <button class="btn-del"  onclick="confirmarDel('${c.id}')">🗑️</button>
+          <button class="btn-del"  onclick="confirmarDel('${c.id}')" title="Desativar (marcar como inativo)">🚫 Desativar</button>
+          <button class="btn-del-perm" onclick="confirmarDelPerm('${c.id}', '${esc(c.nome)}')" title="Excluir permanentemente">🗑️</button>
         ` : `
           <button class="btn-reativar" onclick="reativarColaborador('${c.id}')">↩️ Reativar</button>
+          <button class="btn-del-perm" onclick="confirmarDelPerm('${c.id}', '${esc(c.nome)}')" title="Excluir permanentemente">🗑️ Excluir</button>
         `}
       </div>
     </div>
@@ -2371,6 +2397,21 @@ function confirmarExclusao() {
 function reativarColaborador(id) {
   colaboradores = colaboradores.map(c=> c.id===id ? {...c, ativo:true} : c);
   saveColabs();
+  renderAll();
+}
+
+function confirmarDelPerm(id, nome) {
+  delPermTargetId = id;
+  document.getElementById('del-perm-msg').textContent = `"${nome}" será removido do sistema.`;
+  document.getElementById('del-perm-overlay').style.display = 'flex';
+}
+
+function confirmarExclusaoPermanente() {
+  if (!delPermTargetId) return;
+  colaboradores = colaboradores.filter(c => c.id !== delPermTargetId);
+  saveColabs();
+  delPermTargetId = null;
+  document.getElementById('del-perm-overlay').style.display = 'none';
   renderAll();
 }
 
