@@ -1768,33 +1768,55 @@ function selectColab(c) {
   const btnsDiv = document.getElementById('ponto-btns');
   if (selectedColab) {
     btnsDiv.style.display = 'grid';
-    const DOZE_HORAS = 12 * 60 * 60 * 1000;
+    const NOVE_HORAS   = 9 * 60 * 60 * 1000;      // mínimo para saída após entrada
+    const TRINTA_MIN   = 30 * 60 * 1000;           // mínimo para nova entrada após saída
     const agora = Date.now();
     const btnEntrada = document.querySelector('.btn-entrada');
     const btnSaida   = document.querySelector('.btn-saida');
 
-    // Verifica bloqueio de cada tipo individualmente
-    ['entrada', 'saida'].forEach(tipo => {
-      const regsColab = registros.filter(r => r.colaboradorId === selectedColab.id && r.tipo === tipo);
-      const ultimo = regsColab.length ? regsColab.reduce((a,b) => a.timestamp > b.timestamp ? a : b) : null;
-      const bloqueado = ultimo && (agora - ultimo.timestamp) < DOZE_HORAS;
-      const btn = tipo === 'entrada' ? btnEntrada : btnSaida;
-      if (!btn) return;
-      if (bloqueado) {
-        const restante = DOZE_HORAS - (agora - ultimo.timestamp);
+    // Último registro de cada tipo
+    const regsEntrada = registros.filter(r => r.colaboradorId === selectedColab.id && r.tipo === 'entrada');
+    const regsSaida   = registros.filter(r => r.colaboradorId === selectedColab.id && r.tipo === 'saida');
+    const ultEntrada  = regsEntrada.length ? regsEntrada.reduce((a,b) => a.timestamp > b.timestamp ? a : b) : null;
+    const ultSaida    = regsSaida.length   ? regsSaida.reduce((a,b)   => a.timestamp > b.timestamp ? a : b) : null;
+
+    // Bloqueia SAÍDA se não passou 9h desde a última ENTRADA
+    const bloqueiaSaida = ultEntrada && (agora - ultEntrada.timestamp) < NOVE_HORAS;
+    if (btnSaida) {
+      if (bloqueiaSaida) {
+        const restante = NOVE_HORAS - (agora - ultEntrada.timestamp);
         const h = Math.floor(restante / 3600000);
         const m = Math.floor((restante % 3600000) / 60000);
-        btn.style.opacity = '0.35';
-        btn.style.transform = 'scale(1)';
-        btn.style.boxShadow = 'none';
-        btn.title = `Bloqueado — disponível em ${h}h ${m}min`;
+        btnSaida.style.opacity   = '0.35';
+        btnSaida.style.transform = 'scale(1)';
+        btnSaida.style.boxShadow = 'none';
+        btnSaida.title = `Bloqueado — saída disponível em ${h}h ${m}min`;
       } else {
-        btn.style.opacity = '1';
-        btn.style.transform = 'scale(1.04)';
-        btn.style.boxShadow = tipo === 'entrada' ? '0 0 0 3px #22c55e66' : '0 0 0 3px #ef444466';
-        btn.title = '';
+        btnSaida.style.opacity   = '1';
+        btnSaida.style.transform = 'scale(1.04)';
+        btnSaida.style.boxShadow = '0 0 0 3px #ef444466';
+        btnSaida.title = '';
       }
-    });
+    }
+
+    // Bloqueia ENTRADA se não passou 30min desde a última SAÍDA
+    const bloqueiaEntrada = ultSaida && (agora - ultSaida.timestamp) < TRINTA_MIN;
+    if (btnEntrada) {
+      if (bloqueiaEntrada) {
+        const restante = TRINTA_MIN - (agora - ultSaida.timestamp);
+        const m = Math.floor(restante / 60000);
+        const s = Math.floor((restante % 60000) / 1000);
+        btnEntrada.style.opacity   = '0.35';
+        btnEntrada.style.transform = 'scale(1)';
+        btnEntrada.style.boxShadow = 'none';
+        btnEntrada.title = `Bloqueado — nova entrada disponível em ${m}min ${s}s`;
+      } else {
+        btnEntrada.style.opacity   = '1';
+        btnEntrada.style.transform = 'scale(1.04)';
+        btnEntrada.style.boxShadow = '0 0 0 3px #22c55e66';
+        btnEntrada.title = '';
+      }
+    }
   } else {
     btnsDiv.style.display = 'none';
   }
@@ -1805,25 +1827,40 @@ function selectColab(c) {
 function baterPonto(tipo) {
   if (!selectedColab) return;
 
-  const DOZE_HORAS = 12 * 60 * 60 * 1000;
+  const NOVE_HORAS = 9 * 60 * 60 * 1000;   // saída só após 9h de entrada
+  const TRINTA_MIN = 30 * 60 * 1000;        // nova entrada só após 30min de saída
   const agora = Date.now();
 
-  // Busca o último registro do mesmo tipo deste colaborador
-  const regsColab = registros.filter(r => r.colaboradorId === selectedColab.id && r.tipo === tipo);
-  const ultimoMesmoTipo = regsColab.length
-    ? regsColab.reduce((a, b) => a.timestamp > b.timestamp ? a : b)
-    : null;
+  if (tipo === 'saida') {
+    // Bloqueia SAÍDA se não passou 9h desde a última ENTRADA
+    const regsEntrada = registros.filter(r => r.colaboradorId === selectedColab.id && r.tipo === 'entrada');
+    const ultEntrada  = regsEntrada.length ? regsEntrada.reduce((a,b) => a.timestamp > b.timestamp ? a : b) : null;
+    if (ultEntrada && (agora - ultEntrada.timestamp) < NOVE_HORAS) {
+      const restante = NOVE_HORAS - (agora - ultEntrada.timestamp);
+      const horas   = Math.floor(restante / 3600000);
+      const minutos = Math.floor((restante % 3600000) / 60000);
+      mostrarAvisoBloqueio(
+        '⛔ SAÍDA não permitida ainda!',
+        `Você precisa aguardar ${horas}h ${minutos}min após a entrada para registrar saída.`
+      );
+      return;
+    }
+  }
 
-  if (ultimoMesmoTipo && (agora - ultimoMesmoTipo.timestamp) < DOZE_HORAS) {
-    const restante = DOZE_HORAS - (agora - ultimoMesmoTipo.timestamp);
-    const horas    = Math.floor(restante / 3600000);
-    const minutos  = Math.floor((restante % 3600000) / 60000);
-    const tipoLabel = tipo === 'entrada' ? 'ENTRADA' : 'SAÍDA';
-    mostrarAvisoBloqueio(
-      `⛔ ${tipoLabel} já registrada!`,
-      `Próxima ${tipoLabel.toLowerCase()} disponível em ${horas}h ${minutos}min.`
-    );
-    return;
+  if (tipo === 'entrada') {
+    // Bloqueia ENTRADA se não passou 30min desde a última SAÍDA
+    const regsSaida = registros.filter(r => r.colaboradorId === selectedColab.id && r.tipo === 'saida');
+    const ultSaida  = regsSaida.length ? regsSaida.reduce((a,b) => a.timestamp > b.timestamp ? a : b) : null;
+    if (ultSaida && (agora - ultSaida.timestamp) < TRINTA_MIN) {
+      const restante = TRINTA_MIN - (agora - ultSaida.timestamp);
+      const minutos = Math.floor(restante / 60000);
+      const segundos = Math.floor((restante % 60000) / 1000);
+      mostrarAvisoBloqueio(
+        '⛔ ENTRADA não permitida ainda!',
+        `Aguarde ${minutos}min ${segundos}s para registrar nova entrada.`
+      );
+      return;
+    }
   }
 
   pendingTipo = tipo;
