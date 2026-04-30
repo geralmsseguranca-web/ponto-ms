@@ -1717,11 +1717,28 @@ function renderColabPonto() {
   if (!isAdmin && currentUser) {
     const nomeUser = currentUser.nome;
     const mine = ativos.find(c => c.nome.toLowerCase() === nomeUser.toLowerCase());
-    ativos = mine ? [mine] : ativos; // se não achar, mostra todos
+    ativos = mine ? [mine] : []; // se não achar, não exibe nenhum (não vaza dados de outros)
   }
 
   const container = document.getElementById('colab-list-ponto');
   container.innerHTML = '';
+
+  if (!ativos.length) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:32px 16px;color:var(--muted)">
+        <div style="font-size:36px;margin-bottom:12px">⚠️</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">
+          Colaborador não encontrado
+        </div>
+        <div style="font-size:13px;line-height:1.5">
+          Seu usuário (<strong style="color:var(--accent)">${esc(currentUser?.nome||'')}</strong>) 
+          não está vinculado a nenhum colaborador ativo.<br>
+          Solicite ao administrador que cadastre seu colaborador com o mesmo nome.
+        </div>
+      </div>`;
+    return;
+  }
+
   ativos.forEach(c => {
     const ult = ultimoReg(c.id);
     const isSelected = selectedColab?.id === c.id;
