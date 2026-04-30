@@ -1168,7 +1168,7 @@ footer {
         <table>
           <thead>
             <tr>
-              <th>Data</th><th>Hora</th><th>Colaborador</th><th>Posto</th><th>Tipo</th><th id="th-acao" style="display:none">Ação</th>
+              <th>Data</th><th>Colaborador</th><th>Posto</th><th style="color:var(--green)">▲ Entrada</th><th style="color:var(--red)">▼ Saída</th><th id="th-acao" style="display:none">Ações</th>
             </tr>
           </thead>
           <tbody id="hist-tbody"></tbody>
@@ -1236,7 +1236,7 @@ footer {
         <table id="rel-table">
           <thead>
             <tr>
-              <th>Data</th><th>Hora</th><th>Colaborador</th><th>Posto</th><th>Tipo</th><th style="width:60px"></th>
+              <th>Data</th><th>Colaborador</th><th>Posto</th><th style="color:var(--green)">▲ Entrada</th><th style="color:var(--red)">▼ Saída</th><th style="width:60px"></th>
             </tr>
           </thead>
           <tbody id="rel-tbody"></tbody>
@@ -1962,6 +1962,19 @@ function ultimoReg(colabId) {
   const regs = registros.filter(r=>r.colaboradorId===colabId);
   return regs.length ? regs.reduce((a,b)=>a.timestamp>b.timestamp?a:b) : null;
 }
+
+function regsDoDia(colabId) {
+  const hoje = new Date(); 
+  const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime();
+  const fim    = inicio + 86400000;
+  const regs   = registros
+    .filter(r => r.colaboradorId === colabId && r.timestamp >= inicio && r.timestamp < fim)
+    .sort((a, b) => a.timestamp - b.timestamp);
+  // Pega o primeiro de cada tipo no dia
+  const entrada = regs.find(r => r.tipo === 'entrada');
+  const saida   = regs.find(r => r.tipo === 'saida');
+  return { entrada, saida };
+}
 function esc(str) {
   return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -2059,19 +2072,28 @@ function renderColabPonto() {
     const div = document.createElement('div');
     div.className = 'colab-item' + (isSelected ? ' selected' : '');
     div.onclick = () => selectColab(c);
+    const dia = regsDoDia(c.id);
     div.innerHTML = `
       <div class="avatar" style="background:${avatarColor(c.nome)}">${c.nome.charAt(0)}</div>
-      <div>
+      <div style="flex:1;min-width:0">
         <div class="colab-name">${esc(c.nome)}</div>
         <div class="colab-posto">📍 ${esc(c.posto)}</div>
       </div>
-      ${ult ? `
-      <div class="status-tag">
-        <span class="${ult.tipo==='entrada'?'tag-in':'tag-out'}">
-          ${ult.tipo==='entrada'?'▲ DENTRO':'▼ FORA'}
-        </span>
-        <div class="status-time">${fmtHora(ult.timestamp)}</div>
-      </div>` : '<div class="status-tag"><span style="color:var(--muted);font-size:12px">–</span></div>'}
+      <div style="display:flex;gap:10px;align-items:center;flex-shrink:0">
+        <div style="text-align:center">
+          <div style="font-size:10px;letter-spacing:1px;color:var(--green);font-family:var(--font-mono);font-weight:600">▲ ENT</div>
+          <div style="font-family:var(--font-mono);font-size:13px;color:${dia.entrada ? 'var(--text)' : 'var(--muted)'}">
+            ${dia.entrada ? fmtHora(dia.entrada.timestamp).slice(0,5) : '–:–'}
+          </div>
+        </div>
+        <div style="width:1px;height:28px;background:var(--border)"></div>
+        <div style="text-align:center">
+          <div style="font-size:10px;letter-spacing:1px;color:var(--red);font-family:var(--font-mono);font-weight:600">▼ SAÍ</div>
+          <div style="font-family:var(--font-mono);font-size:13px;color:${dia.saida ? 'var(--text)' : 'var(--muted)'}">
+            ${dia.saida ? fmtHora(dia.saida.timestamp).slice(0,5) : '–:–'}
+          </div>
+        </div>
+      </div>
     `;
     container.appendChild(div);
   });
@@ -2336,6 +2358,27 @@ function changePage(delta) {
   _renderHistTabla();
 }
 
+// Agrupa registros por colaborador+dia, retornando linhas com entrada/saída
+function groupByDia(lista) {
+  const map = {};
+  lista.forEach(r => {
+    const dia = fmtData(r.timestamp);
+    const key = r.colaboradorNome + '||' + dia + '||' + r.posto;
+    if (!map[key]) map[key] = { nome: r.colaboradorNome, posto: r.posto, dia, entrada: null, saida: null, ids: [] };
+    if (r.tipo === 'entrada' && (!map[key].entrada || r.timestamp < map[key].entrada.timestamp))
+      map[key].entrada = r;
+    if (r.tipo === 'saida' && (!map[key].saida || r.timestamp > map[key].saida.timestamp))
+      map[key].saida = r;
+    map[key].ids.push(r.id);
+  });
+  // Ordena por data desc, depois nome
+  return Object.values(map).sort((a, b) => {
+    const da = new Date(a.dia.split('/').reverse().join('-')).getTime();
+    const db = new Date(b.dia.split('/').reverse().join('-')).getTime();
+    return db - da || a.nome.localeCompare(b.nome);
+  });
+}
+
 function _renderHistTabla() {
   const nome  = (document.getElementById('f-nome')?.value||'').toLowerCase();
   const posto = document.getElementById('f-posto')?.value||'';
@@ -2362,12 +2405,13 @@ function _renderHistTabla() {
     return passaFiltro;
   });
 
-  const total = _filtrados.length;
+  const grupos = groupByDia(_filtrados);
+  const total = grupos.length;
   const pages = Math.max(1, Math.ceil(total/POR_PAGINA));
   histPage = Math.min(histPage, pages);
-  const slice = _filtrados.slice((histPage-1)*POR_PAGINA, histPage*POR_PAGINA);
+  const slice = grupos.slice((histPage-1)*POR_PAGINA, histPage*POR_PAGINA);
 
-  document.getElementById('filter-count').textContent = `${total} registro(s) encontrado(s)`;
+  document.getElementById('filter-count').textContent = `${total} dia(s) encontrado(s) · ${_filtrados.length} registro(s)`;
 
   const tbody = document.getElementById('hist-tbody');
   if (!slice.length) {
@@ -2378,16 +2422,21 @@ function _renderHistTabla() {
     if (thAcao) thAcao.style.display = isAdmin ? '' : 'none';
     if (btnLimpar) btnLimpar.style.display = isAdmin && slice.length ? '' : 'none';
 
-    tbody.innerHTML = slice.map(r=>`
+    tbody.innerHTML = slice.map(g => `
       <tr>
-        <td class="td-data">${fmtData(r.timestamp)}</td>
-        <td class="td-hora">${fmtHora(r.timestamp)}</td>
-        <td class="td-nome">${esc(r.colaboradorNome)}</td>
-        <td class="td-posto">${esc(r.posto)}</td>
-        <td><span class="tipo-tag ${r.tipo==='entrada'?'tipo-entrada':'tipo-saida'}">
-          ${r.tipo==='entrada'?'▲ ENTRADA':'▼ SAÍDA'}
-        </span></td>
-        ${isAdmin ? `<td><button class="btn-del" style="padding:4px 10px;font-size:12px" onclick="excluirRegistro('${r.id}')">🗑️</button></td>` : '<td style="display:none"></td>'}
+        <td class="td-data">${g.dia}</td>
+        <td class="td-nome">${esc(g.nome)}</td>
+        <td class="td-posto">${esc(g.posto)}</td>
+        <td class="td-hora" style="color:${g.entrada ? 'var(--green)' : 'var(--muted)'}">
+          ${g.entrada ? fmtHora(g.entrada.timestamp).slice(0,5) : '–:–'}
+        </td>
+        <td class="td-hora" style="color:${g.saida ? 'var(--red)' : 'var(--muted)'}">
+          ${g.saida ? fmtHora(g.saida.timestamp).slice(0,5) : '–:–'}
+        </td>
+        ${isAdmin ? `<td style="display:flex;gap:4px;padding:8px 16px">
+          ${g.entrada ? `<button class="btn-del" style="padding:4px 8px;font-size:11px" title="Excluir entrada" onclick="excluirRegistro('${g.entrada.id}')">▲🗑️</button>` : ''}
+          ${g.saida   ? `<button class="btn-del" style="padding:4px 8px;font-size:11px" title="Excluir saída"   onclick="excluirRegistro('${g.saida.id}')">▼🗑️</button>` : ''}
+        </td>` : '<td style="display:none"></td>'}
       </tr>
     `).join('');
   }
@@ -2757,16 +2806,22 @@ function gerarRelatorio() {
   document.getElementById('btn-export-excel').disabled = false;
 
   const tbody = document.getElementById('rel-tbody');
-  tbody.innerHTML = relFiltrados.map(r => `
+  const gruposRel = groupByDia(relFiltrados);
+  tbody.innerHTML = gruposRel.map(g => `
     <tr>
-      <td class="td-data">${fmtData(r.timestamp)}</td>
-      <td class="td-hora">${fmtHora(r.timestamp)}</td>
-      <td class="td-nome">${esc(r.colaboradorNome)}</td>
-      <td class="td-posto">${esc(r.posto)}</td>
-      <td><span class="tipo-tag ${r.tipo==='entrada'?'tipo-entrada':'tipo-saida'}">
-        ${r.tipo==='entrada'?'▲ ENTRADA':'▼ SAÍDA'}
-      </span></td>
-      <td><button class="btn-del" style="padding:4px 10px;font-size:12px" onclick="excluirRegistroRel('${r.id}')">🗑️</button></td>
+      <td class="td-data">${g.dia}</td>
+      <td class="td-nome">${esc(g.nome)}</td>
+      <td class="td-posto">${esc(g.posto)}</td>
+      <td class="td-hora" style="color:${g.entrada ? 'var(--green)' : 'var(--muted)'}">
+        ${g.entrada ? fmtHora(g.entrada.timestamp).slice(0,5) : '–:–'}
+      </td>
+      <td class="td-hora" style="color:${g.saida ? 'var(--red)' : 'var(--muted)'}">
+        ${g.saida ? fmtHora(g.saida.timestamp).slice(0,5) : '–:–'}
+      </td>
+      <td style="display:flex;gap:4px;padding:8px 16px">
+        ${g.entrada ? `<button class="btn-del" style="padding:4px 8px;font-size:11px" title="Excluir entrada" onclick="excluirRegistroRel('${g.entrada.id}')">▲🗑️</button>` : ''}
+        ${g.saida   ? `<button class="btn-del" style="padding:4px 8px;font-size:11px" title="Excluir saída"   onclick="excluirRegistroRel('${g.saida.id}')">▼🗑️</button>` : ''}
+      </td>
     </tr>
   `).join('');
 }
