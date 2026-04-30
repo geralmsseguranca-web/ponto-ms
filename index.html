@@ -1236,7 +1236,7 @@ footer {
         <table id="rel-table">
           <thead>
             <tr>
-              <th>Data</th><th>Hora</th><th>Colaborador</th><th>Posto</th><th>Tipo</th>
+              <th>Data</th><th>Hora</th><th>Colaborador</th><th>Posto</th><th>Tipo</th><th style="width:60px"></th>
             </tr>
           </thead>
           <tbody id="rel-tbody"></tbody>
@@ -2756,8 +2756,17 @@ function gerarRelatorio() {
       <td><span class="tipo-tag ${r.tipo==='entrada'?'tipo-entrada':'tipo-saida'}">
         ${r.tipo==='entrada'?'▲ ENTRADA':'▼ SAÍDA'}
       </span></td>
+      <td><button class="btn-del" style="padding:4px 10px;font-size:12px" onclick="excluirRegistroRel('${r.id}')">🗑️</button></td>
     </tr>
   `).join('');
+}
+
+function excluirRegistroRel(id) {
+  if (!confirm('Excluir este registro?')) return;
+  registros = registros.filter(r => r.id !== id);
+  saveRegistros();
+  relFiltrados = relFiltrados.filter(r => r.id !== id);
+  gerarRelatorio();
 }
 
 function exportarExcel() {
