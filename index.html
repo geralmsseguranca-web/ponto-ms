@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Grupo M.S — Ponto Eletrônico v2.5</title>
+<title>Grupo M.S — Ponto Eletrônico v3.2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
@@ -1572,18 +1572,20 @@ window.addEventListener('offline', () => {
 
 // ─── STORAGE (Firebase ou localStorage) ──────────────────────────────────────
 function saveColabs() {
+  // Salva localStorage SEMPRE primeiro (fonte de verdade local)
+  localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
   if (window._firebaseReady) {
     if (!_isOnline) {
-      addToPendingQueue({ type: 'colaborador', data: colaboradores });
+      addToPendingQueue({ type: 'colaborador', data: [...colaboradores] });
     } else {
-      window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'))
+      const snapshot = toFirebaseObj(colaboradores, 'id');
+      window._fbSet(window._fbRef(window._db, 'colaboradores'), snapshot)
         .catch(err => {
           console.warn('⚠️ Falha ao salvar colaboradores no Firebase (online), enfileirando:', err);
-          addToPendingQueue({ type: 'colaborador', data: colaboradores });
+          addToPendingQueue({ type: 'colaborador', data: [...colaboradores] });
         });
     }
   }
-  localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
 }
 
 function saveRegistros(novoReg) {
@@ -1618,18 +1620,19 @@ function saveRegistros(novoReg) {
 }
 
 function saveUsuarios() {
+  // Salva localStorage SEMPRE primeiro
+  localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
   if (window._firebaseReady) {
     if (!_isOnline) {
-      addToPendingQueue({ type: 'usuario', data: usuarios });
+      addToPendingQueue({ type: 'usuario', data: [...usuarios] });
     } else {
       window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'))
         .catch(err => {
           console.warn('⚠️ Falha ao salvar usuários no Firebase (online), enfileirando:', err);
-          addToPendingQueue({ type: 'usuario', data: usuarios });
+          addToPendingQueue({ type: 'usuario', data: [...usuarios] });
         });
     }
   }
-  localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
 }
 
 function toFirebaseObj(arr, key) {
@@ -1641,27 +1644,54 @@ function fromFirebaseObj(obj) {
   return obj ? Object.values(obj) : [];
 }
 
+let _fbListenersAttached = false; // evita registrar onValue múltiplas vezes (re-login)
+
 function loadData() {
   if (window._firebaseReady) {
+    // Se os listeners já foram registrados (re-login), apenas re-renderiza com dados em memória
+    if (_fbListenersAttached) {
+      renderAll();
+      renderUsuarios();
+      return;
+    }
+    _fbListenersAttached = true;
+
     window._fbOnValue(window._fbRef(window._db, 'colaboradores'), snap => {
       const data = snap.val();
       if (data) {
-        colaboradores = fromFirebaseObj(data);
+        const parsed = fromFirebaseObj(data);
+        // Só faz seed se o Firebase realmente não tem nada (nunca sobrescreve dados existentes)
+        if (parsed.length > 0) {
+          colaboradores = parsed;
+        } else {
+          // Firebase retornou objeto vazio — mantém o que já está em memória ou faz seed inicial
+          if (!colaboradores.length) seedColaboradores();
+        }
+      } else {
+        // Nó não existe no Firebase ainda — seed apenas se memória também estiver vazia
         if (!colaboradores.length) seedColaboradores();
-      } else { seedColaboradores(); }
+      }
       renderAll();
     });
+
     window._fbOnValue(window._fbRef(window._db, 'registros'), snap => {
       const data = snap.val();
       registros = data ? fromFirebaseObj(data).sort((a,b)=>b.timestamp-a.timestamp) : [];
       renderAll();
     });
+
     window._fbOnValue(window._fbRef(window._db, 'usuarios'), snap => {
       const data = snap.val();
       if (data) {
-        usuarios = fromFirebaseObj(data);
+        const parsed = fromFirebaseObj(data);
+        if (parsed.length > 0) {
+          usuarios = parsed;
+        } else {
+          if (!usuarios.length) seedAdminUser();
+        }
+      } else {
         if (!usuarios.length) seedAdminUser();
-      } else { seedAdminUser(); }
+      }
       renderUsuarios();
     });
   } else {
@@ -1795,6 +1825,8 @@ function entrarSistema(usuario) {
 function sairSistema() {
   sessionStorage.removeItem('ms_session');
   currentUser = null;
+  // NÃO resetamos _fbListenersAttached — os listeners do Firebase ficam ativos
+  // e continuam atualizando os dados em memória. Apenas ocultamos a UI.
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('main-header').style.display = 'none';
   document.getElementById('main-content').style.display = 'none';
@@ -2290,17 +2322,13 @@ function registrarPonto(tipoParam) {
       addToPendingQueue({ type: 'registro', data: reg });
       showFeedback(tipoFinal, selectedColab.nome, false);
     } else {
+      // Feedback imediato enquanto aguarda confirmação Firebase
+      showFeedback(tipoFinal, selectedColab.nome, true);
       window._fbSet(window._fbRef(window._db, 'registros/' + reg.id), reg)
-        .then(() => {
-          showFeedback(tipoFinal, selectedColab.nome, true);
-        })
         .catch(err => {
           console.warn('⚠️ Falha Firebase ao registrar ponto, enfileirando:', err);
           addToPendingQueue({ type: 'registro', data: reg });
-          showFeedback(tipoFinal, selectedColab.nome, false);
         });
-      // Feedback imediato enquanto aguarda confirmação Firebase
-      showFeedback(tipoFinal, selectedColab.nome, true);
     }
   } else {
     showFeedback(tipoFinal, selectedColab.nome, true);
