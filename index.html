@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Grupo M.S — Ponto Eletrônico</title>
+<title>Grupo M.S — Ponto Eletrônico v2.5</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
@@ -1091,7 +1091,7 @@ footer {
         <p>Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico</p>
       </div>
       <div class="header-right">
-        <div class="status-badge" id="status-badge">
+        <div class="status-badge" id="status-badge" onclick="syncManual()" title="Clique para sincronizar pendências" style="cursor:pointer">
           <span class="status-dot" id="status-dot"></span>
           <span id="status-text">ONLINE</span>
           <span id="pending-badge"></span>
@@ -1492,25 +1492,35 @@ async function syncPendingQueue() {
   const remaining = [];
 
   for (const item of q) {
-    try {
-      if (item.type === 'registro') {
-        await window._fbSet(window._fbRef(window._db, 'registros/' + item.data.id), item.data);
-        successCount++;
-      } else if (item.type === 'colaborador') {
-        await window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(item.data, 'id'));
-        successCount++;
-      } else if (item.type === 'usuario') {
-        await window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(item.data, 'id'));
-        successCount++;
-      } else if (item.type === 'del_registro') {
-        await window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(item.data, 'id'));
-        successCount++;
+    let tentativas = 0;
+    let ok = false;
+    while (tentativas < 3 && !ok) {
+      try {
+        if (item.type === 'registro') {
+          await window._fbSet(window._fbRef(window._db, 'registros/' + item.data.id), item.data);
+          ok = true;
+        } else if (item.type === 'colaborador') {
+          await window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(item.data, 'id'));
+          ok = true;
+        } else if (item.type === 'usuario') {
+          await window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(item.data, 'id'));
+          ok = true;
+        } else if (item.type === 'del_registro') {
+          await window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(item.data, 'id'));
+          ok = true;
+        } else {
+          ok = true; // tipo desconhecido: descarta
+        }
+      } catch(e) {
+        tentativas++;
+        if (tentativas < 3) {
+          await new Promise(res => setTimeout(res, 800 * tentativas)); // backoff
+        } else {
+          console.warn('Falha ao sincronizar item após 3 tentativas:', item, e);
+        }
       }
-    } catch(e) {
-      console.warn('Falha ao sincronizar item:', item, e);
-      remaining.push(item);
-      failCount++;
     }
+    if (ok) { successCount++; } else { remaining.push(item); failCount++; }
   }
 
   setPendingQueue(remaining);
@@ -1520,9 +1530,27 @@ async function syncPendingQueue() {
     showSyncToast('success', `✔ ${successCount} registro(s) sincronizado(s) com sucesso!`);
   } else if (failCount > 0 && successCount > 0) {
     showSyncToast('error', `${successCount} sincronizado(s), ${failCount} falhou. Tentando novamente...`);
+    setTimeout(syncPendingQueue, 30000);
   } else if (failCount > 0) {
-    showSyncToast('error', `Falha ao sincronizar ${failCount} item(s). Tentando novamente...`);
+    showSyncToast('error', `Falha ao sincronizar ${failCount} item(s). Tentando novamente em 30s...`);
+    setTimeout(syncPendingQueue, 30000);
   }
+}
+
+// ─── SINCRONIZAÇÃO MANUAL ─────────────────────────────────────────────────────
+function syncManual() {
+  const q = getPendingQueue();
+  if (!_isOnline) {
+    showSyncToast('error', '⚠️ Sem conexão. Aguardando rede...');
+    setTimeout(hideSyncToast, 4000);
+    return;
+  }
+  if (!q.length) {
+    showSyncToast('success', '✔ Nenhum registro pendente — tudo sincronizado!');
+    setTimeout(hideSyncToast, 3000);
+    return;
+  }
+  syncPendingQueue();
 }
 
 // Listeners de conectividade
@@ -1548,7 +1576,11 @@ function saveColabs() {
     if (!_isOnline) {
       addToPendingQueue({ type: 'colaborador', data: colaboradores });
     } else {
-      window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'));
+      window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'))
+        .catch(err => {
+          console.warn('⚠️ Falha ao salvar colaboradores no Firebase (online), enfileirando:', err);
+          addToPendingQueue({ type: 'colaborador', data: colaboradores });
+        });
     }
   }
   localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
@@ -1569,10 +1601,18 @@ function saveRegistros(novoReg) {
     }
     if (novoReg) {
       // Salva só o novo registro diretamente pelo id — evita race condition com onValue
-      window._fbSet(window._fbRef(window._db, 'registros/' + novoReg.id), novoReg);
+      window._fbSet(window._fbRef(window._db, 'registros/' + novoReg.id), novoReg)
+        .catch(err => {
+          console.warn('⚠️ Falha ao salvar registro no Firebase (online), enfileirando:', err);
+          addToPendingQueue({ type: 'registro', data: novoReg });
+        });
     } else {
       // Fallback: reescreve tudo (usado em exclusões)
-      window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'));
+      window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'))
+        .catch(err => {
+          console.warn('⚠️ Falha ao salvar exclusão no Firebase (online), enfileirando:', err);
+          addToPendingQueue({ type: 'del_registro', data: registros });
+        });
     }
   }
 }
@@ -1582,7 +1622,11 @@ function saveUsuarios() {
     if (!_isOnline) {
       addToPendingQueue({ type: 'usuario', data: usuarios });
     } else {
-      window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'));
+      window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'))
+        .catch(err => {
+          console.warn('⚠️ Falha ao salvar usuários no Firebase (online), enfileirando:', err);
+          addToPendingQueue({ type: 'usuario', data: usuarios });
+        });
     }
   }
   localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
@@ -1943,16 +1987,45 @@ function showTab(id, btn) {
   if (id==='relatorios') { initRelatorioFiltros(); }
 }
 
+// ─── UTILITÁRIO: normaliza string para comparação ─────────────────────────────
+function normNome(s) {
+  return (s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .toLowerCase()
+    .replace(/\s+/g, ' ')   // espaços múltiplos → 1
+    .trim();
+}
+
 // ─── RENDER: LISTA PONTO ──────────────────────────────────────────────────────
 function renderColabPonto() {
   const isAdmin = currentUser?.role === 'admin';
   let ativos = colaboradores.filter(c=>c.ativo);
 
-  // Se colaborador comum: mostra só ele mesmo (por nome)
+  // Se colaborador comum: mostra só ele mesmo
   if (!isAdmin && currentUser) {
-    const nomeUser = currentUser.nome;
-    const mine = ativos.find(c => c.nome.toLowerCase() === nomeUser.toLowerCase());
-    ativos = mine ? [mine] : []; // se não achar, não exibe nenhum (não vaza dados de outros)
+    const nomeUser = normNome(currentUser.nome);
+
+    // 1º) correspondência exata (sem acento/case)
+    let mine = ativos.find(c => normNome(c.nome) === nomeUser);
+
+    // 2º) fallback: o nome do colaborador está contido no nome do usuário ou vice-versa
+    if (!mine) {
+      mine = ativos.find(c => {
+        const nc = normNome(c.nome);
+        return nomeUser.includes(nc) || nc.includes(nomeUser);
+      });
+    }
+
+    // 3º) fallback: todas as palavras do nome do colaborador estão presentes no nome do usuário
+    if (!mine) {
+      mine = ativos.find(c => {
+        const palavrasColab = normNome(c.nome).split(' ').filter(Boolean);
+        const palavrasUser  = nomeUser.split(' ').filter(Boolean);
+        return palavrasColab.every(p => palavrasUser.includes(p));
+      });
+    }
+
+    ativos = mine ? [mine] : [];
   }
 
   const container = document.getElementById('colab-list-ponto');
@@ -1967,8 +2040,9 @@ function renderColabPonto() {
         </div>
         <div style="font-size:13px;line-height:1.5">
           Seu usuário (<strong style="color:var(--accent)">${esc(currentUser?.nome||'')}</strong>) 
-          não está vinculado a nenhum colaborador ativo.<br>
-          Solicite ao administrador que cadastre seu colaborador com o mesmo nome.
+          não está vinculado a nenhum colaborador ativo.<br><br>
+          Solicite ao administrador que verifique se o nome do colaborador está cadastrado 
+          <strong style="color:var(--text)">exatamente igual</strong> ao nome do seu usuário.
         </div>
       </div>`;
     return;
@@ -2168,24 +2242,50 @@ function registrarPonto(tipoParam) {
     timestamp: Date.now()
   };
   registros.unshift(reg);
-  saveRegistros(reg);
-  showFeedback(tipoFinal, selectedColab.nome);
+
+  // Salva localmente primeiro (garantido)
+  localStorage.setItem('ms_registros', JSON.stringify(registros));
+
+  if (window._firebaseReady) {
+    if (!_isOnline) {
+      addToPendingQueue({ type: 'registro', data: reg });
+      showFeedback(tipoFinal, selectedColab.nome, false);
+    } else {
+      window._fbSet(window._fbRef(window._db, 'registros/' + reg.id), reg)
+        .then(() => {
+          showFeedback(tipoFinal, selectedColab.nome, true);
+        })
+        .catch(err => {
+          console.warn('⚠️ Falha Firebase ao registrar ponto, enfileirando:', err);
+          addToPendingQueue({ type: 'registro', data: reg });
+          showFeedback(tipoFinal, selectedColab.nome, false);
+        });
+      // Feedback imediato enquanto aguarda confirmação Firebase
+      showFeedback(tipoFinal, selectedColab.nome, true);
+    }
+  } else {
+    showFeedback(tipoFinal, selectedColab.nome, true);
+  }
+
   selectedColab = null;
   pendingTipo = null;
   document.getElementById('ponto-btns').style.display = 'none';
   renderColabPonto();
 }
 
-function showFeedback(tipo, nome) {
+function showFeedback(tipo, nome, fbOk) {
   const el = document.getElementById('feedback-banner');
   el.className = 'feedback ' + tipo;
-  const offlineNote = !_isOnline
-    ? `<div style="font-size:11px;color:var(--gold);margin-top:4px;font-family:var(--font-mono)">📡 Offline — será sincronizado quando a conexão voltar</div>`
-    : '';
+  let syncNote = '';
+  if (!_isOnline) {
+    syncNote = `<div style="font-size:11px;color:var(--gold);margin-top:4px;font-family:var(--font-mono)">📡 Offline — será sincronizado quando a conexão voltar</div>`;
+  } else if (fbOk === false) {
+    syncNote = `<div style="font-size:11px;color:var(--gold);margin-top:4px;font-family:var(--font-mono)">⚠️ Salvo localmente — aguardando sincronização com servidor</div>`;
+  }
   el.innerHTML = `
     <div class="feedback-title">${tipo==='entrada'?'✅ Entrada registrada!':'🚪 Saída registrada!'}</div>
     <div class="feedback-sub">${esc(nome)} &nbsp;·&nbsp; ${fmtHora(Date.now())}</div>
-    ${offlineNote}
+    ${syncNote}
   `;
   el.style.display = 'block';
   clearTimeout(el._timer);
