@@ -241,10 +241,46 @@ header {
   background: #052e0f; color: var(--green);
   border: 1px solid #16a34a55; border-radius: 6px;
   padding: 5px 12px; display: flex; align-items: center; gap: 6px;
-  font-weight: 600;
+  font-weight: 600; transition: all .4s ease;
 }
-.status-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation: pulse 2s infinite; }
+.status-badge.offline {
+  background: #2d0808; color: var(--red);
+  border-color: #ef444455;
+}
+.status-badge.syncing {
+  background: #1a1a05; color: var(--gold);
+  border-color: #f59e0b55;
+}
+.status-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation: pulse 2s infinite; transition: background .4s; }
+.status-badge.offline .status-dot { background: var(--red); animation: pulse-red 1.2s infinite; }
+.status-badge.syncing .status-dot { background: var(--gold); animation: pulse-gold 0.8s infinite; }
 @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 #22c55e66} 50%{opacity:.8;box-shadow:0 0 0 5px transparent} }
+@keyframes pulse-red { 0%,100%{opacity:1;box-shadow:0 0 0 0 #ef444466} 50%{opacity:.8;box-shadow:0 0 0 5px transparent} }
+@keyframes pulse-gold { 0%,100%{opacity:1;box-shadow:0 0 0 0 #f59e0b66} 50%{opacity:.6;box-shadow:0 0 0 4px transparent} }
+
+/* ── SYNC TOAST ── */
+#sync-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  z-index: 9999; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px 22px; display: flex; align-items: center; gap: 12px;
+  font-size: 14px; font-family: var(--font-body); color: var(--text);
+  box-shadow: 0 8px 40px #000c; transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+  opacity: 0; pointer-events: none; white-space: nowrap;
+}
+#sync-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+#sync-toast .sync-icon { font-size: 20px; }
+#sync-toast.toast-pending { border-color: #f59e0b55; background: #1a1205; }
+#sync-toast.toast-success { border-color: #22c55e55; background: #051a0a; }
+#sync-toast.toast-error   { border-color: #ef444455; background: #1a0505; }
+
+/* ── PENDING COUNTER BADGE ── */
+#pending-badge {
+  display: none; background: var(--gold); color: #000;
+  font-size: 10px; font-weight: 700; font-family: var(--font-mono);
+  border-radius: 10px; padding: 2px 6px; margin-left: 4px;
+  animation: pop .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes pop { 0%{transform:scale(0)} 100%{transform:scale(1)} }
 
 /* User chip */
 .user-chip {
@@ -1049,8 +1085,10 @@ footer {
         <p>Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico</p>
       </div>
       <div class="header-right">
-        <div class="status-badge">
-          <span class="status-dot"></span> ONLINE
+        <div class="status-badge" id="status-badge">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text">ONLINE</span>
+          <span id="pending-badge"></span>
         </div>
         <div class="user-chip" onclick="sairSistema()" title="Clique para sair">
           <span id="chip-user-icon">👤</span>
@@ -1264,7 +1302,7 @@ footer {
 
 </main>
 
-<footer id="main-footer" style="display:none">© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v2.0</footer>
+<footer id="main-footer" style="display:none">© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v2.2 — Sync Offline</footer>
 
 <!-- ══ MODAL FACIAL ══ -->
 <div class="overlay" id="face-overlay" style="display:none">
@@ -1330,6 +1368,12 @@ footer {
   </div>
 </div>
 
+<!-- ══ SYNC TOAST ══ -->
+<div id="sync-toast">
+  <span class="sync-icon" id="sync-toast-icon">⏳</span>
+  <span id="sync-toast-msg">Sincronizando dados...</span>
+</div>
+
 <!-- ══ SCRIPT PRINCIPAL ══ -->
 <script>
 // ─── ESTADO ───────────────────────────────────────────────────────────────────
@@ -1346,10 +1390,142 @@ let delUserTargetId = null;
 let histPage       = 1;
 const POR_PAGINA   = 15;
 
+// ─── SYNC OFFLINE ─────────────────────────────────────────────────────────────
+const PENDING_KEY = 'ms_pending_sync';
+let _isOnline = navigator.onLine;
+let _syncToastTimer = null;
+
+function getPendingQueue() {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY)) || []; } catch { return []; }
+}
+function setPendingQueue(q) {
+  localStorage.setItem(PENDING_KEY, JSON.stringify(q));
+}
+function addToPendingQueue(action) {
+  const q = getPendingQueue();
+  q.push({ ...action, queuedAt: Date.now() });
+  setPendingQueue(q);
+  updateStatusBadge();
+}
+
+function updateStatusBadge() {
+  const badge = document.getElementById('status-badge');
+  const dot   = document.getElementById('status-dot');
+  const text  = document.getElementById('status-text');
+  const pb    = document.getElementById('pending-badge');
+  if (!badge) return;
+
+  const pending = getPendingQueue().length;
+
+  if (!_isOnline) {
+    badge.className = 'status-badge offline';
+    text.textContent = 'OFFLINE';
+    pb.style.display = pending ? 'inline' : 'none';
+    pb.textContent = pending ? `${pending} pend.` : '';
+  } else {
+    badge.className = 'status-badge';
+    text.textContent = 'ONLINE';
+    pb.style.display = 'none';
+  }
+}
+
+function showSyncToast(type, msg) {
+  const toast = document.getElementById('sync-toast');
+  const icon  = document.getElementById('sync-toast-icon');
+  const msgEl = document.getElementById('sync-toast-msg');
+  if (!toast) return;
+  clearTimeout(_syncToastTimer);
+  toast.className = 'show toast-' + type;
+  icon.textContent  = type === 'pending' ? '⏳' : type === 'success' ? '✅' : '⚠️';
+  msgEl.textContent = msg;
+  const duration = type === 'success' ? 3500 : type === 'error' ? 5000 : 0;
+  if (duration) {
+    _syncToastTimer = setTimeout(() => {
+      toast.className = toast.className.replace(' show','').replace('show','');
+    }, duration);
+  }
+}
+
+function hideSyncToast() {
+  const toast = document.getElementById('sync-toast');
+  if (toast) toast.className = toast.className.replace('show','').trim();
+}
+
+async function syncPendingQueue() {
+  if (!window._firebaseReady || !_isOnline) return;
+  const q = getPendingQueue();
+  if (!q.length) return;
+
+  // Update badge to syncing state
+  const badge = document.getElementById('status-badge');
+  const text  = document.getElementById('status-text');
+  if (badge) { badge.className = 'status-badge syncing'; }
+  if (text)  { text.textContent = 'SINCRONIZANDO...'; }
+  showSyncToast('pending', `Sincronizando ${q.length} registro(s) pendente(s)...`);
+
+  let successCount = 0;
+  let failCount = 0;
+  const remaining = [];
+
+  for (const item of q) {
+    try {
+      if (item.type === 'registro') {
+        await window._fbSet(window._fbRef(window._db, 'registros/' + item.data.id), item.data);
+        successCount++;
+      } else if (item.type === 'colaborador') {
+        await window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(item.data, 'id'));
+        successCount++;
+      } else if (item.type === 'usuario') {
+        await window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(item.data, 'id'));
+        successCount++;
+      } else if (item.type === 'del_registro') {
+        await window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(item.data, 'id'));
+        successCount++;
+      }
+    } catch(e) {
+      console.warn('Falha ao sincronizar item:', item, e);
+      remaining.push(item);
+      failCount++;
+    }
+  }
+
+  setPendingQueue(remaining);
+  updateStatusBadge();
+
+  if (successCount > 0 && failCount === 0) {
+    showSyncToast('success', `✔ ${successCount} registro(s) sincronizado(s) com sucesso!`);
+  } else if (failCount > 0 && successCount > 0) {
+    showSyncToast('error', `${successCount} sincronizado(s), ${failCount} falhou. Tentando novamente...`);
+  } else if (failCount > 0) {
+    showSyncToast('error', `Falha ao sincronizar ${failCount} item(s). Tentando novamente...`);
+  }
+}
+
+// Listeners de conectividade
+window.addEventListener('online', () => {
+  _isOnline = true;
+  updateStatusBadge();
+  const q = getPendingQueue();
+  if (q.length > 0) {
+    setTimeout(syncPendingQueue, 1200); // pequeno delay para estabilizar a conexão
+  }
+});
+
+window.addEventListener('offline', () => {
+  _isOnline = false;
+  updateStatusBadge();
+  showSyncToast('error', '⚠️ Sem conexão. Registros serão salvos localmente.');
+  setTimeout(hideSyncToast, 5000);
+});
+
 // ─── STORAGE (Firebase ou localStorage) ──────────────────────────────────────
 function saveColabs() {
   if (window._firebaseReady) {
-    window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'));
+    if (!_isOnline) {
+      addToPendingQueue({ type: 'colaborador', data: colaboradores });
+    } else {
+      window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'));
+    }
   }
   localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
 }
@@ -1357,6 +1533,16 @@ function saveColabs() {
 function saveRegistros(novoReg) {
   localStorage.setItem('ms_registros', JSON.stringify(registros));
   if (window._firebaseReady) {
+    if (!_isOnline) {
+      // Offline: enfileira para sincronizar depois
+      if (novoReg) {
+        addToPendingQueue({ type: 'registro', data: novoReg });
+      } else {
+        // exclusão em lote: salva snapshot atual
+        addToPendingQueue({ type: 'del_registro', data: registros });
+      }
+      return;
+    }
     if (novoReg) {
       // Salva só o novo registro diretamente pelo id — evita race condition com onValue
       window._fbSet(window._fbRef(window._db, 'registros/' + novoReg.id), novoReg);
@@ -1369,7 +1555,11 @@ function saveRegistros(novoReg) {
 
 function saveUsuarios() {
   if (window._firebaseReady) {
-    window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'));
+    if (!_isOnline) {
+      addToPendingQueue({ type: 'usuario', data: usuarios });
+    } else {
+      window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'));
+    }
   }
   localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
 }
@@ -1525,6 +1715,13 @@ function entrarSistema(usuario) {
   }
 
   loadData();
+  // Atualiza badge e sincroniza pendências após login
+  setTimeout(() => {
+    updateStatusBadge();
+    if (_isOnline && getPendingQueue().length > 0) {
+      setTimeout(syncPendingQueue, 1500);
+    }
+  }, 500);
 }
 
 function sairSistema() {
@@ -1958,9 +2155,13 @@ function registrarPonto(tipoParam) {
 function showFeedback(tipo, nome) {
   const el = document.getElementById('feedback-banner');
   el.className = 'feedback ' + tipo;
+  const offlineNote = !_isOnline
+    ? `<div style="font-size:11px;color:var(--gold);margin-top:4px;font-family:var(--font-mono)">📡 Offline — será sincronizado quando a conexão voltar</div>`
+    : '';
   el.innerHTML = `
     <div class="feedback-title">${tipo==='entrada'?'✅ Entrada registrada!':'🚪 Saída registrada!'}</div>
     <div class="feedback-sub">${esc(nome)} &nbsp;·&nbsp; ${fmtHora(Date.now())}</div>
+    ${offlineNote}
   `;
   el.style.display = 'block';
   clearTimeout(el._timer);
@@ -2511,6 +2712,15 @@ function exportarPDF() {
 
 checkSession();
 mostrarSetupSeNecessario();
+
+// Atualiza badge de status assim que o DOM estiver pronto
+document.addEventListener('DOMContentLoaded', () => {
+  updateStatusBadge();
+  // Tenta sincronizar pendências ao carregar (se estiver online)
+  if (_isOnline && getPendingQueue().length > 0) {
+    setTimeout(syncPendingQueue, 2000);
+  }
+});
 </script>
 </body>
 </html>
