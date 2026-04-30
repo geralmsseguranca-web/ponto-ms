@@ -2168,6 +2168,8 @@ function openFaceModal() {
   document.getElementById('face-nome-label').textContent = selectedColab.nome;
   document.getElementById('face-overlay').style.display = 'flex';
   resetCamera();
+  // Inicia câmera automaticamente após o modal aparecer
+  setTimeout(() => cameraAction(), 300);
 }
 
 function closeFaceModal() {
@@ -2200,9 +2202,17 @@ async function cameraAction() {
       camState = 'streaming';
       document.getElementById('btn-camera-action').textContent = '📸 Verificar Identidade';
     } catch(e) {
-      document.getElementById('cam-placeholder').innerHTML = '<span class="face-icon">👤</span><p style="color:var(--muted);font-size:12px">Câmera indisponível<br>Modo simulado</p>';
-      camState = 'streaming';
-      document.getElementById('btn-camera-action').textContent = '📸 Verificar Identidade';
+      // Câmera indisponível: registra diretamente sem mostrar modal de câmera
+      const tipoFinal = document.getElementById('face-overlay').dataset.tipo;
+      camState = 'done';
+      document.getElementById('camera-wrap').className = 'camera-wrap done';
+      document.getElementById('cam-placeholder').style.display = 'none';
+      document.getElementById('face-success').style.display = 'flex';
+      document.getElementById('btn-camera-action').disabled = true;
+      setTimeout(() => {
+        closeFaceModal();
+        registrarPonto(tipoFinal);
+      }, 900);
     }
   } else if (camState === 'streaming') {
     camState = 'scanning';
