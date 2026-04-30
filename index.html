@@ -1782,36 +1782,18 @@ function selectColab(c) {
   const btnsDiv = document.getElementById('ponto-btns');
   if (selectedColab) {
     btnsDiv.style.display = 'grid';
-    const DOZE_HORAS = 12 * 60 * 60 * 1000;
-    const agora = Date.now();
     const btnEntrada = document.querySelector('.btn-entrada');
     const btnSaida   = document.querySelector('.btn-saida');
 
-    // Verifica bloqueio de cada tipo individualmente
-    ['entrada', 'saida'].forEach(tipo => {
-      const regsColab = registros.filter(r => r.colaboradorId === selectedColab.id && r.tipo === tipo);
-      const ultimo = regsColab.length ? regsColab.reduce((a,b) => a.timestamp > b.timestamp ? a : b) : null;
-      const bloqueado = ultimo && (agora - ultimo.timestamp) < DOZE_HORAS;
-      const btn = tipo === 'entrada' ? btnEntrada : btnSaida;
+    [btnEntrada, btnSaida].forEach((btn, i) => {
       if (!btn) return;
-      if (bloqueado) {
-        const restante = DOZE_HORAS - (agora - ultimo.timestamp);
-        const h = Math.floor(restante / 3600000);
-        const m = Math.floor((restante % 3600000) / 60000);
-        btn.style.opacity = '0.35';
-        btn.style.transform = 'scale(1)';
-        btn.style.boxShadow = 'none';
-        btn.style.cursor = 'not-allowed';
-        btn.disabled = true;
-        btn.title = `Bloqueado — disponível em ${h}h ${m}min`;
-      } else {
-        btn.style.opacity = '1';
-        btn.style.transform = 'scale(1.04)';
-        btn.style.boxShadow = tipo === 'entrada' ? '0 0 0 3px #22c55e66' : '0 0 0 3px #ef444466';
-        btn.style.cursor = 'pointer';
-        btn.disabled = false;
-        btn.title = '';
-      }
+      const tipo = i === 0 ? 'entrada' : 'saida';
+      btn.style.opacity = '1';
+      btn.style.transform = 'scale(1.04)';
+      btn.style.boxShadow = tipo === 'entrada' ? '0 0 0 3px #22c55e66' : '0 0 0 3px #ef444466';
+      btn.style.cursor = 'pointer';
+      btn.disabled = false;
+      btn.title = '';
     });
   } else {
     btnsDiv.style.display = 'none';
@@ -1829,28 +1811,6 @@ function baterPonto(tipo) {
   if (_pontoCooldown) return;
   _pontoCooldown = true;
   setTimeout(() => { _pontoCooldown = false; }, 3000);
-
-  const DOZE_HORAS = 12 * 60 * 60 * 1000;
-  const agora = Date.now();
-
-  // Busca o último registro do mesmo tipo deste colaborador
-  const regsColab = registros.filter(r => r.colaboradorId === selectedColab.id && r.tipo === tipo);
-  const ultimoMesmoTipo = regsColab.length
-    ? regsColab.reduce((a, b) => a.timestamp > b.timestamp ? a : b)
-    : null;
-
-  if (ultimoMesmoTipo && (agora - ultimoMesmoTipo.timestamp) < DOZE_HORAS) {
-    _pontoCooldown = false; // libera imediato se bloqueado
-    const restante = DOZE_HORAS - (agora - ultimoMesmoTipo.timestamp);
-    const horas    = Math.floor(restante / 3600000);
-    const minutos  = Math.floor((restante % 3600000) / 60000);
-    const tipoLabel = tipo === 'entrada' ? 'ENTRADA' : 'SAÍDA';
-    mostrarAvisoBloqueio(
-      `⛔ ${tipoLabel} já registrada!`,
-      `Próxima ${tipoLabel.toLowerCase()} disponível em ${horas}h ${minutos}min.`
-    );
-    return;
-  }
 
   // ── Abre modal de confirmação ────────────────────────────────
   pendingTipo = tipo;
