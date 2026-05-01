@@ -1663,29 +1663,24 @@ function attachFirebaseListeners() {
     const data = snap.val();
     const doFirebase = data ? fromFirebaseObj(data).sort((a,b) => b.timestamp - a.timestamp) : [];
 
-    // Mantém na memória os itens offline que ainda não chegaram ao Firebase
+    // Preserva apenas registros da fila offline que ainda não chegaram ao Firebase.
+    // ⚠️ NÃO mesclamos com localStorage aqui: quando o admin apaga um registro,
+    // o Firebase dispara onValue sem ele — se lêssemos o localStorage, o registro
+    // deletado seria "ressuscitado" e o colaborador não veria a deleção.
     const pendentes = getPendingQueue()
       .filter(p => p.type === 'registro')
       .map(p => p.data);
     const idsFirebase = new Set(doFirebase.map(r => r.id));
     const soOffline   = pendentes.filter(p => !idsFirebase.has(p.id));
 
-    // Também preserva registros locais com IDs que ainda não chegaram ao Firebase
-    // (podem ter sido salvos no localStorage mas ainda não sincronizados)
-    const localRegistros = (() => {
-      try { return JSON.parse(localStorage.getItem('ms_registros')) || []; } catch { return []; }
-    })();
-    const soLocal = localRegistros.filter(r => !idsFirebase.has(r.id) && !soOffline.find(p => p.id === r.id));
-
-    registros = [...soOffline, ...soLocal, ...doFirebase];
-    // Persiste apenas os do Firebase no localStorage (os locais já estão lá)
+    // Firebase é a fonte de verdade — soOffline só preserva o que está em trânsito
+    registros = [...soOffline, ...doFirebase];
     localStorage.setItem('ms_registros', JSON.stringify(registros));
 
     if (currentUser) {
-      // Atualiza TODAS as views que exibem registros
-      renderColabPonto();    // cards de ponto (entrada/saída do dia) — tempo real
-      _renderHistTabla();    // tabela de histórico
-      _atualizarRelatorio(); // relatório se aberto
+      renderColabPonto();
+      _renderHistTabla();
+      _atualizarRelatorio();
     }
   });
 
