@@ -668,6 +668,9 @@ footer {
   .colab-admin-item { flex-wrap: wrap; }
 }
 
+/* hist-filter-nome-wrap: when visible, participates in grid normally */
+#hist-filter-nome-wrap { display: contents; }
+
 /* ══════════════════════════════════════════
    SETUP WIZARD
 ══════════════════════════════════════════ */
@@ -1143,10 +1146,60 @@ footer {
 
   <!-- ─── ABA: HISTÓRICO ─── -->
   <section id="tab-historico" class="tab-content active">
+
+    <!-- ══ CARD PESSOAL (apenas para colaboradores) ══ -->
+    <div id="hist-colab-header" style="display:none;margin-bottom:20px">
+      <div class="card" style="border-color:#1e40af66;background:linear-gradient(135deg,#080f1e,#0c1a32);position:relative;overflow:hidden">
+        <!-- glow decorativo -->
+        <div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,#0ea5e920,transparent 70%);pointer-events:none"></div>
+        <div style="display:flex;align-items:center;gap:14px;position:relative">
+          <div id="hist-colab-avatar" class="avatar" style="width:56px;height:56px;font-size:26px;box-shadow:0 0 20px #0ea5e940">?</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="hist-colab-nome">—</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:2px" id="hist-colab-posto">—</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;background:#052e0f;border:1px solid #22c55e55;border-radius:8px;padding:6px 12px;flex-shrink:0">
+            <div style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite"></div>
+            <span style="font-size:11px;font-family:var(--font-mono);color:var(--green);font-weight:600;letter-spacing:1px">TEMPO REAL</span>
+          </div>
+        </div>
+        <!-- Stats pessoais -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border2)">
+          <div style="text-align:center">
+            <div style="font-size:26px;font-weight:700;color:var(--accent);font-family:var(--font-head)" id="hist-stat-total">0</div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px">Total</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:26px;font-weight:700;color:var(--green);font-family:var(--font-head)" id="hist-stat-entradas">0</div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px">Entradas</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:26px;font-weight:700;color:var(--red);font-family:var(--font-head)" id="hist-stat-saidas">0</div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px">Saídas</div>
+          </div>
+        </div>
+        <!-- Último registro -->
+        <div id="hist-ultimo-reg" style="display:none;margin-top:14px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;font-size:13px;color:var(--muted)"></div>
+      </div>
+    </div>
+
+    <!-- ══ HEADER ADMIN (apenas para admins) ══ -->
+    <div id="hist-admin-header" style="display:none;margin-bottom:6px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text)">📋 Histórico Geral</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;background:#052e0f;border:1px solid #22c55e55;border-radius:8px;padding:5px 12px">
+          <div style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite"></div>
+          <span style="font-size:11px;font-family:var(--font-mono);color:var(--green);font-weight:600;letter-spacing:1px">TEMPO REAL</span>
+        </div>
+      </div>
+    </div>
+
     <div class="card" style="margin-bottom:20px">
       <p class="card-title">🔍 Filtros Dinâmicos</p>
       <div class="filter-grid">
-        <input class="input" id="f-nome"  type="text"   placeholder="Buscar colaborador..."  oninput="renderHistorico()"/>
+        <div id="hist-filter-nome-wrap"><input class="input" id="f-nome" type="text" placeholder="Buscar colaborador..." oninput="renderHistorico()"/></div>
         <select class="input" id="f-posto" onchange="renderHistorico()">
           <option value="">Todos os postos</option>
         </select>
@@ -1765,7 +1818,15 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-colaboradores').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-usuarios').style.display      = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-relatorios').style.display    = isAdmin ? '' : 'none';
-  document.getElementById('tab-btn-historico').style.display     = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-historico').style.display     = ''; // visível para todos
+
+  // Ajustes visuais da aba Histórico por perfil
+  const histColabHeader = document.getElementById('hist-colab-header');
+  const histAdminHeader = document.getElementById('hist-admin-header');
+  const fNomeWrap       = document.getElementById('hist-filter-nome-wrap');
+  if (histColabHeader) histColabHeader.style.display = isAdmin ? 'none' : 'block';
+  if (histAdminHeader) histAdminHeader.style.display = isAdmin ? 'block' : 'none';
+  if (fNomeWrap)       fNomeWrap.style.display       = isAdmin ? '' : 'none';
 
   // Colaborador abre direto na aba Bater Ponto; Admin abre no Histórico
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -1787,6 +1848,13 @@ function entrarSistema(usuario) {
   // Precisamos apenas renderizar com o que está em memória agora,
   // e os onValue já vão disparar com os dados frescos do Firebase.
   loadData();
+  // Para colaboradores: preenche o header personalizado imediatamente
+  if (!isAdmin) {
+    const avatarEl = document.getElementById('hist-colab-avatar');
+    const nomeEl   = document.getElementById('hist-colab-nome');
+    if (avatarEl) { avatarEl.textContent = (usuario.nome||'?').charAt(0).toUpperCase(); avatarEl.style.background = avatarColor(usuario.nome||''); }
+    if (nomeEl)   nomeEl.textContent = usuario.nome || usuario.login;
+  }
   updateStatusBadge();
   if (_isOnline && getPendingQueue().length > 0) setTimeout(syncPendingQueue, 1500);
 }
@@ -2316,6 +2384,47 @@ function _renderHistTabla() {
                   (!data  || dataReg === dataFlt);
     return isAdmin ? passa : passa && r.colaboradorNome.toLowerCase() === nomeUser.toLowerCase();
   });
+
+  // ── Atualiza card pessoal do colaborador ────────────────────────────────
+  if (!isAdmin) {
+    // Todos os registros do colaborador (sem filtros de data/tipo) para os stats totais
+    const todosDoColab = registros.filter(r =>
+      r.colaboradorNome.toLowerCase() === nomeUser.toLowerCase()
+    );
+    const totalEnt = todosDoColab.filter(r => r.tipo === 'entrada').length;
+    const totalSai = todosDoColab.filter(r => r.tipo === 'saida').length;
+
+    const stTotal    = document.getElementById('hist-stat-total');
+    const stEntradas = document.getElementById('hist-stat-entradas');
+    const stSaidas   = document.getElementById('hist-stat-saidas');
+    if (stTotal)    stTotal.textContent    = todosDoColab.length;
+    if (stEntradas) stEntradas.textContent = totalEnt;
+    if (stSaidas)   stSaidas.textContent   = totalSai;
+
+    // Avatar e nome
+    const avatarEl = document.getElementById('hist-colab-avatar');
+    const nomeEl   = document.getElementById('hist-colab-nome');
+    const postoEl  = document.getElementById('hist-colab-posto');
+    if (avatarEl) avatarEl.textContent = nomeUser.charAt(0).toUpperCase();
+    if (avatarEl) avatarEl.style.background = avatarColor(nomeUser);
+    if (nomeEl)   nomeEl.textContent   = nomeUser;
+
+    // Posto do colaborador (pega do último registro)
+    const colab = colaboradores.find(c => c.nome.toLowerCase() === nomeUser.toLowerCase());
+    if (postoEl) postoEl.textContent = colab ? ('📍 ' + colab.posto) : (todosDoColab[0]?.posto ? '📍 ' + todosDoColab[0].posto : '');
+
+    // Último registro
+    const ultimoEl = document.getElementById('hist-ultimo-reg');
+    if (ultimoEl && todosDoColab.length > 0) {
+      const ult = todosDoColab[0];
+      const tipoIcon = ult.tipo === 'entrada' ? '🟢' : '🔴';
+      const tipoLabel = ult.tipo === 'entrada' ? 'Entrada' : 'Saída';
+      ultimoEl.innerHTML = `${tipoIcon} <strong style="color:var(--text)">Último registro:</strong> ${tipoLabel} em <span style="font-family:var(--font-mono);color:var(--accent)">${fmtHora(ult.timestamp)}</span> — ${fmtData(ult.timestamp)}`;
+      ultimoEl.style.display = 'block';
+    } else if (ultimoEl) {
+      ultimoEl.style.display = 'none';
+    }
+  }
 
   const grupos = groupByDia(_filtrados);
   const total  = grupos.length;
