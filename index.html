@@ -2136,8 +2136,18 @@ function selectColab(c) {
   const btnsDiv = document.getElementById('ponto-btns');
   if (selectedColab) {
     btnsDiv.style.display = 'grid';
-    document.querySelector('.btn-entrada').disabled = false;
-    document.querySelector('.btn-saida').disabled   = false;
+    // Desabilita o botão do tipo já registrado hoje
+    const dia = regsDoDia(selectedColab.id);
+    const btnEntrada = document.querySelector('.btn-entrada');
+    const btnSaida   = document.querySelector('.btn-saida');
+    if (btnEntrada) {
+      btnEntrada.disabled = !!dia.entrada;
+      btnEntrada.title    = dia.entrada ? `Entrada já registrada às ${fmtHora(dia.entrada.timestamp).slice(0,5)}` : '';
+    }
+    if (btnSaida) {
+      btnSaida.disabled = !!dia.saida;
+      btnSaida.title    = dia.saida ? `Saída já registrada às ${fmtHora(dia.saida.timestamp).slice(0,5)}` : '';
+    }
   } else {
     btnsDiv.style.display = 'none';
   }
@@ -2151,6 +2161,24 @@ let _pontoCooldown = false;
 
 function baterPonto(tipo) {
   if (!selectedColab || _pontoCooldown) return;
+
+  // ── Bloqueia duplicata no mesmo dia ──────────────────────────────────────
+  const diaAtual = regsDoDia(selectedColab.id);
+  if (tipo === 'entrada' && diaAtual.entrada) {
+    mostrarAvisoBloqueio(
+      '⚠️ Entrada já registrada hoje',
+      `${esc(selectedColab.nome)} já bateu entrada às <strong>${fmtHora(diaAtual.entrada.timestamp).slice(0,5)}</strong>. Só é permitida uma entrada por dia.`
+    );
+    return;
+  }
+  if (tipo === 'saida' && diaAtual.saida) {
+    mostrarAvisoBloqueio(
+      '⚠️ Saída já registrada hoje',
+      `${esc(selectedColab.nome)} já bateu saída às <strong>${fmtHora(diaAtual.saida.timestamp).slice(0,5)}</strong>. Só é permitida uma saída por dia.`
+    );
+    return;
+  }
+
   _pontoCooldown = true;
   setTimeout(() => { _pontoCooldown = false; }, 3000);
 
@@ -2283,7 +2311,7 @@ function registrarPonto(tipoParam) {
   saveRegistros(reg);
 
   // 4. Feedback visual
-  showFeedback(tipoFinal, selectedColab.nome);
+  showFeedback(tipoFinal, selectedColab ? selectedColab.nome : reg.colaboradorNome);
 
   // 5. Limpa seleção
   selectedColab = null;
