@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Grupo M.S — Ponto Eletrônico v3.2</title>
+<title>Grupo M.S — Ponto Eletrônico v6.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
@@ -1104,8 +1104,7 @@ footer {
       </div>
     </div>
     <nav class="tabs" id="nav-tabs">
-      <button class="tab-btn active" onclick="showTab('ponto',this)">🕐 Bater Ponto</button>
-      <button class="tab-btn" onclick="showTab('historico',this)">📋 Histórico</button>
+      <button class="tab-btn active" onclick="showTab('historico',this)">📋 Histórico</button>
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-usuarios" onclick="showTab('usuarios',this)" style="display:none">🔑 Usuários</button>
       <button class="tab-btn admin-tab" id="tab-btn-relatorios" onclick="showTab('relatorios',this)" style="display:none">📊 Relatórios</button>
@@ -1117,7 +1116,7 @@ footer {
 <main id="main-content" style="display:none">
 
   <!-- ─── ABA: PONTO ─── -->
-  <section id="tab-ponto" class="tab-content active">
+  <section id="tab-ponto" class="tab-content">
     <div class="clock-wrap">
       <div class="clock-time" id="clock">00:00:00</div>
       <div class="clock-date" id="clock-date"></div>
@@ -1142,7 +1141,7 @@ footer {
   </section>
 
   <!-- ─── ABA: HISTÓRICO ─── -->
-  <section id="tab-historico" class="tab-content">
+  <section id="tab-historico" class="tab-content active">
     <div class="card" style="margin-bottom:20px">
       <p class="card-title">🔍 Filtros Dinâmicos</p>
       <div class="filter-grid">
@@ -1280,7 +1279,7 @@ footer {
     <div class="info-box">
       🔑 <strong>Gestão de Acessos:</strong> Crie usuário e senha para cada colaborador.
       Envie o <strong>usuário</strong> e a <strong>senha</strong> para o colaborador acessar o sistema pelo link desta página.
-      <br>Perfil <strong>Admin</strong> vê todas as abas e pode gerenciar usuários. Perfil <strong>Colaborador</strong> acessa apenas "Bater Ponto" e "Histórico".
+      <br>Perfil <strong>Admin</strong> vê todas as abas e pode gerenciar usuários. Perfil <strong>Colaborador</strong> acessa apenas "Histórico".
     </div>
 
     <div class="card" id="user-form-card" style="margin-bottom:24px">
@@ -1617,8 +1616,16 @@ function attachFirebaseListeners() {
     const idsFirebase = new Set(doFirebase.map(r => r.id));
     const soOffline   = pendentes.filter(p => !idsFirebase.has(p.id));
 
-    registros = [...soOffline, ...doFirebase];
-    localStorage.setItem('ms_registros', JSON.stringify(doFirebase));
+    // Também preserva registros locais com IDs que ainda não chegaram ao Firebase
+    // (podem ter sido salvos no localStorage mas ainda não sincronizados)
+    const localRegistros = (() => {
+      try { return JSON.parse(localStorage.getItem('ms_registros')) || []; } catch { return []; }
+    })();
+    const soLocal = localRegistros.filter(r => !idsFirebase.has(r.id) && !soOffline.find(p => p.id === r.id));
+
+    registros = [...soOffline, ...soLocal, ...doFirebase];
+    // Persiste apenas os do Firebase no localStorage (os locais já estão lá)
+    localStorage.setItem('ms_registros', JSON.stringify(registros));
 
     if (currentUser) {
       // Atualiza TODAS as views que exibem registros
@@ -1758,10 +1765,13 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-usuarios').style.display      = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-relatorios').style.display    = isAdmin ? '' : 'none';
 
-  if (!isAdmin) {
-    const instrucao = document.getElementById('ponto-instrucao');
-    if (instrucao) instrucao.textContent = `Olá, ${usuario.nome}! Registre sua entrada ou saída:`;
-  }
+  // Garante que a aba Histórico esteja ativa ao entrar
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  const tabHist = document.getElementById('tab-historico');
+  if (tabHist) tabHist.classList.add('active');
+  const btnHist = document.querySelector('.tab-btn[onclick*="historico"]');
+  if (btnHist) btnHist.classList.add('active');
 
   // Os listeners já estão rodando (DOMContentLoaded os iniciou).
   // Precisamos apenas renderizar com o que está em memória agora,
@@ -1784,13 +1794,13 @@ function sairSistema() {
   const btn = document.getElementById('btn-entrar');
   btn.disabled = false;
   btn.textContent = '🔐 ENTRAR';
-  // Volta para a aba Ponto
+  // Volta para a aba Histórico
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-  const tabPonto = document.getElementById('tab-ponto');
-  if (tabPonto) tabPonto.classList.add('active');
-  const btnPonto = document.querySelector('.tab-btn');
-  if (btnPonto) btnPonto.classList.add('active');
+  const tabHist2 = document.getElementById('tab-historico');
+  if (tabHist2) tabHist2.classList.add('active');
+  const btnHist2 = document.querySelector('.tab-btn[onclick*="historico"]');
+  if (btnHist2) btnHist2.classList.add('active');
 }
 
 function checkSession() {
@@ -1963,7 +1973,7 @@ function showTab(id, btn) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + id).classList.add('active');
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
   if (id === 'historico')  { updatePostoFilter(); _renderHistTabla(); }
   if (id === 'usuarios')   { renderUsuarios(); }
   if (id === 'relatorios') { initRelatorioFiltros(); }
@@ -2470,6 +2480,8 @@ function renderAll() {
   updatePostoFilter();
   _renderHistTabla();
   _atualizarRelatorio();
+  // Garante que os filtros do histórico estejam populados sempre
+  if (getActiveTab() === 'historico') updatePostoFilter();
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
