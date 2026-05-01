@@ -1104,7 +1104,8 @@ footer {
       </div>
     </div>
     <nav class="tabs" id="nav-tabs">
-      <button class="tab-btn active" onclick="showTab('historico',this)">📋 Histórico</button>
+      <button class="tab-btn" id="tab-btn-ponto" onclick="showTab('ponto',this)">🕐 Bater Ponto</button>
+      <button class="tab-btn" id="tab-btn-historico" onclick="showTab('historico',this)">📋 Histórico</button>
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-usuarios" onclick="showTab('usuarios',this)" style="display:none">🔑 Usuários</button>
       <button class="tab-btn admin-tab" id="tab-btn-relatorios" onclick="showTab('relatorios',this)" style="display:none">📊 Relatórios</button>
@@ -1629,7 +1630,7 @@ function attachFirebaseListeners() {
 
     if (currentUser) {
       // Atualiza TODAS as views que exibem registros
-      renderColabPonto();    // cards de ponto (entrada/saída do dia)
+      renderColabPonto();    // cards de ponto (entrada/saída do dia) — tempo real
       _renderHistTabla();    // tabela de histórico
       _atualizarRelatorio(); // relatório se aberto
     }
@@ -1764,14 +1765,23 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-colaboradores').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-usuarios').style.display      = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-relatorios').style.display    = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-historico').style.display     = isAdmin ? '' : 'none';
 
-  // Garante que a aba Histórico esteja ativa ao entrar
+  // Colaborador abre direto na aba Bater Ponto; Admin abre no Histórico
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-  const tabHist = document.getElementById('tab-historico');
-  if (tabHist) tabHist.classList.add('active');
-  const btnHist = document.querySelector('.tab-btn[onclick*="historico"]');
-  if (btnHist) btnHist.classList.add('active');
+
+  if (isAdmin) {
+    const tabHist = document.getElementById('tab-historico');
+    if (tabHist) tabHist.classList.add('active');
+    const btnHist = document.getElementById('tab-btn-historico');
+    if (btnHist) btnHist.classList.add('active');
+  } else {
+    const tabPonto = document.getElementById('tab-ponto');
+    if (tabPonto) tabPonto.classList.add('active');
+    const btnPonto = document.getElementById('tab-btn-ponto');
+    if (btnPonto) btnPonto.classList.add('active');
+  }
 
   // Os listeners já estão rodando (DOMContentLoaded os iniciou).
   // Precisamos apenas renderizar com o que está em memória agora,
@@ -1794,13 +1804,13 @@ function sairSistema() {
   const btn = document.getElementById('btn-entrar');
   btn.disabled = false;
   btn.textContent = '🔐 ENTRAR';
-  // Volta para a aba Histórico
+  // Volta para a aba Bater Ponto ao sair
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-  const tabHist2 = document.getElementById('tab-historico');
-  if (tabHist2) tabHist2.classList.add('active');
-  const btnHist2 = document.querySelector('.tab-btn[onclick*="historico"]');
-  if (btnHist2) btnHist2.classList.add('active');
+  const tabPonto2 = document.getElementById('tab-ponto');
+  if (tabPonto2) tabPonto2.classList.add('active');
+  const btnPonto2 = document.getElementById('tab-btn-ponto');
+  if (btnPonto2) btnPonto2.classList.add('active');
 }
 
 function checkSession() {
@@ -1974,7 +1984,8 @@ function showTab(id, btn) {
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + id).classList.add('active');
   if (btn) btn.classList.add('active');
-  if (id === 'historico')  { updatePostoFilter(); _renderHistTabla(); }
+  if (id === 'ponto')     { renderColabPonto(); }
+  if (id === 'historico') { updatePostoFilter(); _renderHistTabla(); }
   if (id === 'usuarios')   { renderUsuarios(); }
   if (id === 'relatorios') { initRelatorioFiltros(); }
 }
