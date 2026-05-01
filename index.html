@@ -2129,6 +2129,24 @@ function renderColabPonto() {
       </div>`;
     container.appendChild(div);
   });
+
+  // ── Reavalia estado dos botões Entrada/Saída para o colaborador selecionado ──
+  // Garante que ao deletar um registro (pelo admin ou via Firebase listener),
+  // os botões ficam habilitados/desabilitados corretamente sem precisar
+  // que o colaborador clique novamente no card.
+  if (selectedColab) {
+    const diaAtual   = regsDoDia(selectedColab.id);
+    const btnEntrada = document.querySelector('.btn-entrada');
+    const btnSaida   = document.querySelector('.btn-saida');
+    if (btnEntrada) {
+      btnEntrada.disabled = !!diaAtual.entrada;
+      btnEntrada.title    = diaAtual.entrada ? `Entrada já registrada às ${fmtHora(diaAtual.entrada.timestamp).slice(0,5)}` : '';
+    }
+    if (btnSaida) {
+      btnSaida.disabled = !!diaAtual.saida;
+      btnSaida.title    = diaAtual.saida ? `Saída já registrada às ${fmtHora(diaAtual.saida.timestamp).slice(0,5)}` : '';
+    }
+  }
 }
 
 function selectColab(c) {
@@ -2505,6 +2523,7 @@ function excluirRegistro(id) {
   if (!confirm('Excluir este registro?')) return;
   registros = registros.filter(r => r.id !== id);
   saveRegistros();
+  renderColabPonto();
   _renderHistTabla();
   _atualizarRelatorio();
 }
@@ -2515,6 +2534,7 @@ function confirmarLimparTodos() {
   const ids = new Set(_filtrados.map(r => r.id));
   registros = registros.filter(r => !ids.has(r.id));
   saveRegistros();
+  renderColabPonto();
   _renderHistTabla();
   _atualizarRelatorio();
 }
@@ -2758,6 +2778,7 @@ function excluirRegistroRel(id) {
   if (!confirm('Excluir este registro?')) return;
   registros = registros.filter(r => r.id !== id);
   saveRegistros();
+  renderColabPonto();
   _renderHistTabla();
   gerarRelatorio();
 }
