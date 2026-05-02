@@ -50,21 +50,21 @@
 
 <style>
 :root {
-  --bg:        #070d1a;
-  --surface:   #0d1829;
-  --surface2:  #112035;
-  --border:    #1a3050;
-  --border2:   #0f2540;
-  --accent:    #0ea5e9;
-  --accent2:   #1e40af;
-  --green:     #22c55e;
-  --green-bg:  #052e0f;
-  --red:       #ef4444;
-  --red-bg:    #2d0808;
-  --text:      #e2eaf5;
-  --muted:     #4a6080;
-  --muted2:    #2a4060;
-  --gold:      #f59e0b;
+  --bg:        #111827;
+  --surface:   #1e2a3a;
+  --surface2:  #263548;
+  --border:    #334d6e;
+  --border2:   #243350;
+  --accent:    #38bdf8;
+  --accent2:   #3b82f6;
+  --green:     #4ade80;
+  --green-bg:  #0a2e1a;
+  --red:       #f87171;
+  --red-bg:    #3b1010;
+  --text:      #f0f6ff;
+  --muted:     #7a9ab8;
+  --muted2:    #3d5a7a;
+  --gold:      #fbbf24;
   --font-head: 'Rajdhani', sans-serif;
   --font-body: 'Noto Sans', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
@@ -194,7 +194,7 @@ body::before {
 ══════════════════════════════════════════ */
 header {
   position: sticky; top: 0; z-index: 100;
-  background: linear-gradient(180deg, #0a1422 0%, #070d1aee 100%);
+  background: linear-gradient(180deg, #1a2840 0%, #111827ee 100%);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
   box-shadow: 0 4px 40px #000a;
@@ -247,17 +247,17 @@ header {
 
 .status-badge {
   font-size: 11px; font-family: var(--font-mono);
-  background: #052e0f; color: var(--green);
+  background: #0a2e1a; color: var(--green);
   border: 1px solid #16a34a55; border-radius: 6px;
   padding: 5px 12px; display: flex; align-items: center; gap: 6px;
   font-weight: 600; transition: all .4s ease;
 }
 .status-badge.offline {
-  background: #2d0808; color: var(--red);
+  background: #3b1010; color: var(--red);
   border-color: #ef444455;
 }
 .status-badge.syncing {
-  background: #1a1a05; color: var(--gold);
+  background: #2a1f05; color: var(--gold);
   border-color: #f59e0b55;
 }
 .status-dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation: pulse 2s infinite; transition: background .4s; }
@@ -278,9 +278,9 @@ header {
 }
 #sync-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 #sync-toast .sync-icon { font-size: 20px; }
-#sync-toast.toast-pending { border-color: #f59e0b55; background: #1a1205; }
-#sync-toast.toast-success { border-color: #22c55e55; background: #051a0a; }
-#sync-toast.toast-error   { border-color: #ef444455; background: #1a0505; }
+#sync-toast.toast-pending { border-color: #f59e0b55; background: #2a1f05; }
+#sync-toast.toast-success { border-color: #22c55e55; background: #0a2e1a; }
+#sync-toast.toast-error   { border-color: #ef444455; background: #3b1010; }
 
 /* ── PENDING COUNTER BADGE ── */
 #pending-badge {
@@ -434,12 +434,12 @@ main {
 .btn-ponto:hover { transform: translateY(-3px); }
 .btn-ponto:active { transform: scale(.97); }
 .btn-entrada {
-  background: linear-gradient(135deg, #14532d, #16a34a);
+  background: linear-gradient(135deg, #166534, #22c55e);
   box-shadow: 0 8px 36px #22c55e33;
 }
 .btn-entrada:hover { box-shadow: 0 12px 48px #22c55e55; }
 .btn-saida {
-  background: linear-gradient(135deg, #7f1d1d, #b91c1c);
+  background: linear-gradient(135deg, #991b1b, #ef4444);
   box-shadow: 0 8px 36px #ef444433;
 }
 .btn-saida:hover { box-shadow: 0 12px 48px #ef444455; }
@@ -491,7 +491,7 @@ main {
 .camera-placeholder p { font-size: 12px; color: var(--muted); }
 .scan-line {
   position:absolute; inset:0; pointer-events:none;
-  background: linear-gradient(180deg, transparent 30%, #22c55e22 50%, transparent 70%);
+  background: linear-gradient(180deg, transparent 30%, #4ade8022 50%, transparent 70%);
   animation: scanAnim 1.5s ease-in-out infinite;
 }
 @keyframes scanAnim { 0%,100%{transform:translateY(-100%)} 50%{transform:translateY(100%)} }
@@ -534,21 +534,21 @@ main {
 }
 .input:focus { border-color: var(--accent); }
 .input option { background: var(--surface2); }
-#posto-selector-wrap.posto-ok #posto-selector { border-color: #22c55e88; background: #051a0a; color: var(--green); }
+#posto-selector-wrap.posto-ok #posto-selector { border-color: #22c55e88; background: #0a2e1a; color: var(--green); }
 .table-wrap {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 16px; overflow: hidden; margin-top: 16px;
 }
 table { width: 100%; border-collapse: collapse; }
-thead tr { background: #050d18; }
+thead tr { background: #1a2535; }
 th {
   padding: 13px 16px; text-align: left; font-family: var(--font-head);
   font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--muted);
   text-transform: uppercase;
 }
 td { padding: 12px 16px; font-size: 14px; border-top: 1px solid var(--border2); }
-tbody tr:nth-child(even) { background: #0a1220; }
-tbody tr:hover { background: #0d1930; }
+tbody tr:nth-child(even) { background: #192233; }
+tbody tr:hover { background: #1e2e45; }
 .td-nome { font-weight: 600; color: var(--text); }
 .td-hora { font-family: var(--font-mono); font-size: 13px; color: var(--text); }
 .td-data { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
@@ -629,7 +629,7 @@ tbody tr:hover { background: #0d1930; }
 .btn-del-perm:hover { background: #b91c1c55; border-color: var(--red); color: #fff; }
 .inactive-badge {
   font-size: 10px; font-family: var(--font-mono);
-  background: #2d0808; color: var(--red); border: 1px solid #dc262644;
+  background: #3b1010; color: var(--red); border: 1px solid #dc262644;
   padding: 2px 7px; border-radius: 4px; margin-left: 8px; vertical-align: middle;
 }
 .confirm-modal {
@@ -673,7 +673,7 @@ tbody tr:hover { background: #0d1930; }
 }
 
 .info-box {
-  background: #0c2040; border: 1px solid #1e40af55;
+  background: #1a2e4a; border: 1px solid #3b82f655;
   border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;
   font-size: 13px; color: #93c5fd; line-height: 1.6;
 }
@@ -849,7 +849,7 @@ footer {
 }
 .btn-setup-next:hover { transform: translateY(-1px); box-shadow: 0 6px 24px #0ea5e955; }
 .btn-setup-next.green-btn {
-  background: linear-gradient(135deg, #14532d, #16a34a);
+  background: linear-gradient(135deg, #166534, #22c55e);
   box-shadow: 0 4px 16px #22c55e33;
 }
 .btn-setup-back {
@@ -867,12 +867,12 @@ footer {
 
 /* Warning / tip boxes */
 .tip-box {
-  background: #0c1e0c; border: 1px solid #22c55e33;
+  background: #0a2e1a; border: 1px solid #4ade8033;
   border-radius: 10px; padding: 12px 16px; margin-top: 14px;
   font-size: 13px; color: #86efac; line-height: 1.6;
 }
 .warn-box {
-  background: #1c1000; border: 1px solid #f59e0b44;
+  background: #2a1c00; border: 1px solid #fbbf2444;
   border-radius: 10px; padding: 12px 16px; margin-top: 14px;
   font-size: 13px; color: #fcd34d; line-height: 1.6;
 }
@@ -1189,7 +1189,7 @@ footer {
 
     <!-- ══ CARD PESSOAL (apenas para colaboradores) ══ -->
     <div id="hist-colab-header" style="display:none;margin-bottom:20px">
-      <div class="card" style="border-color:#1e40af66;background:linear-gradient(135deg,#080f1e,#0c1a32);position:relative;overflow:hidden">
+      <div class="card" style="border-color:#1e40af66;background:linear-gradient(135deg,#172030,#1e2e45);position:relative;overflow:hidden">
         <!-- glow decorativo -->
         <div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,#0ea5e920,transparent 70%);pointer-events:none"></div>
         <div style="display:flex;align-items:center;gap:14px;position:relative">
@@ -1198,7 +1198,7 @@ footer {
             <div style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="hist-colab-nome">—</div>
             <div style="font-size:13px;color:var(--muted);margin-top:2px" id="hist-colab-posto">—</div>
           </div>
-          <div style="display:flex;align-items:center;gap:6px;background:#052e0f;border:1px solid #22c55e55;border-radius:8px;padding:6px 12px;flex-shrink:0">
+          <div style="display:flex;align-items:center;gap:6px;background:#0a2e1a;border:1px solid #4ade8055;border-radius:8px;padding:6px 12px;flex-shrink:0">
             <div style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite"></div>
             <span style="font-size:11px;font-family:var(--font-mono);color:var(--green);font-weight:600;letter-spacing:1px">TEMPO REAL</span>
           </div>
@@ -1229,7 +1229,7 @@ footer {
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text)">📋 Histórico Geral</span>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;background:#052e0f;border:1px solid #22c55e55;border-radius:8px;padding:5px 12px">
+        <div style="display:flex;align-items:center;gap:6px;background:#0a2e1a;border:1px solid #4ade8055;border-radius:8px;padding:5px 12px">
           <div style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite"></div>
           <span style="font-size:11px;font-family:var(--font-mono);color:var(--green);font-weight:600;letter-spacing:1px">TEMPO REAL</span>
         </div>
@@ -2308,7 +2308,7 @@ function baterPonto(tipo) {
   document.getElementById('confirm-ponto-nome').textContent   = `👤 ${selectedColab.nome}  ·  📍 ${_postoSelecionado || selectedColab.posto}`;
   document.getElementById('confirm-ponto-hora').textContent   = `🕐 ${new Date().toLocaleTimeString('pt-BR')}`;
   const btnC = document.getElementById('confirm-ponto-btn');
-  btnC.style.background = isEntrada ? 'linear-gradient(135deg,#14532d,#16a34a)' : 'linear-gradient(135deg,#7f1d1d,#b91c1c)';
+  btnC.style.background = isEntrada ? 'linear-gradient(135deg,#166534,#22c55e)' : 'linear-gradient(135deg,#991b1b,#ef4444)';
   document.getElementById('confirm-ponto-overlay').style.display = 'flex';
 }
 
@@ -2440,7 +2440,7 @@ function registrarPonto(tipoParam) {
 function mostrarAvisoBloqueio(titulo, msg) {
   const el = document.getElementById('feedback-banner');
   el.className = 'feedback saida';
-  el.style.background = '#2d0808';
+  el.style.background = '#3b1010';
   el.style.borderColor = '#ef444455';
   el.innerHTML = `
     <div class="feedback-title" style="color:#ef4444">${titulo}</div>
