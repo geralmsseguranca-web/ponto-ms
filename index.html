@@ -202,11 +202,20 @@ header {
 
 .header-inner {
   max-width: 960px; margin: 0 auto;
-  padding: 16px 20px 0;
+  padding: 12px 20px 0;
 }
 
 .brand {
-  display: flex; align-items: center; gap: 14px; margin-bottom: 20px;
+  display: flex; align-items: center; gap: 14px; margin-bottom: 12px;
+}
+
+@media (max-width: 520px) {
+  .header-inner { padding: 10px 12px 0; }
+  .brand { margin-bottom: 8px; gap: 10px; }
+  .brand-text h1 { font-size: 20px; }
+  .brand-text p  { display: none; }
+  .status-badge  { font-size: 10px; padding: 4px 8px; }
+  .user-chip     { font-size: 11px; padding: 4px 8px; }
 }
 
 .brand-logo {
@@ -293,13 +302,20 @@ header {
 .user-chip:hover { border-color: var(--accent); }
 
 /* ── TABS ── */
-.tabs { display: flex; gap: 0; }
+.tabs {
+  display: flex; gap: 0;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
 .tab-btn {
   background: transparent; border: none; cursor: pointer;
-  padding: 14px 22px; font-family: var(--font-head);
-  font-size: 15px; font-weight: 600; letter-spacing: 0.5px;
+  padding: 12px 16px; font-family: var(--font-head);
+  font-size: 14px; font-weight: 600; letter-spacing: 0.3px;
   color: var(--muted); border-bottom: 3px solid transparent;
   transition: all .2s; white-space: nowrap; position: relative;
+  flex-shrink: 0;
 }
 .tab-btn:hover { color: var(--text); }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
@@ -310,6 +326,18 @@ header {
 }
 .tab-btn.admin-tab { color: var(--gold); }
 .tab-btn.admin-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+/* Tabs — tela pequena: ícone + texto curto */
+@media (max-width: 520px) {
+  .tab-btn { padding: 10px 12px; font-size: 12px; gap: 4px; }
+  .tab-btn .tab-label { display: none; }
+  .tab-btn .tab-icon  { font-size: 18px; display: inline; }
+}
+
+/* Tela média: texto comprimido */
+@media (min-width: 521px) and (max-width: 720px) {
+  .tab-btn { padding: 11px 14px; font-size: 13px; }
+}
 
 /* ── MAIN ── */
 main {
@@ -1107,11 +1135,11 @@ footer {
       </div>
     </div>
     <nav class="tabs" id="nav-tabs">
-      <button class="tab-btn" id="tab-btn-ponto" onclick="showTab('ponto',this)">🕐 Bater Ponto</button>
-      <button class="tab-btn" id="tab-btn-historico" onclick="showTab('historico',this)">📋 Histórico</button>
-      <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
-      <button class="tab-btn admin-tab" id="tab-btn-usuarios" onclick="showTab('usuarios',this)" style="display:none">🔑 Usuários</button>
-      <button class="tab-btn admin-tab" id="tab-btn-relatorios" onclick="showTab('relatorios',this)" style="display:none">📊 Relatórios</button>
+      <button class="tab-btn" id="tab-btn-ponto" onclick="showTab('ponto',this)"><span class="tab-icon">🕐</span><span class="tab-label"> Bater Ponto</span></button>
+      <button class="tab-btn" id="tab-btn-historico" onclick="showTab('historico',this)"><span class="tab-icon">📋</span><span class="tab-label"> Histórico</span></button>
+      <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)"><span class="tab-icon">👥</span><span class="tab-label"> Colaboradores</span></button>
+      <button class="tab-btn admin-tab" id="tab-btn-usuarios" onclick="showTab('usuarios',this)" style="display:none"><span class="tab-icon">🔑</span><span class="tab-label"> Usuários</span></button>
+      <button class="tab-btn admin-tab" id="tab-btn-relatorios" onclick="showTab('relatorios',this)" style="display:none"><span class="tab-icon">📊</span><span class="tab-label"> Relatórios</span></button>
     </nav>
   </div>
 </header>
