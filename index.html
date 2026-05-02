@@ -2623,4 +2623,434 @@ function excluirRegistro(id) {
   if (!confirm('Excluir este registro?')) return;
   registros = registros.filter(r => r.id !== id);
   saveRegistros();
-  renderColab
+  renderColabPonto();
+  _renderHistTabla();
+  _atualizarRelatorio();
+}
+
+function confirmarLimparTodos() {
+  const total = _filtrados.length;
+  if (!confirm(`Excluir ${total} registro(s) filtrado(s)? Esta ação não pode ser desfeita.`)) return;
+  const ids = new Set(_filtrados.map(r => r.id));
+  registros = registros.filter(r => !ids.has(r.id));
+  saveRegistros();
+  renderColabPonto();
+  _renderHistTabla();
+  _atualizarRelatorio();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  RENDER: COLABORADORES (admin)
+// ══════════════════════════════════════════════════════════════════════════════
+function renderColaboradores() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  const busca = (document.getElementById('f-busca-colab')?.value || '').toLowerCase();
+  const lista = colaboradores.filter(c => c.nome.toLowerCase().includes(busca) || c.posto.toLowerCase().includes(busca));
+  const container = document.getElementById('colab-admin-list');
+  if (!container) return;
+  if (!lista.length) {
+    container.innerHTML = '<p style="color:var(--muted);text-align:center;padding:32px">Nenhum colaborador encontrado</p>';
+    return;
+  }
+  container.innerHTML = lista.map(c => `
+    <div class="colab-admin-item ${c.ativo?'':'inactive'}">
+      <div class="avatar" style="background:${c.ativo?avatarColor(c.nome):'var(--surface2)'};${c.ativo?'':'color:var(--muted)'}">${c.nome.charAt(0)}</div>
+      <div class="colab-admin-info">
+        <div class="colab-name">${esc(c.nome)}${!c.ativo?'<span class="inactive-badge">INATIVO</span>':''}</div>
+        <div class="colab-posto">📍 ${esc(c.posto)}</div>
+      </div>
+      <div class="colab-admin-actions">
+        ${c.ativo ? `
+          <button class="btn-edit" onclick="editarColaborador('${c.id}')">✏️ Editar</button>
+          <button class="btn-del"  onclick="confirmarDel('${c.id}')">🚫 Desativar</button>
+          <button class="btn-del-perm" onclick="confirmarDelPerm('${c.id}','${esc(c.nome)}')">🗑️</button>
+        ` : `
+          <button class="btn-reativar" onclick="reativarColaborador('${c.id}')">↩️ Reativar</button>
+          <button class="btn-del-perm" onclick="confirmarDelPerm('${c.id}','${esc(c.nome)}')">🗑️ Excluir</button>
+        `}
+      </div>
+    </div>`).join('');
+}
+
+function salvarColaborador() {
+  const nome  = document.getElementById('f-colab-nome').value.trim();
+  const posto = document.getElementById('f-colab-posto').value.trim();
+  if (!nome || !posto) return;
+  if (editId) {
+    colaboradores = colaboradores.map(c => c.id === editId ? { ...c, nome, posto } : c);
+    cancelarEdicao();
+  } else {
+    colaboradores.push({ id: uid(), nome, posto, ativo: true });
+  }
+  saveColabs();
+  document.getElementById('f-colab-nome').value = '';
+  document.getElementById('f-colab-posto').value = '';
+  renderAll();
+}
+
+function editarColaborador(id) {
+  const c = colaboradores.find(c => c.id === id); if (!c) return;
+  editId = id;
+  document.getElementById('f-colab-nome').value  = c.nome;
+  document.getElementById('f-colab-posto').value = c.posto;
+  document.getElementById('form-title').textContent = '✏️ Editando Colaborador';
+  document.getElementById('btn-salvar').textContent = '💾 Salvar Alterações';
+  document.getElementById('btn-cancelar-edit').style.display = 'inline-block';
+  document.getElementById('form-card').classList.add('editing');
+  document.getElementById('f-colab-nome').focus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelarEdicao() {
+  editId = null;
+  document.getElementById('f-colab-nome').value = '';
+  document.getElementById('f-colab-posto').value = '';
+  document.getElementById('form-title').textContent = '➕ Novo Colaborador';
+  document.getElementById('btn-salvar').textContent = '✅ Adicionar';
+  document.getElementById('btn-cancelar-edit').style.display = 'none';
+  document.getElementById('form-card').classList.remove('editing');
+}
+
+function confirmarDel(id) {
+  delTargetId = id;
+  document.getElementById('del-overlay').style.display = 'flex';
+}
+function confirmarExclusao() {
+  colaboradores = colaboradores.map(c => c.id === delTargetId ? { ...c, ativo: false } : c);
+  saveColabs(); delTargetId = null;
+  document.getElementById('del-overlay').style.display = 'none';
+  renderAll();
+}
+function reativarColaborador(id) {
+  colaboradores = colaboradores.map(c => c.id === id ? { ...c, ativo: true } : c);
+  saveColabs(); renderAll();
+}
+function confirmarDelPerm(id, nome) {
+  delPermTargetId = id;
+  document.getElementById('del-perm-msg').textContent = `"${nome}" será removido do sistema.`;
+  document.getElementById('del-perm-overlay').style.display = 'flex';
+}
+function confirmarExclusaoPermanente() {
+  if (!delPermTargetId) return;
+  colaboradores = colaboradores.filter(c => c.id !== delPermTargetId);
+  saveColabs(); delPermTargetId = null;
+  document.getElementById('del-perm-overlay').style.display = 'none';
+  renderAll();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  RENDER ALL — atualiza todas as views de uma vez
+// ══════════════════════════════════════════════════════════════════════════════
+function renderAll() {
+  if (!currentUser) return;
+  renderColabPonto();
+  renderColaboradores();
+  updatePostoFilter();
+  _renderHistTabla();
+  _atualizarRelatorio();
+  // Garante que os filtros do histórico estejam populados sempre
+  if (getActiveTab() === 'historico') updatePostoFilter();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  RELATÓRIOS — espelha o histórico com filtros próprios e exportação
+// ══════════════════════════════════════════════════════════════════════════════
+let relFiltrados = [];
+let _relAberto = false; // controla se o usuário já aplicou um filtro
+
+function initRelatorioFiltros() {
+  const selColab = document.getElementById('rel-colab');
+  const selPosto = document.getElementById('rel-posto');
+  if (!selColab || !selPosto) return;
+
+  const prevColab = selColab.value;
+  const prevPosto = selPosto.value;
+
+  const nomes  = [...new Set([...registros.map(r => r.colaboradorNome), ...colaboradores.filter(c=>c.ativo).map(c=>c.nome)])].sort();
+  const postos = [...new Set([...registros.map(r => r.posto),           ...colaboradores.filter(c=>c.ativo).map(c=>c.posto)])].sort();
+
+  selColab.innerHTML = '<option value="">Todos os colaboradores</option>' + nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  selPosto.innerHTML = '<option value="">Todos os postos</option>'       + postos.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+
+  // Restaura seleção anterior
+  if ([...selColab.options].some(o => o.value === prevColab)) selColab.value = prevColab;
+  if ([...selPosto.options].some(o => o.value === prevPosto)) selPosto.value = prevPosto;
+
+  // Na primeira abertura, preenche datas com o mês atual e gera automaticamente
+  if (!_relAberto) {
+    _relAberto = true;
+    const hoje = new Date();
+    const ini  = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    const iniEl = document.getElementById('rel-data-ini');
+    const fimEl = document.getElementById('rel-data-fim');
+    if (!iniEl.value) iniEl.value = ini.toISOString().slice(0,10);
+    if (!fimEl.value) fimEl.value = hoje.toISOString().slice(0,10);
+    gerarRelatorio();
+  } else if (relFiltrados.length > 0) {
+    // Se já havia resultado, re-gera para refletir novos registros
+    gerarRelatorio();
+  }
+}
+
+// Chamada automaticamente pelo onValue do Firebase e pelo registrarPonto
+function _atualizarRelatorio() {
+  if (getActiveTab() !== 'relatorios') return;
+  if (_relAberto) gerarRelatorio();
+}
+
+function gerarRelatorio() {
+  const colab   = document.getElementById('rel-colab')?.value    || '';
+  const posto   = document.getElementById('rel-posto')?.value    || '';
+  const tipo    = document.getElementById('rel-tipo')?.value     || '';
+  const dataIni = document.getElementById('rel-data-ini')?.value || '';
+  const dataFim = document.getElementById('rel-data-fim')?.value || '';
+
+  const ini = dataIni ? new Date(dataIni + 'T00:00:00').getTime() : 0;
+  const fim = dataFim ? new Date(dataFim + 'T23:59:59').getTime() : Infinity;
+
+  // Mesmos dados do histórico, com filtros do relatório
+  relFiltrados = registros.filter(r =>
+    (!colab || r.colaboradorNome === colab) &&
+    (!posto || r.posto === posto) &&
+    (!tipo  || r.tipo === tipo) &&
+    r.timestamp >= ini && r.timestamp <= fim
+  );
+
+  const entradas = relFiltrados.filter(r => r.tipo === 'entrada').length;
+  const saidas   = relFiltrados.filter(r => r.tipo === 'saida').length;
+  const colabs   = new Set(relFiltrados.map(r => r.colaboradorNome)).size;
+
+  const relTotal  = document.getElementById('rel-total');
+  const relEnt    = document.getElementById('rel-entradas');
+  const relSai    = document.getElementById('rel-saidas');
+  const relColN   = document.getElementById('rel-colaboradores-count');
+  const resumoEl  = document.getElementById('rel-resumo');
+  const tableWrap = document.getElementById('rel-table-wrap');
+  const vazioEl   = document.getElementById('rel-vazio');
+  const pdfBtn    = document.getElementById('btn-export-pdf');
+  const xlsBtn    = document.getElementById('btn-export-excel');
+
+  if (!resumoEl) return;
+
+  if (relTotal) relTotal.textContent = relFiltrados.length;
+  if (relEnt)   relEnt.textContent   = entradas;
+  if (relSai)   relSai.textContent   = saidas;
+  if (relColN)  relColN.textContent  = colabs;
+
+  if (!relFiltrados.length) {
+    resumoEl.style.display  = 'none';
+    tableWrap.style.display = 'none';
+    vazioEl.style.display   = 'block';
+    if (pdfBtn) pdfBtn.disabled = true;
+    if (xlsBtn) xlsBtn.disabled = true;
+    return;
+  }
+
+  resumoEl.style.display  = 'block';
+  tableWrap.style.display = 'block';
+  vazioEl.style.display   = 'none';
+  if (pdfBtn) pdfBtn.disabled = false;
+  if (xlsBtn) xlsBtn.disabled = false;
+
+  // ── Espelha o mesmo agrupamento do histórico ─────────────────────────────
+  const tbody = document.getElementById('rel-tbody');
+  if (!tbody) return;
+  const grupos = groupByDia(relFiltrados);
+  tbody.innerHTML = grupos.map(g => `
+    <tr>
+      <td class="td-data">${g.dia}</td>
+      <td class="td-nome">${esc(g.nome)}</td>
+      <td class="td-posto">${esc(g.posto)}</td>
+      <td class="td-hora" style="color:${g.entrada?'var(--green)':'var(--muted)'}">
+        ${g.entrada ? fmtHora(g.entrada.timestamp).slice(0,5) : '–:–'}
+      </td>
+      <td class="td-hora" style="color:${g.saida?'var(--red)':'var(--muted)'}">
+        ${g.saida ? fmtHora(g.saida.timestamp).slice(0,5) : '–:–'}
+      </td>
+      <td style="display:flex;gap:4px;padding:8px 16px">
+        ${g.entrada ? `<button class="btn-del" style="padding:4px 8px;font-size:11px" onclick="excluirRegistroRel('${g.entrada.id}')">▲🗑️</button>` : ''}
+        ${g.saida   ? `<button class="btn-del" style="padding:4px 8px;font-size:11px" onclick="excluirRegistroRel('${g.saida.id}')"  >▼🗑️</button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+
+function excluirRegistroRel(id) {
+  if (!confirm('Excluir este registro?')) return;
+  registros = registros.filter(r => r.id !== id);
+  saveRegistros();
+  renderColabPonto();
+  _renderHistTabla();
+  gerarRelatorio();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  EXPORTAÇÃO
+// ══════════════════════════════════════════════════════════════════════════════
+function exportarExcel() {
+  if (!relFiltrados.length) return;
+  const grupos = groupByDia(relFiltrados);
+  const dados  = grupos.map(g => ({
+    'Data':        g.dia,
+    'Colaborador': g.nome,
+    'Posto':       g.posto,
+    'Entrada':     g.entrada ? fmtHora(g.entrada.timestamp).slice(0,5) : '',
+    'Saída':       g.saida   ? fmtHora(g.saida.timestamp).slice(0,5)   : '',
+  }));
+  const ws = XLSX.utils.json_to_sheet(dados);
+  ws['!cols'] = [{wch:12},{wch:28},{wch:28},{wch:10},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Ponto');
+  XLSX.writeFile(wb, `Relatorio_Ponto_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.xlsx`);
+}
+
+function exportarPDF() {
+  if (!relFiltrados.length) return;
+  const dataHoje = new Date().toLocaleDateString('pt-BR');
+  const entradas = relFiltrados.filter(r => r.tipo === 'entrada').length;
+  const saidas   = relFiltrados.filter(r => r.tipo === 'saida').length;
+  const colabs   = [...new Set(relFiltrados.map(r => r.colaboradorNome))];
+  const grupos   = groupByDia(relFiltrados);
+  const linhas   = grupos.map(g => `
+    <tr>
+      <td>${g.dia}</td>
+      <td>${g.nome}</td>
+      <td>${g.posto}</td>
+      <td style="color:${g.entrada?'#16a34a':'#888'}">${g.entrada ? fmtHora(g.entrada.timestamp).slice(0,5) : '–:–'}</td>
+      <td style="color:${g.saida?'#dc2626':'#888'}">${g.saida   ? fmtHora(g.saida.timestamp).slice(0,5)   : '–:–'}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+  <title>Relatório Ponto</title>
+  <style>
+    body{font-family:Arial,sans-serif;margin:32px;color:#111}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #0ea5e9}
+    .brand{font-size:22px;font-weight:700;color:#0ea5e9}.subtitle{font-size:12px;color:#666;margin-top:4px}
+    .report-title{font-size:18px;font-weight:700;text-align:right}.report-date{font-size:12px;color:#666;text-align:right}
+    .resumo{display:flex;gap:20px;margin-bottom:20px}
+    .card{border:1px solid #ddd;border-radius:8px;padding:14px 20px;text-align:center;flex:1}
+    .num{font-size:28px;font-weight:700}.num-total{color:#0ea5e9}.num-entrada{color:#16a34a}.num-saida{color:#dc2626}.num-colab{color:#f59e0b}
+    .lbl{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th{padding:10px 12px;text-align:left;background:#f0f9ff;border-bottom:2px solid #0ea5e9;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#0369a1}
+    td{padding:9px 12px;border-bottom:1px solid #eee}
+    tr:nth-child(even) td{background:#fafafa}
+    .footer{margin-top:32px;text-align:center;font-size:11px;color:#999;border-top:1px solid #ddd;padding-top:12px}
+    @media print{body{margin:16px}}
+  </style></head><body>
+  <div class="header">
+    <div><div class="brand">GRUPO M.S</div><div class="subtitle">Segurança e Serviços · Ponto Eletrônico</div></div>
+    <div><div class="report-title">📋 Relatório de Registros</div><div class="report-date">Gerado em: ${dataHoje}</div></div>
+  </div>
+  <div class="resumo">
+    <div class="card"><div class="num num-total">${grupos.length}</div><div class="lbl">Total (dias)</div></div>
+    <div class="card"><div class="num num-entrada">${entradas}</div><div class="lbl">Entradas</div></div>
+    <div class="card"><div class="num num-saida">${saidas}</div><div class="lbl">Saídas</div></div>
+    <div class="card"><div class="num num-colab">${colabs.length}</div><div class="lbl">Colaboradores</div></div>
+  </div>
+  <table><thead><tr><th>Data</th><th>Colaborador</th><th>Posto</th><th>Entrada</th><th>Saída</th></tr></thead>
+  <tbody>${linhas}</tbody></table>
+  <div class="footer">Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v5.0 &nbsp;·&nbsp; ${dataHoje}</div>
+  </body></html>`;
+
+  const janela = window.open('', '_blank');
+  janela.document.write(html);
+  janela.document.close();
+  janela.focus();
+  setTimeout(() => janela.print(), 500);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  SETUP WIZARD (mantido para referência, mas já configurado)
+// ══════════════════════════════════════════════════════════════════════════════
+let setupCurrentStep = 1;
+const SETUP_TOTAL = 5;
+function mostrarSetupSeNecessario() { localStorage.setItem('ms_setup_done', '1'); }
+function fecharSetup() { localStorage.setItem('ms_setup_done', '1'); document.getElementById('setup-overlay').style.display = 'none'; }
+function setupNext() {
+  if (setupCurrentStep === 3) {
+    const campos = ['apiKey','authDomain','databaseURL','projectId','storageBucket','messagingSenderId','appId'];
+    const vals = {}; let preenchido = 0;
+    campos.forEach(c => { const v = document.getElementById('fb-'+c)?.value.trim(); if (v) { vals[c] = v; preenchido++; } });
+    if (preenchido > 0) {
+      const config = `const firebaseConfig = {\n  apiKey: "${vals.apiKey||'SUA_API_KEY'}",\n  authDomain: "${vals.authDomain||'SEU_PROJETO.firebaseapp.com'}",\n  databaseURL: "${vals.databaseURL||'https://SEU_PROJETO-default-rtdb.firebaseio.com'}",\n  projectId: "${vals.projectId||'SEU_PROJETO'}",\n  storageBucket: "${vals.storageBucket||'SEU_PROJETO.appspot.com'}",\n  messagingSenderId: "${vals.messagingSenderId||'SEU_SENDER_ID'}",\n  appId: "${vals.appId||'SEU_APP_ID'}"\n};`;
+      localStorage.setItem('ms_fb_config_preview', config);
+      mostrarInstrucaoDownload(config);
+    }
+  }
+  if (setupCurrentStep < SETUP_TOTAL) setupIrPara(setupCurrentStep + 1); else fecharSetup();
+}
+function setupPrev() { if (setupCurrentStep > 1) setupIrPara(setupCurrentStep - 1); }
+function setupIrPara(n) {
+  document.getElementById('step-' + setupCurrentStep).classList.remove('active');
+  document.getElementById('prog-' + setupCurrentStep).classList.remove('active');
+  document.getElementById('prog-' + setupCurrentStep).classList.add('done');
+  setupCurrentStep = n;
+  document.getElementById('step-' + n).classList.add('active');
+  for (let i = 1; i <= SETUP_TOTAL; i++) {
+    const el = document.getElementById('prog-' + i);
+    el.classList.remove('active','done');
+    if (i < n) el.classList.add('done'); else if (i === n) el.classList.add('active');
+  }
+  document.getElementById('btn-setup-back').style.display = n > 1 ? 'inline-block' : 'none';
+  const btnNext = document.getElementById('btn-setup-next');
+  if (n === SETUP_TOTAL) { btnNext.textContent = '✅ Entrar no sistema'; btnNext.classList.add('green-btn'); }
+  else if (n === 3) { btnNext.textContent = 'Salvar e continuar →'; btnNext.classList.remove('green-btn'); }
+  else { btnNext.textContent = 'Próximo →'; btnNext.classList.remove('green-btn'); }
+  document.querySelector('.setup-modal').scrollTop = 0;
+}
+function mostrarInstrucaoDownload(config) {
+  const existente = document.getElementById('instrucao-download');
+  if (existente) existente.remove();
+  const div = document.createElement('div');
+  div.id = 'instrucao-download'; div.className = 'instr-block'; div.style.marginTop = '14px'; div.style.borderColor = '#22c55e55';
+  div.innerHTML = `<h4 style="color:var(--green)">📥 Substitua no arquivo index.html:</h4>
+    <div class="code-block" id="config-preview" style="font-size:11px">${config.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    <button class="btn-copy" onclick="copiarConfig(this)">📋 Copiar configuração</button>`;
+  document.getElementById('step-3').appendChild(div);
+}
+function copiarRegras(btn) {
+  const regras = `{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}`;
+  navigator.clipboard.writeText(regras).then(() => { btn.textContent = '✅ Copiado!'; setTimeout(() => { btn.textContent = '📋 Copiar regras'; }, 2000); }).catch(() => { btn.textContent = '⚠️ Copie manualmente'; });
+}
+function copiarConfig(btn) {
+  const config = document.getElementById('config-preview')?.textContent || '';
+  navigator.clipboard.writeText(config).then(() => { btn.textContent = '✅ Copiado!'; setTimeout(() => { btn.textContent = '📋 Copiar configuração'; }, 2000); }).catch(() => { btn.textContent = '⚠️ Selecione e copie manualmente'; });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════════════════════
+// 1. Carrega usuários do localStorage AGORA (para login funcionar sem Firebase)
+(function initLocal() {
+  try { usuarios      = JSON.parse(localStorage.getItem('ms_usuarios'))      || []; } catch { usuarios = []; }
+  try { colaboradores = JSON.parse(localStorage.getItem('ms_colaboradores')) || []; } catch { colaboradores = []; }
+  try { registros     = JSON.parse(localStorage.getItem('ms_registros'))     || []; } catch { registros = []; }
+  if (!usuarios.length) {
+    usuarios = [{ id: uid(), login: 'admin', senha: 'admin123', nome: 'Administrador', role: 'admin' }];
+    localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+  }
+})();
+
+// 2. Verifica sessão existente
+checkSession();
+mostrarSetupSeNecessario();
+
+// 3. Quando o DOM estiver pronto: inicia listeners Firebase e sincronização
+document.addEventListener('DOMContentLoaded', () => {
+  updateStatusBadge();
+
+  // Listeners Firebase SEMPRE ativos — independente de login.
+  // O onValue dispara imediatamente com o snapshot atual e depois em tempo real.
+  // Isso garante que qualquer mudança no banco (bater ponto, outro usuário, etc.)
+  // atualize automaticamente TODAS as views.
+  if (window._firebaseReady) {
+    attachFirebaseListeners();
+  }
+
+  if (_isOnline && getPendingQueue().length > 0) {
+    setTimeout(syncPendingQueue, 2000);
+  }
+});
+</script>
+</body>
+</html>
