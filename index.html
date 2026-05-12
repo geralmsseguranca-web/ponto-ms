@@ -493,6 +493,7 @@ tbody tr:hover { background: #0d1930; }
 }
 .tipo-entrada { background: var(--green-bg); color: var(--green); }
 .tipo-saida   { background: var(--red-bg);   color: var(--red); }
+.tipo-vazio   { color: var(--muted2); font-size: 14px; padding: 0 10px; }
 .empty-row td { padding: 40px; text-align: center; color: var(--muted); }
 .pagination {
   display: flex; justify-content: center; align-items: center;
@@ -1207,7 +1208,7 @@ footer {
         <table>
           <thead>
             <tr>
-              <th>Data</th><th>Hora</th><th>Colaborador</th><th>Posto</th><th>Tipo</th>
+              <th>Data</th><th>Colaborador</th><th>Posto</th><th>Entrada</th><th>Saída</th>
             </tr>
           </thead>
           <tbody id="hist-tbody"></tbody>
@@ -1881,8 +1882,8 @@ async function cameraAction() {
       document.getElementById('face-success').style.display = 'flex';
       document.getElementById('camera-wrap').className = 'camera-wrap done';
       setTimeout(() => {
-        closeFaceModal();
         registrarPonto();
+        closeFaceModal();
       }, 900);
     }, 2400);
   }
@@ -1970,44 +1971,76 @@ function changePage(delta) {
   _renderHistTabla();
 }
 
-function _renderHistTabla() {
-  const nome       = (document.getElementById('f-nome')?.value||'').toLowerCase().trim();
-  const posto      = document.getElementById('f-posto')?.value||'';
-  const tipo       = document.getElementById('f-tipo')?.value||'';
-  const dataVal    = document.getElementById('f-data')?.value||'';
-  const colabId    = document.getElementById('f-colaborador')?.value||'';
+function _getDateKey(ts) {
+  const d = new Date(ts);
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
 
-  // Colaborador só vê os próprios registros
+function _renderHistTabla() {
+  const nome    = (document.getElementById('f-nome')?.value||'').toLowerCase().trim();
+  const posto   = document.getElementById('f-posto')?.value||'';
+  const tipo    = document.getElementById('f-tipo')?.value||'';
+  const dataVal = document.getElementById('f-data')?.value||'';
+  const colabId = document.getElementById('f-colaborador')?.value||'';
+
   const isAdmin  = currentUser?.role === 'admin';
   const nomeUser = (currentUser?.nome||'').toLowerCase();
 
-  _filtrados = registros.filter(r => {
-    // Restrição de perfil: colaborador só vê os próprios registros
+  // Filtra registros individuais (tipo NÃO filtra aqui — é aplicado após agrupamento)
+  const regFiltrados = registros.filter(r => {
     if (!isAdmin && r.colaboradorNome.toLowerCase() !== nomeUser) return false;
-
-    // Filtro por colaborador (select)
     if (colabId && r.colaboradorId !== colabId) return false;
-
-    // Filtro por posto
     if (posto && r.posto !== posto) return false;
-
-    // Filtro por tipo
-    if (tipo && r.tipo !== tipo) return false;
-
-    // Filtro por data — comparação via string YYYY-MM-DD para evitar fuso
-    if (dataVal) {
-      const d = new Date(r.timestamp);
-      const regDate = d.getFullYear() + '-' +
-        String(d.getMonth()+1).padStart(2,'0') + '-' +
-        String(d.getDate()).padStart(2,'0');
-      if (regDate !== dataVal) return false;
-    }
-
-    // Filtro por texto livre (nome)
+    if (dataVal && _getDateKey(r.timestamp) !== dataVal) return false;
     if (nome && !r.colaboradorNome.toLowerCase().includes(nome) && !r.posto.toLowerCase().includes(nome)) return false;
-
     return true;
   });
+
+  // Agrupa por colaborador + data formando pares entrada/saida na mesma linha
+  const gruposMap = {};
+  const ordenados = [...regFiltrados].sort((a,b) => a.timestamp - b.timestamp);
+  ordenados.forEach(r => {
+    const dateKey = _getDateKey(r.timestamp);
+    // Usa nome em lowercase como parte da chave para garantir agrupamento mesmo se ID mudou
+    const nomeKey = (r.colaboradorNome || '').toLowerCase().trim();
+    const chave = (r.colaboradorId || nomeKey) + '|' + dateKey;
+    if (!gruposMap[chave]) {
+      gruposMap[chave] = {
+        colaboradorId:   r.colaboradorId,
+        colaboradorNome: r.colaboradorNome,
+        posto:           r.posto,
+        dateKey,
+        dataTs:          r.timestamp,
+        entrada:         null,
+        saida:           null
+      };
+    }
+    if (r.tipo === 'entrada') {
+      // Guarda o horário de entrada mais CEDO do dia
+      if (gruposMap[chave].entrada === null || r.timestamp < gruposMap[chave].entrada)
+        gruposMap[chave].entrada = r.timestamp;
+    } else {
+      // Guarda o horário de saída mais TARDE do dia
+      if (gruposMap[chave].saida === null || r.timestamp > gruposMap[chave].saida)
+        gruposMap[chave].saida = r.timestamp;
+    }
+  });
+
+  let linhas = Object.values(gruposMap);
+
+  // Filtro de tipo aplicado no agrupamento
+  if (tipo === 'entrada') linhas = linhas.filter(l => l.entrada);
+  if (tipo === 'saida')   linhas = linhas.filter(l => l.saida);
+
+  // Ordena por data desc, depois nome asc
+  linhas.sort((a,b) => {
+    if (b.dateKey !== a.dateKey) return b.dateKey.localeCompare(a.dateKey);
+    return a.colaboradorNome.localeCompare(b.colaboradorNome, 'pt-BR');
+  });
+
+  _filtrados = linhas;
 
   const total = _filtrados.length;
   const pages = Math.max(1, Math.ceil(total/POR_PAGINA));
@@ -2020,17 +2053,23 @@ function _renderHistTabla() {
   if (!slice.length) {
     tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Nenhum registro encontrado</td></tr>';
   } else {
-    tbody.innerHTML = slice.map(r=>`
-      <tr>
-        <td class="td-data">${fmtData(r.timestamp)}</td>
-        <td class="td-hora">${fmtHora(r.timestamp)}</td>
-        <td class="td-nome">${esc(r.colaboradorNome)}</td>
-        <td class="td-posto">${esc(r.posto)}</td>
-        <td><span class="tipo-tag ${r.tipo==='entrada'?'tipo-entrada':'tipo-saida'}">
-          ${r.tipo==='entrada'?'▲ ENTRADA':'▼ SAÍDA'}
-        </span></td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = slice.map(l => {
+      const entradaHtml = l.entrada
+        ? `<span class="tipo-tag tipo-entrada">▲ ${fmtHora(l.entrada)}</span>`
+        : `<span class="tipo-tag tipo-vazio">–</span>`;
+      const saidaHtml = l.saida
+        ? `<span class="tipo-tag tipo-saida">▼ ${fmtHora(l.saida)}</span>`
+        : `<span class="tipo-tag tipo-vazio">–</span>`;
+      return `
+        <tr>
+          <td class="td-data">${fmtData(l.dataTs)}</td>
+          <td class="td-nome">${esc(l.colaboradorNome)}</td>
+          <td class="td-posto">${esc(l.posto)}</td>
+          <td>${entradaHtml}</td>
+          <td>${saidaHtml}</td>
+        </tr>
+      `;
+    }).join('');
   }
 
   const pagEl = document.getElementById('pagination');
