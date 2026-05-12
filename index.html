@@ -353,6 +353,9 @@ main {
 .ponto-btns {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px;
 }
+.ponto-btns > [style*="grid-column"] {
+  grid-column: 1 / -1;
+}
 .btn-ponto {
   border: none; border-radius: 20px; cursor: pointer;
   padding: 30px 20px; font-family: var(--font-head);
@@ -1170,6 +1173,9 @@ footer {
     <div class="colab-list" id="colab-list-ponto"></div>
 
     <div class="ponto-btns" id="ponto-btns" style="display:none">
+      <div id="loc-status" style="grid-column:1/-1;text-align:center;font-size:13px;color:var(--muted);font-family:var(--font-mono);padding:8px 0;background:var(--surface2);border-radius:10px;border:1px solid var(--border)">
+        📍 A localização será capturada ao bater o ponto
+      </div>
       <button class="btn-ponto btn-entrada" onclick="baterPonto('entrada')">
         <span class="icon">🟢</span> ENTRADA
       </button>
@@ -1812,10 +1818,61 @@ function selectColab(c) {
   renderColabPonto();
 }
 
+// ─── LOCALIZAÇÃO ─────────────────────────────────────────────────────────────
+let pendingLocalizacao = null;
+
+function obterLocalizacao() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({
+          lat: pos.coords.latitude.toFixed(6),
+          lng: pos.coords.longitude.toFixed(6),
+          precisao: Math.round(pos.coords.accuracy)
+        });
+      },
+      () => resolve(null),
+      { timeout: 8000, maximumAge: 0 }
+    );
+  });
+}
+
+function fmtLocalizacao(loc) {
+  if (!loc) return '—';
+  return `${loc.lat}, ${loc.lng} (±${loc.precisao}m)`;
+}
+
+function linkMaps(loc) {
+  if (!loc) return '—';
+  return `<a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" target="_blank" style="color:var(--accent);text-decoration:none" title="Ver no Google Maps">📍 ${loc.lat}, ${loc.lng} <span style="color:var(--muted);font-size:11px">(±${loc.precisao}m)</span></a>`;
+}
+
 // ─── BATER PONTO ─────────────────────────────────────────────────────────────
-function baterPonto(tipo) {
+async function baterPonto(tipo) {
   if (!selectedColab) return;
   pendingTipo = tipo;
+  pendingLocalizacao = null;
+
+  // Solicita localização ANTES de abrir o modal
+  const locEl = document.getElementById('loc-status');
+  if (locEl) { locEl.textContent = '📡 Obtendo localização...'; locEl.style.color = 'var(--muted)'; }
+
+  pendingLocalizacao = await obterLocalizacao();
+
+  if (locEl) {
+    if (pendingLocalizacao) {
+      locEl.textContent = `📍 ${pendingLocalizacao.lat}, ${pendingLocalizacao.lng} (±${pendingLocalizacao.precisao}m)`;
+      locEl.style.color = 'var(--green)';
+    } else {
+      locEl.textContent = '⚠️ Localização não disponível';
+      locEl.style.color = 'var(--gold)';
+    }
+  }
+
   openFaceModal();
 }
 
@@ -1902,27 +1959,33 @@ function registrarPonto() {
     colaboradorNome: selectedColab.nome,
     posto: selectedColab.posto,
     tipo: pendingTipo,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    localizacao: pendingLocalizacao || null
   };
   registros.unshift(reg);
   saveRegistros();
-  showFeedback(pendingTipo, selectedColab.nome);
+  showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao);
   selectedColab = null;
   pendingTipo = null;
+  pendingLocalizacao = null;
   document.getElementById('ponto-btns').style.display = 'none';
   renderColabPonto();
 }
 
-function showFeedback(tipo, nome) {
+function showFeedback(tipo, nome, loc) {
   const el = document.getElementById('feedback-banner');
   el.className = 'feedback ' + tipo;
+  const locHtml = loc
+    ? `<div class="feedback-sub" style="margin-top:6px">${linkMaps(loc)}</div>`
+    : `<div class="feedback-sub" style="margin-top:6px;color:var(--muted)">📍 Localização não capturada</div>`;
   el.innerHTML = `
     <div class="feedback-title">${tipo==='entrada'?'✅ Entrada registrada!':'🚪 Saída registrada!'}</div>
     <div class="feedback-sub">${esc(nome)} &nbsp;·&nbsp; ${fmtHora(Date.now())}</div>
+    ${locHtml}
   `;
   el.style.display = 'block';
   clearTimeout(el._timer);
-  el._timer = setTimeout(()=>{ el.style.display='none'; }, 4500);
+  el._timer = setTimeout(()=>{ el.style.display='none'; }, 6000);
 }
 
 // ─── RENDER: HISTÓRICO ────────────────────────────────────────────────────────
@@ -2014,17 +2077,23 @@ function _renderHistTabla() {
         dateKey,
         dataTs:          r.timestamp,
         entrada:         null,
-        saida:           null
+        saida:           null,
+        locEntrada:      null,
+        locSaida:        null
       };
     }
     if (r.tipo === 'entrada') {
       // Guarda o horário de entrada mais CEDO do dia
-      if (gruposMap[chave].entrada === null || r.timestamp < gruposMap[chave].entrada)
+      if (gruposMap[chave].entrada === null || r.timestamp < gruposMap[chave].entrada) {
         gruposMap[chave].entrada = r.timestamp;
+        gruposMap[chave].locEntrada = r.localizacao || null;
+      }
     } else {
       // Guarda o horário de saída mais TARDE do dia
-      if (gruposMap[chave].saida === null || r.timestamp > gruposMap[chave].saida)
+      if (gruposMap[chave].saida === null || r.timestamp > gruposMap[chave].saida) {
         gruposMap[chave].saida = r.timestamp;
+        gruposMap[chave].locSaida = r.localizacao || null;
+      }
     }
   });
 
@@ -2055,10 +2124,10 @@ function _renderHistTabla() {
   } else {
     tbody.innerHTML = slice.map(l => {
       const entradaHtml = l.entrada
-        ? `<span class="tipo-tag tipo-entrada">▲ ${fmtHora(l.entrada)}</span>`
+        ? `<span class="tipo-tag tipo-entrada">▲ ${fmtHora(l.entrada)}</span>${l.locEntrada ? `<br><a href="https://maps.google.com/?q=${l.locEntrada.lat},${l.locEntrada.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none" title="Ver localização">📍 Ver mapa</a>` : '<br><span style="font-size:10px;color:var(--muted)">📍 —</span>'}`
         : `<span class="tipo-tag tipo-vazio">–</span>`;
       const saidaHtml = l.saida
-        ? `<span class="tipo-tag tipo-saida">▼ ${fmtHora(l.saida)}</span>`
+        ? `<span class="tipo-tag tipo-saida">▼ ${fmtHora(l.saida)}</span>${l.locSaida ? `<br><a href="https://maps.google.com/?q=${l.locSaida.lat},${l.locSaida.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none" title="Ver localização">📍 Ver mapa</a>` : '<br><span style="font-size:10px;color:var(--muted)">📍 —</span>'}`
         : `<span class="tipo-tag tipo-vazio">–</span>`;
       return `
         <tr>
