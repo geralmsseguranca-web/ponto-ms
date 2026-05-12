@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Grupo M.S — Ponto Eletrônico</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
 <!-- Firebase SDK -->
 <script type="module">
@@ -703,8 +703,108 @@ footer {
 }
 
 /* ══════════════════════════════════════════
-   SETUP WIZARD
+   DASHBOARD
 ══════════════════════════════════════════ */
+.dash-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
+}
+.dash-title {
+  font-family: var(--font-head); font-size: 22px; font-weight: 700;
+  color: var(--text); margin-bottom: 4px;
+}
+.dash-sub { font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+
+.btn-dash-refresh {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--accent); border-radius: 10px; padding: 10px 18px;
+  font-family: var(--font-head); font-size: 14px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.5px; transition: all .2s; white-space: nowrap;
+}
+.btn-dash-refresh:hover { border-color: var(--accent); background: #0ea5e915; }
+
+.dash-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+  margin-bottom: 28px;
+}
+@media(max-width:600px){ .dash-stats { grid-template-columns: 1fr 1fr; } }
+
+.dash-stat-card {
+  border-radius: 16px; padding: 20px 18px; text-align: center;
+  border: 1px solid; position: relative; overflow: hidden;
+}
+.dash-stat-card::before {
+  content:''; position:absolute; inset:0;
+  background: linear-gradient(135deg, rgba(255,255,255,.04) 0%, transparent 60%);
+}
+.dash-stat-card.total  { background:#0c1e36; border-color:#1e40af55; }
+.dash-stat-card.dentro { background: var(--green-bg); border-color:#16a34a55; }
+.dash-stat-card.ausente{ background: var(--red-bg);   border-color:#dc262655; }
+
+.dash-stat-num {
+  font-family: var(--font-head); font-size: 42px; font-weight: 700; line-height: 1;
+}
+.dash-stat-card.total   .dash-stat-num { color: var(--accent); }
+.dash-stat-card.dentro  .dash-stat-num { color: var(--green); }
+.dash-stat-card.ausente .dash-stat-num { color: var(--red); }
+.dash-stat-label {
+  font-size: 11px; color: var(--muted); margin-top: 6px;
+  text-transform: uppercase; letter-spacing: 1.5px; font-family: var(--font-mono);
+}
+
+.dash-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 18px; overflow: hidden; margin-bottom: 20px;
+}
+.dash-section-title {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; font-family: var(--font-head);
+  font-size: 15px; font-weight: 700; letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border2);
+}
+.dash-section-title.ausente { color: var(--red);   background: #2d080822; }
+.dash-section-title.dentro  { color: var(--green); background: #052e0f22; }
+.dash-section-title.saiu    { color: var(--muted); background: var(--surface2); }
+
+.dash-count {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px; background: #ffffff11;
+}
+
+.dash-lista { padding: 10px 12px; display: grid; gap: 8px; }
+.dash-lista-vazia {
+  text-align: center; padding: 20px; color: var(--muted);
+  font-size: 13px; font-family: var(--font-mono);
+}
+
+.dash-card {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--surface2); border-radius: 12px;
+  padding: 12px 16px; border: 1px solid var(--border2);
+  transition: border-color .2s;
+}
+.dash-card:hover { border-color: var(--border); }
+.dash-card .avatar { width: 40px; height: 40px; border-radius: 10px; font-size: 18px; flex-shrink: 0; }
+.dash-card-info { flex: 1; min-width: 0; }
+.dash-card-nome { font-weight: 700; font-size: 15px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-card-posto { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.dash-card-time {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+  flex-shrink: 0; text-align: right;
+}
+.dash-card-time.verde  { color: var(--green); }
+.dash-card-time.vermelho { color: var(--red); }
+.dash-card-time.cinza  { color: var(--muted); }
+.dash-card-badge {
+  font-size: 10px; padding: 2px 8px; border-radius: 5px;
+  font-family: var(--font-mono); font-weight: 600; margin-top: 4px;
+  display: inline-block;
+}
+.badge-dentro  { background: var(--green-bg); color: var(--green); border: 1px solid #16a34a44; }
+.badge-ausente { background: var(--red-bg);   color: var(--red);   border: 1px solid #dc262644; }
+.badge-saiu    { background: #1e293b; color: var(--muted); border: 1px solid var(--border); }
+
+
 #setup-overlay {
   position: fixed; inset: 0; z-index: 2000;
   background: #000d;
@@ -1085,12 +1185,28 @@ footer {
 <!-- ══ TELA DE LOGIN ══ -->
 <div id="login-screen">
   <div class="login-card">
-    <div class="login-logo">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-        <path d="M12 2L3 6.5V12c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V6.5L12 2Z"
-          fill="white" opacity=".2" stroke="white" stroke-width="1.5"/>
-        <path d="M8.5 12.5l2.5 2.5 4.5-5" stroke="white" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round"/>
+    <div class="login-logo" style="background:none;box-shadow:none;width:80px;height:88px;border-radius:0">
+      <svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;filter:drop-shadow(0 0 14px rgba(0,200,248,.55))">
+        <defs>
+          <linearGradient id="lgHexG" x1="0" y1="0" x2="100" y2="110" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#0d3878"/>
+            <stop offset="100%" stop-color="#051225"/>
+          </linearGradient>
+          <linearGradient id="lgHexS" x1="0" y1="0" x2="100" y2="110" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#00eaff"/>
+            <stop offset="50%" stop-color="#0088cc"/>
+            <stop offset="100%" stop-color="#00c8f8"/>
+          </linearGradient>
+        </defs>
+        <polygon points="50,4 96,28 96,82 50,106 4,82 4,28" fill="url(#lgHexG)" stroke="url(#lgHexS)" stroke-width="2.5"/>
+        <polygon points="50,12 88,33 88,78 50,98 12,78 12,33" fill="none" stroke="rgba(0,200,248,0.18)" stroke-width="1"/>
+        <circle cx="50" cy="4"   r="2.5" fill="#00eaff" opacity=".8"/>
+        <circle cx="96" cy="28"  r="2.5" fill="#00eaff" opacity=".8"/>
+        <circle cx="96" cy="82"  r="2.5" fill="#00eaff" opacity=".8"/>
+        <circle cx="50" cy="106" r="2.5" fill="#00eaff" opacity=".8"/>
+        <circle cx="4"  cy="82"  r="2.5" fill="#00eaff" opacity=".8"/>
+        <circle cx="4"  cy="28"  r="2.5" fill="#00eaff" opacity=".8"/>
+        <text x="50" y="67" text-anchor="middle" font-family="'Orbitron',sans-serif" font-weight="900" font-size="30" fill="#eef4ff" letter-spacing="-2">P<tspan fill="#00eaff">J</tspan></text>
       </svg>
     </div>
     <div class="login-title">GRUPO M.S</div>
@@ -1122,12 +1238,28 @@ footer {
 <header id="main-header" style="display:none">
   <div class="header-inner">
     <div class="brand">
-      <div class="brand-logo">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2L3 6.5V12c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V6.5L12 2Z"
-            fill="white" opacity=".2" stroke="white" stroke-width="1.5"/>
-          <path d="M8.5 12.5l2.5 2.5 4.5-5" stroke="white" stroke-width="2"
-            stroke-linecap="round" stroke-linejoin="round"/>
+      <div class="brand-logo" style="background:none;box-shadow:none;width:52px;height:58px;border-radius:0">
+        <svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;filter:drop-shadow(0 0 10px rgba(0,200,248,.5))">
+          <defs>
+            <linearGradient id="hdHexG" x1="0" y1="0" x2="100" y2="110" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#0d3878"/>
+              <stop offset="100%" stop-color="#051225"/>
+            </linearGradient>
+            <linearGradient id="hdHexS" x1="0" y1="0" x2="100" y2="110" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#00eaff"/>
+              <stop offset="50%" stop-color="#0088cc"/>
+              <stop offset="100%" stop-color="#00c8f8"/>
+            </linearGradient>
+          </defs>
+          <polygon points="50,4 96,28 96,82 50,106 4,82 4,28" fill="url(#hdHexG)" stroke="url(#hdHexS)" stroke-width="2.5"/>
+          <polygon points="50,12 88,33 88,78 50,98 12,78 12,33" fill="none" stroke="rgba(0,200,248,0.18)" stroke-width="1"/>
+          <circle cx="50" cy="4"   r="2.5" fill="#00eaff" opacity=".8"/>
+          <circle cx="96" cy="28"  r="2.5" fill="#00eaff" opacity=".8"/>
+          <circle cx="96" cy="82"  r="2.5" fill="#00eaff" opacity=".8"/>
+          <circle cx="50" cy="106" r="2.5" fill="#00eaff" opacity=".8"/>
+          <circle cx="4"  cy="82"  r="2.5" fill="#00eaff" opacity=".8"/>
+          <circle cx="4"  cy="28"  r="2.5" fill="#00eaff" opacity=".8"/>
+          <text x="50" y="67" text-anchor="middle" font-family="'Orbitron',sans-serif" font-weight="900" font-size="30" fill="#eef4ff" letter-spacing="-2">P<tspan fill="#00eaff">J</tspan></text>
         </svg>
       </div>
       <div class="brand-text">
@@ -1147,6 +1279,7 @@ footer {
     </div>
     <nav class="tabs" id="nav-tabs">
       <button class="tab-btn active" onclick="showTab('ponto',this)">🕐 Bater Ponto</button>
+      <button class="tab-btn admin-tab" id="tab-btn-dashboard" onclick="showTab('dashboard',this)" style="display:none">📊 Dashboard</button>
       <button class="tab-btn" onclick="showTab('historico',this)">📋 Histórico</button>
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-usuarios" onclick="showTab('usuarios',this)" style="display:none">🔑 Usuários</button>
@@ -1183,6 +1316,50 @@ footer {
         <span class="icon">🔴</span> SAÍDA
       </button>
     </div>
+  </section>
+
+  <!-- ─── ABA: DASHBOARD ─── -->
+  <section id="tab-dashboard" class="tab-content">
+
+    <!-- Resumo do dia -->
+    <div class="dash-header">
+      <div>
+        <h2 class="dash-title">📊 Dashboard — Situação do Dia</h2>
+        <p class="dash-sub" id="dash-data-hoje"></p>
+      </div>
+      <button class="btn-dash-refresh" onclick="renderDashboard()">🔄 Atualizar</button>
+    </div>
+
+    <!-- Cards de resumo -->
+    <div class="dash-stats" id="dash-stats"></div>
+
+    <!-- Seção: Sem ponto hoje -->
+    <div class="dash-section">
+      <div class="dash-section-title ausente">
+        <span>🔴 Não registraram ponto hoje</span>
+        <span class="dash-count" id="dash-count-ausente">0</span>
+      </div>
+      <div id="dash-lista-ausente" class="dash-lista"></div>
+    </div>
+
+    <!-- Seção: Dentro (entrada sem saída) -->
+    <div class="dash-section">
+      <div class="dash-section-title dentro">
+        <span>🟢 Dentro — aguardando saída</span>
+        <span class="dash-count" id="dash-count-dentro">0</span>
+      </div>
+      <div id="dash-lista-dentro" class="dash-lista"></div>
+    </div>
+
+    <!-- Seção: Saiu (entrada + saída) -->
+    <div class="dash-section">
+      <div class="dash-section-title saiu">
+        <span>⚪ Finalizaram o turno</span>
+        <span class="dash-count" id="dash-count-saiu">0</span>
+      </div>
+      <div id="dash-lista-saiu" class="dash-lista"></div>
+    </div>
+
   </section>
 
   <!-- ─── ABA: HISTÓRICO ─── -->
@@ -1355,7 +1532,26 @@ footer {
 
 </main>
 
-<footer id="main-footer" style="display:none">© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v2.0</footer>
+<footer id="main-footer" style="display:none">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+    <div>© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v7.7</div>
+    <div style="display:flex;align-items:center;gap:8px;opacity:.55;font-size:11px;letter-spacing:1.5px;text-transform:uppercase">
+      <svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:18px;height:20px;filter:drop-shadow(0 0 4px rgba(0,200,248,.4))">
+        <defs>
+          <linearGradient id="ftHexG" x1="0" y1="0" x2="100" y2="110" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#0d3878"/><stop offset="100%" stop-color="#051225"/>
+          </linearGradient>
+          <linearGradient id="ftHexS" x1="0" y1="0" x2="100" y2="110" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#00eaff"/><stop offset="100%" stop-color="#00c8f8"/>
+          </linearGradient>
+        </defs>
+        <polygon points="50,4 96,28 96,82 50,106 4,82 4,28" fill="url(#ftHexG)" stroke="url(#ftHexS)" stroke-width="3"/>
+        <text x="50" y="68" text-anchor="middle" font-family="'Orbitron',sans-serif" font-weight="900" font-size="34" fill="#eef4ff" letter-spacing="-2">P<tspan fill="#00eaff">J</tspan></text>
+      </svg>
+      Desenvolvido por PJ Tecnologia e Sistemas
+    </div>
+  </div>
+</footer>
 
 <!-- ══ MODAL FACIAL ══ -->
 <div class="overlay" id="face-overlay" style="display:none">
@@ -1418,6 +1614,23 @@ footer {
       <button class="btn-secondary" onclick="cancelarDelRegistro()">Cancelar</button>
       <button style="background:#b91c1c;color:#fff;border:none;border-radius:10px;padding:12px 24px;cursor:pointer;font-weight:700;font-size:15px"
         onclick="confirmarDelRegistroOk()">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL EXCLUSÃO PERMANENTE COLABORADOR ══ -->
+<div class="overlay" id="del-perm-overlay" style="display:none">
+  <div class="confirm-modal">
+    <p style="font-size:40px">⛔</p>
+    <h3 style="color:var(--red)">Exclusão permanente!</h3>
+    <p style="margin-top:8px">Você está prestes a excluir permanentemente:</p>
+    <p style="font-weight:700;color:var(--text);margin-top:6px;font-size:16px" id="del-perm-nome"></p>
+    <p style="font-size:13px;color:var(--muted);margin-top:8px">Todos os registros de ponto deste colaborador também serão apagados.</p>
+    <p style="font-size:13px;color:var(--red);margin-top:6px;font-weight:700">⚠️ Esta ação não pode ser desfeita.</p>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="cancelarDelPermanente()">Cancelar</button>
+      <button style="background:#7f1d1d;color:#fff;border:none;border-radius:10px;padding:12px 24px;cursor:pointer;font-weight:700;font-size:15px"
+        onclick="executarDelPermanente()">Excluir permanentemente</button>
     </div>
   </div>
 </div>
@@ -1584,6 +1797,7 @@ function entrarSistema(usuario) {
   const isAdmin = usuario.role === 'admin';
   document.getElementById('tab-btn-colaboradores').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-usuarios').style.display = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-dashboard').style.display = isAdmin ? '' : 'none';
 
   // Se colaborador: pré-seleciona ele na lista de ponto
   if (!isAdmin) {
@@ -1785,8 +1999,9 @@ function showTab(id, btn) {
   document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
-  if (id==='historico') { updatePostoFilter(); renderHistorico(); }
-  if (id==='usuarios')  { renderUsuarios(); }
+  if (id==='historico')  { updatePostoFilter(); renderHistorico(); }
+  if (id==='usuarios')   { renderUsuarios(); }
+  if (id==='dashboard')  { renderDashboard(); }
 }
 
 // ─── RENDER: LISTA PONTO ──────────────────────────────────────────────────────
@@ -2238,9 +2453,10 @@ function renderColaboradores() {
       <div class="colab-admin-actions">
         ${c.ativo ? `
           <button class="btn-edit" onclick="editarColaborador('${c.id}')">✏️ Editar</button>
-          <button class="btn-del"  onclick="confirmarDel('${c.id}')">🗑️</button>
+          <button class="btn-del"  onclick="confirmarDel('${c.id}')" title="Inativar colaborador">🗑️</button>
         ` : `
           <button class="btn-reativar" onclick="reativarColaborador('${c.id}')">↩️ Reativar</button>
+          <button class="btn-del" onclick="confirmarDelPermanente('${c.id}','${esc(c.nome)}')" title="Excluir permanentemente">❌</button>
         `}
       </div>
     </div>
@@ -2321,6 +2537,35 @@ function reativarColaborador(id) {
   colaboradores = colaboradores.map(c=> c.id===id ? {...c, ativo:true} : c);
   saveColabs();
   renderAll();
+}
+
+let _delPermId   = null;
+let _delPermNome = null;
+
+function confirmarDelPermanente(id, nome) {
+  _delPermId   = id;
+  _delPermNome = nome;
+  document.getElementById('del-perm-nome').textContent = nome;
+  document.getElementById('del-perm-overlay').style.display = 'flex';
+}
+
+function executarDelPermanente() {
+  if (!_delPermId) return;
+  colaboradores = colaboradores.filter(c => c.id !== _delPermId);
+  // Remove também os registros de ponto do colaborador
+  registros = registros.filter(r => r.colaboradorId !== _delPermId);
+  saveColabs();
+  saveRegistros();
+  _delPermId = null;
+  _delPermNome = null;
+  document.getElementById('del-perm-overlay').style.display = 'none';
+  renderAll();
+}
+
+function cancelarDelPermanente() {
+  _delPermId = null;
+  _delPermNome = null;
+  document.getElementById('del-perm-overlay').style.display = 'none';
 }
 
 // ─── SUB-ABAS COLABORADORES ──────────────────────────────────────────────────
@@ -2521,6 +2766,125 @@ function exportarExcel() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const hoje = _getDateKey(Date.now());
+  const agora = new Date();
+
+  // Data formatada
+  const dataFmt = agora.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+  const el = document.getElementById('dash-data-hoje');
+  if (el) el.textContent = dataFmt.charAt(0).toUpperCase() + dataFmt.slice(1);
+
+  // Pega registros de hoje
+  const regsHoje = registros.filter(r => _getDateKey(r.timestamp) === hoje);
+
+  // Monta mapa: colaboradorId -> { entrada, saida }
+  const mapaHoje = {};
+  regsHoje.forEach(r => {
+    const id = r.colaboradorId;
+    if (!mapaHoje[id]) mapaHoje[id] = { entrada: null, saida: null, nome: r.colaboradorNome, posto: r.posto };
+    if (r.tipo === 'entrada') {
+      if (!mapaHoje[id].entrada || r.timestamp < mapaHoje[id].entrada)
+        mapaHoje[id].entrada = r.timestamp;
+    } else {
+      if (!mapaHoje[id].saida || r.timestamp > mapaHoje[id].saida)
+        mapaHoje[id].saida = r.timestamp;
+    }
+  });
+
+  const ativos = colaboradores.filter(c => c.ativo);
+
+  // Categoriza
+  const ausentes = []; // sem nenhum ponto hoje
+  const dentro   = []; // entrou mas não saiu
+  const saiu     = []; // entrou e saiu
+
+  ativos.forEach(c => {
+    const reg = mapaHoje[c.id];
+    if (!reg || !reg.entrada) {
+      ausentes.push(c);
+    } else if (reg.entrada && !reg.saida) {
+      dentro.push({ ...c, entrada: reg.entrada });
+    } else {
+      saiu.push({ ...c, entrada: reg.entrada, saida: reg.saida });
+    }
+  });
+
+  // Cards de resumo
+  document.getElementById('dash-stats').innerHTML = `
+    <div class="dash-stat-card total">
+      <div class="dash-stat-num">${ativos.length}</div>
+      <div class="dash-stat-label">Colaboradores ativos</div>
+    </div>
+    <div class="dash-stat-card dentro">
+      <div class="dash-stat-num">${dentro.length}</div>
+      <div class="dash-stat-label">Dentro agora</div>
+    </div>
+    <div class="dash-stat-card ausente">
+      <div class="dash-stat-num">${ausentes.length}</div>
+      <div class="dash-stat-label">Sem ponto hoje</div>
+    </div>
+  `;
+
+  // Render ausentes
+  document.getElementById('dash-count-ausente').textContent = ausentes.length;
+  document.getElementById('dash-lista-ausente').innerHTML = ausentes.length
+    ? ausentes.map(c => `
+      <div class="dash-card">
+        <div class="avatar" style="background:${avatarColor(c.nome)}">${c.nome.charAt(0)}</div>
+        <div class="dash-card-info">
+          <div class="dash-card-nome">${esc(c.nome)}</div>
+          <div class="dash-card-posto">📍 ${esc(c.posto)}</div>
+        </div>
+        <div class="dash-card-time vermelho">
+          <div>—</div>
+          <div class="dash-card-badge badge-ausente">SEM PONTO</div>
+        </div>
+      </div>`).join('')
+    : '<div class="dash-lista-vazia">✅ Todos registraram ponto hoje</div>';
+
+  // Render dentro
+  document.getElementById('dash-count-dentro').textContent = dentro.length;
+  document.getElementById('dash-lista-dentro').innerHTML = dentro.length
+    ? dentro.map(c => {
+        const minutos = Math.floor((Date.now() - c.entrada) / 60000);
+        const horas   = Math.floor(minutos / 60);
+        const mins    = minutos % 60;
+        const tempo   = horas > 0 ? `${horas}h ${mins}min` : `${mins}min`;
+        return `
+        <div class="dash-card">
+          <div class="avatar" style="background:${avatarColor(c.nome)}">${c.nome.charAt(0)}</div>
+          <div class="dash-card-info">
+            <div class="dash-card-nome">${esc(c.nome)}</div>
+            <div class="dash-card-posto">📍 ${esc(c.posto)}</div>
+          </div>
+          <div class="dash-card-time verde">
+            <div>▲ ${fmtHora(c.entrada)}</div>
+            <div class="dash-card-badge badge-dentro">há ${tempo}</div>
+          </div>
+        </div>`;
+      }).join('')
+    : '<div class="dash-lista-vazia">Nenhum colaborador aguardando saída</div>';
+
+  // Render saiu
+  document.getElementById('dash-count-saiu').textContent = saiu.length;
+  document.getElementById('dash-lista-saiu').innerHTML = saiu.length
+    ? saiu.map(c => `
+      <div class="dash-card">
+        <div class="avatar" style="background:${avatarColor(c.nome)};opacity:.6">${c.nome.charAt(0)}</div>
+        <div class="dash-card-info">
+          <div class="dash-card-nome" style="color:var(--muted)">${esc(c.nome)}</div>
+          <div class="dash-card-posto">📍 ${esc(c.posto)}</div>
+        </div>
+        <div class="dash-card-time cinza">
+          <div>▲ ${fmtHora(c.entrada)} &nbsp; ▼ ${fmtHora(c.saida)}</div>
+          <div class="dash-card-badge badge-saiu">TURNO COMPLETO</div>
+        </div>
+      </div>`).join('')
+    : '<div class="dash-lista-vazia">Nenhum colaborador finalizou o turno ainda</div>';
 }
 
 // ─── RENDER ALL ───────────────────────────────────────────────────────────────
