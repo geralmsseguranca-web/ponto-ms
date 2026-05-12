@@ -1214,7 +1214,7 @@ footer {
         <table>
           <thead>
             <tr>
-              <th>Data</th><th>Colaborador</th><th>Posto</th><th>Entrada</th><th>Saída</th>
+              <th>Data</th><th>Colaborador</th><th>Posto</th><th>Entrada</th><th>Saída</th><th id="th-acoes" style="display:none">Ações</th>
             </tr>
           </thead>
           <tbody id="hist-tbody"></tbody>
@@ -1403,6 +1403,21 @@ footer {
       <button class="btn-secondary" onclick="document.getElementById('del-user-overlay').style.display='none'">Cancelar</button>
       <button style="background:#b91c1c;color:#fff;border:none;border-radius:10px;padding:12px 24px;cursor:pointer;font-weight:700;font-size:15px"
         onclick="confirmarDelUser()">Remover</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL EXCLUIR REGISTRO HISTÓRICO ══ -->
+<div class="overlay" id="del-reg-overlay" style="display:none">
+  <div class="confirm-modal">
+    <p style="font-size:40px">🗑️</p>
+    <h3 style="color:var(--text)">Excluir registros?</h3>
+    <p id="del-reg-desc" style="font-size:14px;color:var(--muted);margin-top:8px"></p>
+    <p style="font-size:13px;color:var(--red);margin-top:8px">Esta ação não pode ser desfeita.</p>
+    <div class="confirm-btns">
+      <button class="btn-secondary" onclick="cancelarDelRegistro()">Cancelar</button>
+      <button style="background:#b91c1c;color:#fff;border:none;border-radius:10px;padding:12px 24px;cursor:pointer;font-weight:700;font-size:15px"
+        onclick="confirmarDelRegistroOk()">Excluir</button>
     </div>
   </div>
 </div>
@@ -2079,9 +2094,11 @@ function _renderHistTabla() {
         entrada:         null,
         saida:           null,
         locEntrada:      null,
-        locSaida:        null
+        locSaida:        null,
+        ids:             []
       };
     }
+    gruposMap[chave].ids.push(r.id);
     if (r.tipo === 'entrada') {
       // Guarda o horário de entrada mais CEDO do dia
       if (gruposMap[chave].entrada === null || r.timestamp < gruposMap[chave].entrada) {
@@ -2118,17 +2135,25 @@ function _renderHistTabla() {
 
   document.getElementById('filter-count').textContent = `${total} registro(s) encontrado(s)`;
 
+  // Mostra coluna Ações só para admin
+  const thAcoes = document.getElementById('th-acoes');
+  if (thAcoes) thAcoes.style.display = isAdmin ? '' : 'none';
+
   const tbody = document.getElementById('hist-tbody');
   if (!slice.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Nenhum registro encontrado</td></tr>';
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="${isAdmin?6:5}">Nenhum registro encontrado</td></tr>`;
   } else {
     tbody.innerHTML = slice.map(l => {
+      const idsJson = esc(JSON.stringify(l.ids || []));
       const entradaHtml = l.entrada
         ? `<span class="tipo-tag tipo-entrada">▲ ${fmtHora(l.entrada)}</span>${l.locEntrada ? `<br><a href="https://maps.google.com/?q=${l.locEntrada.lat},${l.locEntrada.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none" title="Ver localização">📍 Ver mapa</a>` : '<br><span style="font-size:10px;color:var(--muted)">📍 —</span>'}`
         : `<span class="tipo-tag tipo-vazio">–</span>`;
       const saidaHtml = l.saida
         ? `<span class="tipo-tag tipo-saida">▼ ${fmtHora(l.saida)}</span>${l.locSaida ? `<br><a href="https://maps.google.com/?q=${l.locSaida.lat},${l.locSaida.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none" title="Ver localização">📍 Ver mapa</a>` : '<br><span style="font-size:10px;color:var(--muted)">📍 —</span>'}`
         : `<span class="tipo-tag tipo-vazio">–</span>`;
+      const acoesHtml = isAdmin
+        ? `<td style="text-align:center"><button class="btn-del" title="Excluir registros do dia" onclick="confirmarDelRegistro('${esc(l.colaboradorNome)}','${esc(l.dateKey)}',this)">🗑️</button></td>`
+        : '';
       return `
         <tr>
           <td class="td-data">${fmtData(l.dataTs)}</td>
@@ -2136,6 +2161,7 @@ function _renderHistTabla() {
           <td class="td-posto">${esc(l.posto)}</td>
           <td>${entradaHtml}</td>
           <td>${saidaHtml}</td>
+          ${acoesHtml}
         </tr>
       `;
     }).join('');
@@ -2148,6 +2174,39 @@ function _renderHistTabla() {
     document.getElementById('btn-prev').disabled=(histPage===1);
     document.getElementById('btn-next').disabled=(histPage===pages);
   } else { pagEl.style.display='none'; }
+}
+
+// ─── EXCLUIR REGISTROS DO HISTÓRICO ──────────────────────────────────────────
+let _delRegNome = null;
+let _delRegDate = null;
+
+function confirmarDelRegistro(nome, dateKey, btn) {
+  _delRegNome = nome;
+  _delRegDate = dateKey;
+  const dataFmt = dateKey.split('-').reverse().join('/');
+  document.getElementById('del-reg-desc').textContent = `Excluir todos os registros de "${nome}" do dia ${dataFmt}?`;
+  document.getElementById('del-reg-overlay').style.display = 'flex';
+}
+
+function confirmarDelRegistroOk() {
+  if (!_delRegNome || !_delRegDate) return;
+  const nomeKey = _delRegNome.toLowerCase().trim();
+  registros = registros.filter(r => {
+    const mesmoNome = (r.colaboradorNome||'').toLowerCase().trim() === nomeKey;
+    const mesmaData = _getDateKey(r.timestamp) === _delRegDate;
+    return !(mesmoNome && mesmaData);
+  });
+  saveRegistros();
+  _delRegNome = null;
+  _delRegDate = null;
+  document.getElementById('del-reg-overlay').style.display = 'none';
+  renderHistorico();
+}
+
+function cancelarDelRegistro() {
+  _delRegNome = null;
+  _delRegDate = null;
+  document.getElementById('del-reg-overlay').style.display = 'none';
 }
 
 // ─── RENDER: COLABORADORES ────────────────────────────────────────────────────
