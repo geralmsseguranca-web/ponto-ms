@@ -1975,9 +1975,22 @@ function uid() { return Math.random().toString(36).slice(2,10)+Date.now().toStri
 function fmtHora(ts) { return new Date(ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 function fmtData(ts) { return new Date(ts).toLocaleDateString('pt-BR'); }
 function avatarColor(nome) { return `hsl(${(nome.charCodeAt(0)*7+(nome.charCodeAt(1)||0)*13)%360},50%,35%)`; }
+// Retorna o último registro relevante para exibir status na lista de ponto.
+// Se o último registro foi uma ENTRADA há mais de 12h, considera turno encerrado
+// automaticamente para permitir novo registro de entrada.
+const JANELA_TURNO_MS = 12 * 60 * 60 * 1000; // 12 horas
+
 function ultimoReg(colabId) {
-  const regs = registros.filter(r=>r.colaboradorId===colabId);
-  return regs.length ? regs.reduce((a,b)=>a.timestamp>b.timestamp?a:b) : null;
+  const regs = registros.filter(r => r.colaboradorId === colabId);
+  if (!regs.length) return null;
+  const ult = regs.reduce((a, b) => a.timestamp > b.timestamp ? a : b);
+  // Se a última entrada foi há mais de 12h e não houve saída depois dela,
+  // retorna null para que o colaborador apareça livre para novo turno
+  if (ult.tipo === 'entrada') {
+    const passado = Date.now() - ult.timestamp;
+    if (passado > JANELA_TURNO_MS) return null;
+  }
+  return ult;
 }
 function esc(str) {
   return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -2291,42 +2304,71 @@ function _renderHistTabla() {
     return true;
   });
 
-  // Agrupa por colaborador + data formando pares entrada/saida na mesma linha
+  // ── Agrupa por TURNO (par entrada→saída) — suporta múltiplos turnos no mesmo dia ──
+  // Algoritmo: para cada colaborador, percorre registros em ordem cronológica
+  // e cria um novo turno a cada entrada encontrada após a saída anterior.
   const gruposMap = {};
-  const ordenados = [...regFiltrados].sort((a,b) => a.timestamp - b.timestamp);
+  const ordenados = [...regFiltrados].sort((a, b) => a.timestamp - b.timestamp);
+
+  // Agrupa registros por colaborador primeiro
+  const porColab = {};
   ordenados.forEach(r => {
-    const dateKey = _getDateKey(r.timestamp);
-    // Usa nome em lowercase como parte da chave para garantir agrupamento mesmo se ID mudou
-    const nomeKey = (r.colaboradorNome || '').toLowerCase().trim();
-    const chave = (r.colaboradorId || nomeKey) + '|' + dateKey;
-    if (!gruposMap[chave]) {
-      gruposMap[chave] = {
-        colaboradorId:   r.colaboradorId,
-        colaboradorNome: r.colaboradorNome,
-        posto:           r.posto,
-        dateKey,
-        dataTs:          r.timestamp,
-        entrada:         null,
-        saida:           null,
-        locEntrada:      null,
-        locSaida:        null,
-        ids:             []
-      };
-    }
-    gruposMap[chave].ids.push(r.id);
-    if (r.tipo === 'entrada') {
-      // Guarda o horário de entrada mais CEDO do dia
-      if (gruposMap[chave].entrada === null || r.timestamp < gruposMap[chave].entrada) {
-        gruposMap[chave].entrada = r.timestamp;
-        gruposMap[chave].locEntrada = r.localizacao || null;
+    const key = r.colaboradorId || (r.colaboradorNome||'').toLowerCase().trim();
+    if (!porColab[key]) porColab[key] = [];
+    porColab[key].push(r);
+  });
+
+  // Para cada colaborador, cria turnos emparelhando entradas e saídas
+  Object.values(porColab).forEach(regs => {
+    let turnoAtual = null;
+    let turnoIdx   = 0;
+
+    regs.forEach(r => {
+      if (r.tipo === 'entrada') {
+        // Nova entrada: inicia novo turno
+        turnoAtual = {
+          colaboradorId:   r.colaboradorId,
+          colaboradorNome: r.colaboradorNome,
+          posto:           r.posto,
+          dateKey:         _getDateKey(r.timestamp),
+          dataTs:          r.timestamp,
+          entrada:         r.timestamp,
+          saida:           null,
+          locEntrada:      r.localizacao || null,
+          locSaida:        null,
+          ids:             [r.id],
+          turnoIdx:        turnoIdx
+        };
+        const chave = (r.colaboradorId || (r.colaboradorNome||'').toLowerCase()) + '|' + _getDateKey(r.timestamp) + '|' + turnoIdx;
+        gruposMap[chave] = turnoAtual;
+        turnoIdx++;
+      } else if (r.tipo === 'saida') {
+        if (turnoAtual && !turnoAtual.saida) {
+          // Saída pertence ao turno atual aberto
+          turnoAtual.saida    = r.timestamp;
+          turnoAtual.locSaida = r.localizacao || null;
+          turnoAtual.ids.push(r.id);
+          turnoAtual = null; // turno fechado
+        } else {
+          // Saída órfã (sem entrada correspondente) — exibe mesmo assim
+          const chave = (r.colaboradorId || (r.colaboradorNome||'').toLowerCase()) + '|' + _getDateKey(r.timestamp) + '|' + turnoIdx;
+          gruposMap[chave] = {
+            colaboradorId:   r.colaboradorId,
+            colaboradorNome: r.colaboradorNome,
+            posto:           r.posto,
+            dateKey:         _getDateKey(r.timestamp),
+            dataTs:          r.timestamp,
+            entrada:         null,
+            saida:           r.timestamp,
+            locEntrada:      null,
+            locSaida:        r.localizacao || null,
+            ids:             [r.id],
+            turnoIdx:        turnoIdx
+          };
+          turnoIdx++;
+        }
       }
-    } else {
-      // Guarda o horário de saída mais TARDE do dia
-      if (gruposMap[chave].saida === null || r.timestamp > gruposMap[chave].saida) {
-        gruposMap[chave].saida = r.timestamp;
-        gruposMap[chave].locSaida = r.localizacao || null;
-      }
-    }
+    });
   });
 
   let linhas = Object.values(gruposMap);
@@ -2359,7 +2401,8 @@ function _renderHistTabla() {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="${isAdmin?6:5}">Nenhum registro encontrado</td></tr>`;
   } else {
     tbody.innerHTML = slice.map(l => {
-      const idsJson = esc(JSON.stringify(l.ids || []));
+      const idsEsc = esc(JSON.stringify(l.ids || []));
+      const turnoLabel = l.turnoIdx > 0 ? `<span style="font-size:10px;color:var(--gold);font-family:var(--font-mono);margin-left:6px">TURNO ${l.turnoIdx + 1}</span>` : '';
       const entradaHtml = l.entrada
         ? `<span class="tipo-tag tipo-entrada">▲ ${fmtHora(l.entrada)}</span>${l.locEntrada ? `<br><a href="https://maps.google.com/?q=${l.locEntrada.lat},${l.locEntrada.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none" title="Ver localização">📍 Ver mapa</a>` : '<br><span style="font-size:10px;color:var(--muted)">📍 —</span>'}`
         : `<span class="tipo-tag tipo-vazio">–</span>`;
@@ -2367,11 +2410,11 @@ function _renderHistTabla() {
         ? `<span class="tipo-tag tipo-saida">▼ ${fmtHora(l.saida)}</span>${l.locSaida ? `<br><a href="https://maps.google.com/?q=${l.locSaida.lat},${l.locSaida.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none" title="Ver localização">📍 Ver mapa</a>` : '<br><span style="font-size:10px;color:var(--muted)">📍 —</span>'}`
         : `<span class="tipo-tag tipo-vazio">–</span>`;
       const acoesHtml = isAdmin
-        ? `<td style="text-align:center"><button class="btn-del" title="Excluir registros do dia" onclick="confirmarDelRegistro('${esc(l.colaboradorNome)}','${esc(l.dateKey)}',this)">🗑️</button></td>`
+        ? `<td style="text-align:center"><button class="btn-del" title="Excluir este turno" onclick="confirmarDelRegistroPorIds(${idsEsc},'${esc(l.colaboradorNome)}','${esc(fmtData(l.dataTs))}')" >🗑️</button></td>`
         : '';
       return `
         <tr>
-          <td class="td-data">${fmtData(l.dataTs)}</td>
+          <td class="td-data">${fmtData(l.dataTs)}${turnoLabel}</td>
           <td class="td-nome">${esc(l.colaboradorNome)}</td>
           <td class="td-posto">${esc(l.posto)}</td>
           <td>${entradaHtml}</td>
@@ -2392,35 +2435,38 @@ function _renderHistTabla() {
 }
 
 // ─── EXCLUIR REGISTROS DO HISTÓRICO ──────────────────────────────────────────
-let _delRegNome = null;
-let _delRegDate = null;
+let _delRegIds  = [];
+let _delRegDesc = '';
 
-function confirmarDelRegistro(nome, dateKey, btn) {
-  _delRegNome = nome;
-  _delRegDate = dateKey;
-  const dataFmt = dateKey.split('-').reverse().join('/');
-  document.getElementById('del-reg-desc').textContent = `Excluir todos os registros de "${nome}" do dia ${dataFmt}?`;
+function confirmarDelRegistroPorIds(ids, nome, data) {
+  _delRegIds  = ids;
+  _delRegDesc = `Excluir turno de "${nome}" em ${data}?`;
+  document.getElementById('del-reg-desc').textContent = _delRegDesc;
   document.getElementById('del-reg-overlay').style.display = 'flex';
 }
 
+// mantém compatibilidade com chamadas antigas por nome+data
+function confirmarDelRegistro(nome, dateKey) {
+  const dataFmt = dateKey.split('-').reverse().join('/');
+  const nomeKey = nome.toLowerCase().trim();
+  const ids = registros
+    .filter(r => (r.colaboradorNome||'').toLowerCase().trim() === nomeKey && _getDateKey(r.timestamp) === dateKey)
+    .map(r => r.id);
+  confirmarDelRegistroPorIds(ids, nome, dataFmt);
+}
+
 function confirmarDelRegistroOk() {
-  if (!_delRegNome || !_delRegDate) return;
-  const nomeKey = _delRegNome.toLowerCase().trim();
-  registros = registros.filter(r => {
-    const mesmoNome = (r.colaboradorNome||'').toLowerCase().trim() === nomeKey;
-    const mesmaData = _getDateKey(r.timestamp) === _delRegDate;
-    return !(mesmoNome && mesmaData);
-  });
+  if (!_delRegIds.length) return;
+  const idSet = new Set(_delRegIds);
+  registros = registros.filter(r => !idSet.has(r.id));
   saveRegistros();
-  _delRegNome = null;
-  _delRegDate = null;
+  _delRegIds = [];
   document.getElementById('del-reg-overlay').style.display = 'none';
   renderHistorico();
 }
 
 function cancelarDelRegistro() {
-  _delRegNome = null;
-  _delRegDate = null;
+  _delRegIds = [];
   document.getElementById('del-reg-overlay').style.display = 'none';
 }
 
@@ -2778,20 +2824,37 @@ function renderDashboard() {
   const el = document.getElementById('dash-data-hoje');
   if (el) el.textContent = dataFmt.charAt(0).toUpperCase() + dataFmt.slice(1);
 
-  // Pega registros de hoje
+  // Pega registros de hoje E dos últimos registros de cada colaborador
+  // para detectar turno ativo mesmo que tenha começado ontem (turno noturno)
   const regsHoje = registros.filter(r => _getDateKey(r.timestamp) === hoje);
 
-  // Monta mapa: colaboradorId -> { entrada, saida }
+  // Monta status atual de cada colaborador usando lógica de turnos:
+  // percorre registros de hoje em ordem e determina se está dentro ou fora
   const mapaHoje = {};
-  regsHoje.forEach(r => {
+  const ordenadosHoje = [...regsHoje].sort((a, b) => a.timestamp - b.timestamp);
+  ordenadosHoje.forEach(r => {
     const id = r.colaboradorId;
-    if (!mapaHoje[id]) mapaHoje[id] = { entrada: null, saida: null, nome: r.colaboradorNome, posto: r.posto };
+    if (!mapaHoje[id]) mapaHoje[id] = { entrada: null, saida: null, nome: r.colaboradorNome, posto: r.posto, turnos: 0 };
     if (r.tipo === 'entrada') {
-      if (!mapaHoje[id].entrada || r.timestamp < mapaHoje[id].entrada)
-        mapaHoje[id].entrada = r.timestamp;
+      mapaHoje[id].entrada  = r.timestamp;
+      mapaHoje[id].saida    = null; // nova entrada zera saída anterior
+      mapaHoje[id].turnos++;
     } else {
-      if (!mapaHoje[id].saida || r.timestamp > mapaHoje[id].saida)
-        mapaHoje[id].saida = r.timestamp;
+      if (mapaHoje[id].entrada) mapaHoje[id].saida = r.timestamp;
+    }
+  });
+
+  // Também considera colaboradores que entraram ontem/noite e ainda não saíram
+  // (turno noturno ativo há menos de 12h)
+  const ultRegs = {};
+  [...registros].sort((a, b) => b.timestamp - a.timestamp).forEach(r => {
+    if (!ultRegs[r.colaboradorId]) ultRegs[r.colaboradorId] = r;
+  });
+  Object.entries(ultRegs).forEach(([id, r]) => {
+    const passado = Date.now() - r.timestamp;
+    if (!mapaHoje[id] && r.tipo === 'entrada' && passado < JANELA_TURNO_MS) {
+      // Entrou ontem/madrugada, ainda dentro do turno ativo
+      mapaHoje[id] = { entrada: r.timestamp, saida: null, nome: r.colaboradorNome, posto: r.posto, turnos: 1 };
     }
   });
 
