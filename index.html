@@ -3355,6 +3355,24 @@ function exportarExcel() {
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 function renderDashboard() {
+  // Se Firebase disponível, força sincronização antes de renderizar
+  if (window._firebaseReady && window._fbGet && window._fbRef && window._db) {
+    Promise.all([
+      window._fbGet(window._fbRef(window._db, 'colaboradores')),
+      window._fbGet(window._fbRef(window._db, 'registros'))
+    ]).then(([snapC, snapR]) => {
+      const dc = snapC.val();
+      const dr = snapR.val();
+      if (dc) colaboradores = fromFirebaseObj(dc);
+      if (dr) registros = fromFirebaseObj(dr).sort((a,b)=>b.timestamp-a.timestamp);
+      _renderDashboardCore();
+    }).catch(() => _renderDashboardCore());
+    return;
+  }
+  _renderDashboardCore();
+}
+
+function _renderDashboardCore() {
   const hoje = _getDateKey(Date.now());
   const agora = new Date();
 
@@ -3397,7 +3415,8 @@ function renderDashboard() {
     }
   });
 
-  const ativos = colaboradores.filter(c => c.ativo);
+  // Considera ativo quem tem ativo===true OU quem não tem o campo definido (cadastros antigos)
+  const ativos = colaboradores.filter(c => c.ativo !== false);
 
   // Categoriza
   const ausentes = []; // sem nenhum ponto hoje
@@ -3495,6 +3514,7 @@ function renderAll() {
   if (currentUser?.role === 'admin') {
     renderColaboradores();
     if (document.getElementById('sub-relatorio')?.classList.contains('active')) renderRelatorio();
+    if (document.getElementById('tab-dashboard')?.classList.contains('active')) _renderDashboardCore();
   }
   updatePostoFilter();
   _renderHistTabla();
