@@ -2338,11 +2338,16 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-usuarios').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-dashboard').style.display = isAdmin ? '' : 'none';
 
-  // Se colaborador: pré-seleciona ele na lista de ponto
-  if (!isAdmin) {
-    const nomeUser = usuario.nome;
-    const instrucao = document.getElementById('ponto-instrucao');
-    if (instrucao) instrucao.textContent = `Olá, ${nomeUser}! Registre sua entrada ou saída:`;
+  // Reseta seleção ao entrar
+  selectedColab = null;
+  document.getElementById('ponto-btns').style.display = 'none';
+
+  // Mensagem de boas-vindas
+  const instrucao = document.getElementById('ponto-instrucao');
+  if (instrucao) {
+    instrucao.textContent = isAdmin
+      ? 'Selecione um colaborador e registre o ponto'
+      : `Olá, ${usuario.nome}! Registre sua entrada ou saída:`;
   }
 
   loadData();
@@ -2559,13 +2564,57 @@ function showTab(id, btn) {
 // ─── RENDER: LISTA PONTO ──────────────────────────────────────────────────────
 function renderColabPonto() {
   const isAdmin = currentUser?.role === 'admin';
-  let ativos = colaboradores.filter(c=>c.ativo);
+  let todosAtivos = colaboradores.filter(c => c.ativo !== false);
+  let ativos = todosAtivos;
+  let meuColab = null;
 
-  // Se colaborador comum: mostra só ele mesmo (por nome)
+  // Se colaborador comum: mostra SÓ ele mesmo
   if (!isAdmin && currentUser) {
-    const nomeUser = currentUser.nome;
-    const mine = ativos.find(c => c.nome.toLowerCase() === nomeUser.toLowerCase());
-    ativos = mine ? [mine] : ativos; // se não achar, mostra todos
+    // 1ª tentativa: vínculo direto por colaboradorId (cadastros novos)
+    if (currentUser.colaboradorId) {
+      meuColab = todosAtivos.find(c => c.id === currentUser.colaboradorId);
+    }
+    // 2ª tentativa: match por nome exato
+    if (!meuColab) {
+      meuColab = todosAtivos.find(c => c.nome.toLowerCase() === (currentUser.nome||'').toLowerCase());
+    }
+    // 3ª tentativa: match parcial (primeiro nome)
+    if (!meuColab) {
+      const primeiroNome = (currentUser.nome||'').split(' ')[0].toLowerCase();
+      if (primeiroNome.length > 2) {
+        meuColab = todosAtivos.find(c => c.nome.toLowerCase().startsWith(primeiroNome));
+      }
+    }
+
+    if (meuColab) {
+      ativos = [meuColab];
+      // Auto-seleciona o colaborador para o usuário não precisar clicar
+      if (!selectedColab || selectedColab.id !== meuColab.id) {
+        selectedColab = meuColab;
+        setTimeout(() => {
+          document.getElementById('ponto-btns').style.display = 'grid';
+        }, 50);
+      }
+    } else {
+      // Não encontrou vínculo: mostra mensagem de erro ao invés de todos os colaboradores
+      ativos = [];
+      const container = document.getElementById('colab-list-ponto');
+      container.innerHTML = `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;
+          padding:24px;text-align:center;color:var(--muted);">
+          <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px">
+            Perfil não encontrado
+          </div>
+          <div style="font-size:13px;line-height:1.6">
+            Seu usuário <strong style="color:var(--accent)">${esc(currentUser.login)}</strong>
+            não está vinculado a nenhum colaborador.<br>
+            Solicite ao administrador que verifique seu cadastro.
+          </div>
+        </div>`;
+      document.getElementById('ponto-btns').style.display = 'none';
+      return;
+    }
   }
 
   const container = document.getElementById('colab-list-ponto');
