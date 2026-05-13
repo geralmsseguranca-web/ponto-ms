@@ -474,7 +474,8 @@ main {
 .input option { background: var(--surface2); }
 .table-wrap {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; overflow: hidden; margin-top: 16px;
+  border-radius: 16px; overflow-x: auto; overflow-y: hidden;
+  margin-top: 16px; -webkit-overflow-scrolling: touch;
 }
 table { width: 100%; border-collapse: collapse; }
 thead tr { background: #050d18; }
@@ -692,14 +693,196 @@ footer {
   position: relative; z-index: 1;
 }
 
-/* ── RESPONSIVE ── */
-@media(max-width:600px) {
-  .clock-time { font-size: 52px; }
-  .ponto-btns { grid-template-columns: 1fr; }
-  .colab-admin-actions { flex-direction: column; }
-  .tab-btn { padding: 12px 14px; font-size: 13px; }
+/* ══════════════════════════════════════════
+   RESPONSIVE — LAPTOP (≤1280px)
+══════════════════════════════════════════ */
+@media(max-width:1280px) {
+  .header-inner { max-width: 100%; padding: 14px 24px 0; }
+  main { max-width: 100%; padding: 28px 24px 60px; }
+}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE — TABLET (≤768px)
+══════════════════════════════════════════ */
+@media(max-width:768px) {
+  /* Header */
+  .header-inner { padding: 12px 16px 0; }
+  .brand { gap: 10px; margin-bottom: 14px; }
+  .brand-text h1 { font-size: 18px; }
+  .brand-text p { font-size: 10px; letter-spacing: 1px; }
+  .brand-logo { width: 40px; height: 44px; }
+  .status-badge { display: none; }
+  .user-chip { font-size: 11px; padding: 5px 10px; }
+
+  /* Tabs - scrollável horizontalmente */
+  .tabs { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab-btn { padding: 12px 16px; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
+
+  /* Main */
+  main { padding: 20px 16px 60px; }
+
+  /* Clock */
+  .clock-time { font-size: 56px; }
+
+  /* Cards */
+  .card { padding: 18px; }
+
+  /* Ponto buttons */
+  .ponto-btns { grid-template-columns: 1fr; gap: 12px; }
+  .btn-ponto { padding: 22px 16px; font-size: 22px; }
+  .btn-ponto .icon { font-size: 36px; }
+
+  /* Colab item */
+  .colab-item { padding: 14px 14px; }
+  .colab-name { font-size: 15px; }
+
+  /* Admin list */
+  .colab-admin-item { flex-wrap: wrap; gap: 10px; }
+  .colab-admin-actions { flex-direction: row; flex-wrap: wrap; }
+
+  /* Forms */
+  .form-row { flex-direction: column; }
+  .form-row .input { min-width: unset; width: 100%; }
+  .btn-primary { width: 100%; justify-content: center; }
+
+  /* Relatório toolbar */
+  .rel-toolbar { flex-direction: column; align-items: stretch; }
+  .rel-toolbar .input { min-width: unset; }
+  .btn-export { justify-content: center; }
+
+  /* Dashboard */
+  .dash-stats { grid-template-columns: repeat(3, 1fr); }
+  .dash-stat-num { font-size: 32px; }
+
+  /* Login */
   .login-card { padding: 36px 24px; }
-  .colab-admin-item { flex-wrap: wrap; }
+
+  /* Setup modal */
+  .setup-header { padding: 20px 20px 16px; }
+  .setup-body { padding: 20px; }
+  .setup-nav { padding: 16px 20px 20px; }
+}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤480px)
+══════════════════════════════════════════ */
+@media(max-width:480px) {
+  /* Header compacto */
+  .header-inner { padding: 10px 12px 0; }
+  .brand { margin-bottom: 0; gap: 8px; }
+  .brand-text h1 { font-size: 16px; letter-spacing: 0.5px; }
+  .brand-text p { display: none; }
+  .brand-logo { width: 36px; height: 40px; }
+  .header-right { gap: 6px; }
+  .user-chip { padding: 4px 8px; font-size: 10px; gap: 4px; }
+  .user-chip span:first-child { font-size: 14px; }
+
+  /* Tabs - menor */
+  .tab-btn { padding: 10px 12px; font-size: 12px; }
+
+  /* Main */
+  main { padding: 16px 12px 80px; }
+
+  /* Clock - bem menor no mobile */
+  .clock-wrap { margin-bottom: 24px; }
+  .clock-time { font-size: 44px; letter-spacing: -1px; }
+  .clock-date { font-size: 13px; }
+
+  /* Cards */
+  .card { padding: 16px; border-radius: 14px; }
+  .card-title { font-size: 11px; margin-bottom: 12px; }
+
+  /* Colaboradores lista */
+  .colab-item { padding: 12px; gap: 10px; border-radius: 12px; }
+  .avatar { width: 40px; height: 40px; font-size: 18px; border-radius: 10px; }
+  .colab-name { font-size: 14px; }
+  .colab-posto { font-size: 12px; }
+  .status-tag span { font-size: 10px; padding: 3px 8px; }
+  .status-time { font-size: 10px; }
+
+  /* Botões de ponto */
+  .ponto-btns { gap: 10px; margin-top: 16px; }
+  .btn-ponto { padding: 20px 12px; font-size: 20px; border-radius: 16px; gap: 8px; }
+  .btn-ponto .icon { font-size: 32px; }
+
+  /* Feedback */
+  .feedback { padding: 14px 16px; border-radius: 12px; }
+  .feedback-title { font-size: 18px; }
+
+  /* Face modal */
+  .face-modal { padding: 24px; border-radius: 20px; }
+  .camera-wrap { width: 170px; height: 170px; }
+
+  /* Table - scroll horizontal */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 560px; }
+  th, td { padding: 10px 10px; font-size: 12px; }
+
+  /* Sub-tabs */
+  .sub-tabs { padding: 4px; border-radius: 12px; }
+  .sub-tab-btn { padding: 8px 10px; font-size: 12px; letter-spacing: 0; }
+
+  /* Admin items */
+  .colab-admin-item { padding: 12px; gap: 10px; border-radius: 12px; }
+  .colab-admin-actions { gap: 6px; }
+  .btn-edit, .btn-del, .btn-reativar { padding: 6px 10px; font-size: 12px; }
+
+  /* Dashboard stats - 1 coluna em telas muito pequenas */
+  .dash-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dash-stat-card { padding: 14px 12px; border-radius: 14px; }
+  .dash-stat-num { font-size: 28px; }
+  .dash-stat-label { font-size: 10px; }
+
+  /* Dashboard cards */
+  .dash-card { padding: 10px 12px; gap: 10px; }
+  .dash-card .avatar { width: 36px; height: 36px; font-size: 16px; border-radius: 8px; }
+  .dash-card-nome { font-size: 14px; }
+  .dash-card-time { font-size: 11px; }
+
+  /* Dashboard header */
+  .dash-header { flex-direction: column; gap: 10px; }
+  .btn-dash-refresh { width: 100%; text-align: center; }
+
+  /* Pagination */
+  .pagination { gap: 6px; padding: 10px; }
+  .btn-page { padding: 6px 12px; font-size: 13px; }
+
+  /* Relatório stats */
+  .rel-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .rel-stat-card { padding: 12px 10px; }
+  .rel-stat-num { font-size: 24px; }
+
+  /* Login */
+  .login-card { padding: 28px 18px; border-radius: 18px; max-width: 100%; }
+  .login-title { font-size: 22px; }
+  .login-logo { width: 64px; height: 70px; }
+  .login-input { padding: 12px 14px; font-size: 14px; }
+  .btn-login { padding: 14px; font-size: 16px; }
+
+  /* Setup modal */
+  .setup-modal { border-radius: 18px; max-height: 96vh; }
+  .setup-header { padding: 16px 16px 12px; border-radius: 18px 18px 0 0; }
+  .setup-header h2 { font-size: 18px; }
+  .setup-body { padding: 16px; }
+  .setup-nav { padding: 12px 16px 16px; gap: 8px; border-radius: 0 0 18px 18px; }
+  .btn-setup-next { padding: 10px 20px; font-size: 14px; }
+  .btn-setup-back { padding: 10px 14px; font-size: 13px; }
+  .step-title { font-size: 17px; }
+  .step-desc { font-size: 13px; }
+  .instr-block { padding: 14px; }
+  .code-block { font-size: 10px; padding: 10px 12px; }
+
+  /* User management */
+  .user-item { flex-wrap: wrap; gap: 8px; padding: 12px; }
+  .user-item .user-login { font-size: 13px; }
+  .confirm-modal { padding: 24px 18px; }
+  .confirm-btns { flex-direction: column; }
+  .confirm-btns button { width: 100%; }
+
+  /* Inputs gerais */
+  .input { font-size: 14px; padding: 10px 12px; }
+  .btn-secondary { padding: 10px 14px; font-size: 13px; }
 }
 
 /* ══════════════════════════════════════════
