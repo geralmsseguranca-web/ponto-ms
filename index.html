@@ -1726,7 +1726,17 @@ footer {
 
       <div class="pa-field">
         <label class="pa-label">Posto / Função <span class="req">*</span></label>
-        <input class="pa-input" id="pa-posto" type="text" placeholder="Ex: Portaria, Recepção, Ronda..."/>
+        <select class="pa-input" id="pa-posto">
+          <option value="">Selecione o posto...</option>
+          <option value="Portaria Principal">Portaria Principal</option>
+          <option value="Portaria Secundária">Portaria Secundária</option>
+          <option value="Recepção Bloco A">Recepção Bloco A</option>
+          <option value="Ronda Perimetral">Ronda Perimetral</option>
+          <option value="Central de Monitoramento">Central de Monitoramento</option>
+          <option value="Estacionamento">Estacionamento</option>
+          <option value="Sala de Controle">Sala de Controle</option>
+          <option value="Guarita Externa">Guarita Externa</option>
+        </select>
       </div>
 
       <div class="pa-field" style="margin-top:20px">
@@ -1844,6 +1854,24 @@ footer {
 
     <div class="colab-list" id="colab-list-ponto"></div>
 
+    <!-- Seletor de posto (aparece ao selecionar colaborador) -->
+    <div id="posto-selector" style="display:none;margin-bottom:16px">
+      <label style="display:block;font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-family:var(--font-mono)">
+        📍 Selecione o posto de trabalho <span style="color:var(--accent)">*</span>
+      </label>
+      <select id="ponto-posto-select" class="input" style="font-size:15px;padding:13px 14px;border-radius:12px">
+        <option value="">Selecione o posto...</option>
+        <option value="Portaria Principal">Portaria Principal</option>
+        <option value="Portaria Secundária">Portaria Secundária</option>
+        <option value="Recepção Bloco A">Recepção Bloco A</option>
+        <option value="Ronda Perimetral">Ronda Perimetral</option>
+        <option value="Central de Monitoramento">Central de Monitoramento</option>
+        <option value="Estacionamento">Estacionamento</option>
+        <option value="Sala de Controle">Sala de Controle</option>
+        <option value="Guarita Externa">Guarita Externa</option>
+      </select>
+    </div>
+
     <div class="ponto-btns" id="ponto-btns" style="display:none">
       <div id="loc-status" style="grid-column:1/-1;text-align:center;font-size:13px;color:var(--muted);font-family:var(--font-mono);padding:8px 0;background:var(--surface2);border-radius:10px;border:1px solid var(--border)">
         📍 A localização será capturada ao bater o ponto
@@ -1959,17 +1987,17 @@ footer {
         <p class="card-title" id="form-title">➕ Novo Colaborador</p>
         <div class="form-row" style="margin-bottom:14px">
           <input class="input" id="f-colab-nome" type="text" placeholder="Nome completo do colaborador"/>
-          <input class="input" id="f-colab-posto" type="text" list="postos-sugeridos" placeholder="Posto de serviço"/>
-          <datalist id="postos-sugeridos">
-            <option value="Portaria Principal"/>
-            <option value="Recepção Bloco A"/>
-            <option value="Ronda Perimetral"/>
-            <option value="Central de Monitoramento"/>
-            <option value="Estacionamento"/>
-            <option value="Sala de Controle"/>
-            <option value="Portaria Secundária"/>
-            <option value="Guarita Externa"/>
-          </datalist>
+          <select class="input" id="f-colab-posto">
+            <option value="">Posto de serviço...</option>
+            <option value="Portaria Principal">Portaria Principal</option>
+            <option value="Portaria Secundária">Portaria Secundária</option>
+            <option value="Recepção Bloco A">Recepção Bloco A</option>
+            <option value="Ronda Perimetral">Ronda Perimetral</option>
+            <option value="Central de Monitoramento">Central de Monitoramento</option>
+            <option value="Estacionamento">Estacionamento</option>
+            <option value="Sala de Controle">Sala de Controle</option>
+            <option value="Guarita Externa">Guarita Externa</option>
+          </select>
         </div>
         <div class="form-row" style="margin-bottom:14px">
           <input class="input" id="f-colab-rg" type="text" placeholder="RG (ex: 12.345.678-9)" style="min-width:180px"/>
@@ -2615,7 +2643,13 @@ function renderColabPonto() {
       ativos = [meuColab];
       if (!selectedColab || selectedColab.id !== meuColab.id) {
         selectedColab = meuColab;
-        setTimeout(() => { document.getElementById('ponto-btns').style.display = 'grid'; }, 50);
+        setTimeout(() => {
+          document.getElementById('ponto-btns').style.display = 'grid';
+          const postoSel = document.getElementById('posto-selector');
+          const sel = document.getElementById('ponto-posto-select');
+          sel.value = meuColab.posto || '';
+          postoSel.style.display = 'block';
+        }, 50);
       }
       const instrEl = document.getElementById('ponto-instrucao');
       if (instrEl) instrEl.style.display = 'none';
@@ -2673,7 +2707,17 @@ function renderColabPonto() {
 
 function selectColab(c) {
   selectedColab = selectedColab?.id === c.id ? null : c;
-  document.getElementById('ponto-btns').style.display = selectedColab ? 'grid' : 'none';
+  const postoSel = document.getElementById('posto-selector');
+  const pontoBtns = document.getElementById('ponto-btns');
+  if (selectedColab) {
+    const sel = document.getElementById('ponto-posto-select');
+    sel.value = selectedColab.posto || '';
+    postoSel.style.display = 'block';
+    pontoBtns.style.display = 'grid';
+  } else {
+    postoSel.style.display = 'none';
+    pontoBtns.style.display = 'none';
+  }
   renderColabPonto();
 }
 
@@ -2683,20 +2727,49 @@ let pendingLocalizacao = null;
 function obterLocalizacao() {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
+      console.warn('📍 Geolocalização não suportada neste navegador.');
       resolve(null);
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        resolve({
-          lat: pos.coords.latitude.toFixed(6),
-          lng: pos.coords.longitude.toFixed(6),
-          precisao: Math.round(pos.coords.accuracy)
+
+    const opcoes = {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    };
+
+    const sucesso = (pos) => {
+      console.log('📍 Localização obtida:', pos.coords.latitude, pos.coords.longitude, '±', pos.coords.accuracy, 'm');
+      resolve({
+        lat: pos.coords.latitude.toFixed(6),
+        lng: pos.coords.longitude.toFixed(6),
+        precisao: Math.round(pos.coords.accuracy)
+      });
+    };
+
+    const erro = (err) => {
+      const msgs = {
+        1: 'Permissão negada pelo usuário',
+        2: 'Posição indisponível (GPS/rede sem sinal)',
+        3: 'Tempo esgotado ao obter localização'
+      };
+      console.warn('📍 Erro de geolocalização:', err.code, msgs[err.code] || err.message);
+      resolve(null);
+    };
+
+    // Tenta primeiro com alta precisão; em caso de timeout, tenta com baixa precisão
+    navigator.geolocation.getCurrentPosition(sucesso, (err) => {
+      if (err.code === 3) {
+        // Timeout com GPS — tenta fallback via rede (menos preciso mas mais rápido)
+        navigator.geolocation.getCurrentPosition(sucesso, erro, {
+          enableHighAccuracy: false,
+          timeout: 10000,
+          maximumAge: 30000
         });
-      },
-      () => resolve(null),
-      { timeout: 8000, maximumAge: 0 }
-    );
+      } else {
+        erro(err);
+      }
+    }, opcoes);
   });
 }
 
@@ -2713,6 +2786,15 @@ function linkMaps(loc) {
 // ─── BATER PONTO ─────────────────────────────────────────────────────────────
 async function baterPonto(tipo) {
   if (!selectedColab) return;
+  const postoEscolhido = document.getElementById('ponto-posto-select').value;
+  if (!postoEscolhido) {
+    const sel = document.getElementById('ponto-posto-select');
+    sel.style.borderColor = 'var(--red)';
+    sel.style.boxShadow = '0 0 0 3px #ef444420';
+    sel.focus();
+    setTimeout(() => { sel.style.borderColor = ''; sel.style.boxShadow = ''; }, 2500);
+    return;
+  }
   pendingTipo = tipo;
   pendingLocalizacao = null;
 
@@ -2727,7 +2809,14 @@ async function baterPonto(tipo) {
       locEl.textContent = `📍 ${pendingLocalizacao.lat}, ${pendingLocalizacao.lng} (±${pendingLocalizacao.precisao}m)`;
       locEl.style.color = 'var(--green)';
     } else {
-      locEl.textContent = '⚠️ Localização não disponível';
+      // Verifica o motivo da falha para dar mensagem útil
+      if (!navigator.geolocation) {
+        locEl.textContent = '❌ Navegador não suporta geolocalização';
+      } else if (window.isSecureContext === false) {
+        locEl.textContent = '❌ Requer HTTPS para acessar localização';
+      } else {
+        locEl.textContent = '⚠️ Localização não capturada — verifique permissões do navegador';
+      }
       locEl.style.color = 'var(--gold)';
     }
   }
@@ -2812,11 +2901,12 @@ function stopCam() {
 }
 
 function registrarPonto() {
+  const postoEscolhido = document.getElementById('ponto-posto-select').value || selectedColab.posto;
   const reg = {
     id: uid(),
     colaboradorId: selectedColab.id,
     colaboradorNome: selectedColab.nome,
-    posto: selectedColab.posto,
+    posto: postoEscolhido,
     tipo: pendingTipo,
     timestamp: Date.now(),
     localizacao: pendingLocalizacao || null
@@ -2828,6 +2918,7 @@ function registrarPonto() {
   pendingTipo = null;
   pendingLocalizacao = null;
   document.getElementById('ponto-btns').style.display = 'none';
+  document.getElementById('posto-selector').style.display = 'none';
   renderColabPonto();
 }
 
