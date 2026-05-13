@@ -2342,12 +2342,13 @@ function entrarSistema(usuario) {
   selectedColab = null;
   document.getElementById('ponto-btns').style.display = 'none';
 
-  // Mensagem de boas-vindas
+  // Mensagem de boas-vindas inicial (colaborador terá instrução ocultada pela auto-seleção)
   const instrucao = document.getElementById('ponto-instrucao');
   if (instrucao) {
+    instrucao.style.display = '';
     instrucao.textContent = isAdmin
       ? 'Selecione um colaborador e registre o ponto'
-      : `Olá, ${usuario.nome}! Registre sua entrada ou saída:`;
+      : 'Olá, ' + usuario.nome + '! Registre sua entrada ou saída:';
   }
 
   loadData();
@@ -2595,18 +2596,23 @@ function renderColabPonto() {
           document.getElementById('ponto-btns').style.display = 'grid';
         }, 50);
       }
+      // Instrução dispensável quando já há auto-seleção
+      const instrEl = document.getElementById('ponto-instrucao');
+      if (instrEl) instrEl.style.display = 'none';
     } else {
-      // Não encontrou vínculo: mostra mensagem de erro ao invés de todos os colaboradores
+      // Não encontrou vínculo: mostra mensagem de erro clara
       ativos = [];
+      const instrucao = document.getElementById('ponto-instrucao');
+      if (instrucao) instrucao.style.display = 'none';
       const container = document.getElementById('colab-list-ponto');
       container.innerHTML = `
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;
-          padding:24px;text-align:center;color:var(--muted);">
-          <div style="font-size:32px;margin-bottom:12px">⚠️</div>
-          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px">
+          padding:32px 24px;text-align:center;color:var(--muted);">
+          <div style="font-size:40px;margin-bottom:12px">⚠️</div>
+          <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:10px">
             Perfil não encontrado
           </div>
-          <div style="font-size:13px;line-height:1.6">
+          <div style="font-size:14px;line-height:1.7">
             Seu usuário <strong style="color:var(--accent)">${esc(currentUser.login)}</strong>
             não está vinculado a nenhum colaborador.<br>
             Solicite ao administrador que verifique seu cadastro.
@@ -2616,6 +2622,10 @@ function renderColabPonto() {
       return;
     }
   }
+
+  // Restaura visibilidade da instrução para admin (pode ter sido ocultada antes)
+  const instrucaoEl = document.getElementById('ponto-instrucao');
+  if (instrucaoEl && isAdmin) instrucaoEl.style.display = '';
 
   const container = document.getElementById('colab-list-ponto');
   container.innerHTML = '';
@@ -2837,7 +2847,12 @@ function updatePostoFilter() {
     const isAdmin = currentUser?.role === 'admin';
     let lista = colaboradores.filter(c => c.ativo);
     if (!isAdmin && currentUser) {
-      lista = lista.filter(c => c.nome.toLowerCase() === (currentUser.nome||'').toLowerCase());
+      // Tenta vínculo direto por colaboradorId, depois por nome
+      if (currentUser.colaboradorId) {
+        lista = lista.filter(c => c.id === currentUser.colaboradorId);
+      } else {
+        lista = lista.filter(c => c.nome.toLowerCase() === (currentUser.nome||'').toLowerCase());
+      }
     }
     lista = lista.sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
     selColab.innerHTML = '<option value="">Todos os colaboradores</option>' +
@@ -2881,10 +2896,18 @@ function _renderHistTabla() {
 
   const isAdmin  = currentUser?.role === 'admin';
   const nomeUser = (currentUser?.nome||'').toLowerCase();
+  const myColabId = currentUser?.colaboradorId || null;
 
   // Filtra registros individuais (tipo NÃO filtra aqui — é aplicado após agrupamento)
   const regFiltrados = registros.filter(r => {
-    if (!isAdmin && r.colaboradorNome.toLowerCase() !== nomeUser) return false;
+    if (!isAdmin) {
+      // Filtra pelo colaboradorId vinculado (mais confiável) ou por nome
+      if (myColabId) {
+        if (r.colaboradorId !== myColabId) return false;
+      } else {
+        if (r.colaboradorNome.toLowerCase() !== nomeUser) return false;
+      }
+    }
     if (colabId && r.colaboradorId !== colabId) return false;
     if (posto && r.posto !== posto) return false;
     if (dataVal && _getDateKey(r.timestamp) !== dataVal) return false;
@@ -3404,24 +3427,6 @@ function exportarExcel() {
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 function renderDashboard() {
-  // Se Firebase disponível, força sincronização antes de renderizar
-  if (window._firebaseReady && window._fbGet && window._fbRef && window._db) {
-    Promise.all([
-      window._fbGet(window._fbRef(window._db, 'colaboradores')),
-      window._fbGet(window._fbRef(window._db, 'registros'))
-    ]).then(([snapC, snapR]) => {
-      const dc = snapC.val();
-      const dr = snapR.val();
-      if (dc) colaboradores = fromFirebaseObj(dc);
-      if (dr) registros = fromFirebaseObj(dr).sort((a,b)=>b.timestamp-a.timestamp);
-      _renderDashboardCore();
-    }).catch(() => _renderDashboardCore());
-    return;
-  }
-  _renderDashboardCore();
-}
-
-function _renderDashboardCore() {
   const hoje = _getDateKey(Date.now());
   const agora = new Date();
 
@@ -3464,8 +3469,7 @@ function _renderDashboardCore() {
     }
   });
 
-  // Considera ativo quem tem ativo===true OU quem não tem o campo definido (cadastros antigos)
-  const ativos = colaboradores.filter(c => c.ativo !== false);
+  const ativos = colaboradores.filter(c => c.ativo);
 
   // Categoriza
   const ausentes = []; // sem nenhum ponto hoje
@@ -3563,7 +3567,6 @@ function renderAll() {
   if (currentUser?.role === 'admin') {
     renderColaboradores();
     if (document.getElementById('sub-relatorio')?.classList.contains('active')) renderRelatorio();
-    if (document.getElementById('tab-dashboard')?.classList.contains('active')) _renderDashboardCore();
   }
   updatePostoFilter();
   _renderHistTabla();
