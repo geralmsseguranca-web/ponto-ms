@@ -694,6 +694,176 @@ footer {
 }
 
 /* ══════════════════════════════════════════
+   PRIMEIRO ACESSO
+══════════════════════════════════════════ */
+#primeiro-acesso-screen {
+  position: fixed; inset: 0; z-index: 998;
+  background: var(--bg);
+  display: none; align-items: flex-start; justify-content: center;
+  padding: 20px; overflow-y: auto;
+}
+#primeiro-acesso-screen::before {
+  content:''; position:fixed; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(var(--border2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border2) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 30%, transparent 100%);
+  opacity: 0.5;
+}
+.pa-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 40px 36px;
+  width: 100%; max-width: 520px;
+  position: relative; z-index: 1;
+  box-shadow: 0 32px 80px #000b, 0 0 0 1px #1a305033;
+  animation: slideUp .35s ease;
+  margin: auto;
+}
+.pa-header { text-align: center; margin-bottom: 32px; }
+.pa-icon {
+  width: 72px; height: 72px; border-radius: 20px; margin: 0 auto 16px;
+  background: linear-gradient(135deg, #14532d, #16a34a);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px; box-shadow: 0 0 32px #22c55e44;
+}
+.pa-title {
+  font-family: var(--font-head); font-size: 26px; font-weight: 700;
+  letter-spacing: 1px; color: var(--text); margin-bottom: 6px;
+}
+.pa-subtitle { font-size: 13px; color: var(--muted); letter-spacing: 0.5px; line-height: 1.5; }
+
+.pa-steps {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0; margin-bottom: 28px;
+}
+.pa-step-dot {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  border: 2px solid var(--border); color: var(--muted);
+  background: var(--surface2); transition: all .3s; flex-shrink: 0;
+}
+.pa-step-dot.active { border-color: var(--accent); color: var(--accent); background: #0ea5e915; box-shadow: 0 0 14px #0ea5e930; }
+.pa-step-dot.done   { border-color: var(--green);  color: #fff; background: var(--green); }
+.pa-step-line {
+  flex: 1; height: 2px; background: var(--border); max-width: 48px; transition: background .3s;
+}
+.pa-step-line.done { background: var(--green); }
+
+.pa-panel { display: none; animation: fadeUp .25s ease; }
+.pa-panel.active { display: block; }
+
+.pa-section-label {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--accent);
+  margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+}
+.pa-section-label::after {
+  content:''; flex:1; height:1px; background: var(--border);
+}
+
+.pa-field { margin-bottom: 14px; }
+.pa-label {
+  display: block; font-size: 11px; color: var(--muted);
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 7px;
+  font-family: var(--font-mono);
+}
+.pa-label .req { color: var(--accent); margin-left: 2px; }
+.pa-input {
+  width: 100%;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); padding: 12px 14px;
+  font-size: 14px; font-family: var(--font-body); outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.pa-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #0ea5e918; }
+.pa-input.error { border-color: var(--red); box-shadow: 0 0 0 3px #ef444418; }
+.pa-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.pa-nav {
+  display: flex; gap: 10px; align-items: center;
+  margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border2);
+}
+.btn-pa-next {
+  flex: 1; background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: #fff; border: none; border-radius: 12px;
+  padding: 14px; font-family: var(--font-head); font-size: 17px;
+  font-weight: 700; cursor: pointer; letter-spacing: 1px;
+  transition: all .2s; box-shadow: 0 4px 20px #0ea5e933;
+}
+.btn-pa-next:hover { transform: translateY(-2px); box-shadow: 0 8px 32px #0ea5e955; }
+.btn-pa-next.green { background: linear-gradient(135deg, #14532d, #16a34a); box-shadow: 0 4px 20px #22c55e33; }
+.btn-pa-back {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 12px; padding: 14px 18px;
+  cursor: pointer; font-size: 14px; transition: all .2s;
+}
+.btn-pa-back:hover { color: var(--text); border-color: var(--muted); }
+
+.pa-success { text-align: center; padding: 8px 0; }
+.pa-success-icon {
+  font-size: 64px; margin-bottom: 16px; animation: bounceIn .5s ease;
+}
+@keyframes bounceIn {
+  0%{transform:scale(0);opacity:0} 60%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1}
+}
+.pa-success-title {
+  font-family: var(--font-head); font-size: 26px; font-weight: 700;
+  color: var(--green); margin-bottom: 8px;
+}
+.pa-success-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; line-height: 1.6; }
+
+.pa-credential-box {
+  background: var(--green-bg); border: 2px solid #16a34a55;
+  border-radius: 16px; padding: 20px 24px; margin-bottom: 20px; text-align: left;
+}
+.pa-cred-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px; gap: 12px;
+}
+.pa-cred-row:last-child { margin-bottom: 0; }
+.pa-cred-label {
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+  letter-spacing: 1px; text-transform: uppercase; flex-shrink: 0;
+}
+.pa-cred-val {
+  font-family: var(--font-mono); font-size: 16px; font-weight: 700;
+  color: var(--green); letter-spacing: 1px;
+}
+.pa-warn-box {
+  background: #1c1000; border: 1px solid #f59e0b44;
+  border-radius: 10px; padding: 12px 16px; font-size: 13px;
+  color: #fcd34d; line-height: 1.6; margin-bottom: 20px; text-align: left;
+}
+.btn-pa-entrar {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent2), var(--accent));
+  color: #fff; border: none; border-radius: 12px;
+  padding: 16px; font-family: var(--font-head); font-size: 18px;
+  font-weight: 700; cursor: pointer; letter-spacing: 1px;
+  transition: all .2s; box-shadow: 0 4px 20px #0ea5e933;
+}
+.btn-pa-entrar:hover { transform: translateY(-2px); box-shadow: 0 8px 32px #0ea5e955; }
+
+.pa-error-msg {
+  background: var(--red-bg); border: 1px solid #dc262655;
+  color: var(--red); border-radius: 10px; padding: 11px 14px;
+  font-size: 13px; margin-bottom: 14px; display: none; animation: fadeUp .2s ease;
+}
+.pa-error-msg.show { display: block; }
+
+@media(max-width:480px) {
+  .pa-card { padding: 24px 16px; border-radius: 18px; }
+  .pa-row { grid-template-columns: 1fr; gap: 0; }
+  .pa-title { font-size: 21px; }
+  .pa-credential-box { padding: 16px; }
+  .pa-cred-val { font-size: 14px; }
+}
+
+/* ══════════════════════════════════════════
    RESPONSIVE — LAPTOP (≤1280px)
 ══════════════════════════════════════════ */
 @media(max-width:1280px) {
@@ -1413,7 +1583,193 @@ footer {
     </div>
     <button class="btn-login" id="btn-entrar" onclick="fazerLogin()">🔐 ENTRAR</button>
 
-    <div class="login-divider">Solicite seu acesso ao administrador do sistema</div>
+    <div class="login-divider" style="margin-top:20px;border-top:1px solid var(--border2);padding-top:16px">
+      Ainda não tem acesso?
+      <button onclick="abrirPrimeiroAcesso()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font-mono);font-size:11px;text-decoration:underline;padding:0;margin-left:4px">
+        Criar cadastro →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TELA DE PRIMEIRO ACESSO ══ -->
+<div id="primeiro-acesso-screen">
+  <div class="pa-card">
+    <div class="pa-header">
+      <div class="pa-icon">📋</div>
+      <div class="pa-title">Primeiro Acesso</div>
+      <div class="pa-subtitle">Preencha seus dados para criar seu cadastro.<br>O sistema gerará seu usuário e senha automaticamente.</div>
+    </div>
+
+    <!-- Indicador de steps -->
+    <div class="pa-steps">
+      <div class="pa-step-dot active" id="pa-dot-1">1</div>
+      <div class="pa-step-line" id="pa-line-1"></div>
+      <div class="pa-step-dot" id="pa-dot-2">2</div>
+      <div class="pa-step-line" id="pa-line-2"></div>
+      <div class="pa-step-dot" id="pa-dot-3">3</div>
+    </div>
+
+    <div class="pa-error-msg" id="pa-error"></div>
+
+    <!-- ── PAINEL 1: Dados pessoais ── -->
+    <div class="pa-panel active" id="pa-panel-1">
+      <div class="pa-section-label">Dados pessoais</div>
+
+      <div class="pa-field">
+        <label class="pa-label">Nome completo <span class="req">*</span></label>
+        <input class="pa-input" id="pa-nome" type="text" placeholder="Digite seu nome completo" autocomplete="name"/>
+      </div>
+
+      <div class="pa-row">
+        <div class="pa-field">
+          <label class="pa-label">CPF <span class="req">*</span></label>
+          <input class="pa-input" id="pa-cpf" type="text" placeholder="000.000.000-00" maxlength="14" oninput="maskCpf(this)"/>
+        </div>
+        <div class="pa-field">
+          <label class="pa-label">RG <span class="req">*</span></label>
+          <input class="pa-input" id="pa-rg" type="text" placeholder="00.000.000-0" maxlength="12" oninput="maskRg(this)"/>
+        </div>
+      </div>
+
+      <div class="pa-row">
+        <div class="pa-field">
+          <label class="pa-label">Data de nascimento <span class="req">*</span></label>
+          <input class="pa-input" id="pa-nasc" type="date"/>
+        </div>
+        <div class="pa-field">
+          <label class="pa-label">Estado civil <span class="req">*</span></label>
+          <select class="pa-input" id="pa-estado-civil">
+            <option value="">Selecione...</option>
+            <option value="Solteiro(a)">Solteiro(a)</option>
+            <option value="Casado(a)">Casado(a)</option>
+            <option value="Divorciado(a)">Divorciado(a)</option>
+            <option value="Viúvo(a)">Viúvo(a)</option>
+            <option value="União estável">União estável</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pa-nav">
+        <button class="btn-pa-back" onclick="fecharPrimeiroAcesso()">← Voltar</button>
+        <button class="btn-pa-next" onclick="paPasso(2)">Próximo →</button>
+      </div>
+    </div>
+
+    <!-- ── PAINEL 2: Contato e endereço ── -->
+    <div class="pa-panel" id="pa-panel-2">
+      <div class="pa-section-label">Contato</div>
+
+      <div class="pa-row">
+        <div class="pa-field">
+          <label class="pa-label">Telefone / WhatsApp <span class="req">*</span></label>
+          <input class="pa-input" id="pa-tel" type="tel" placeholder="(00) 00000-0000" maxlength="15" oninput="maskTel(this)"/>
+        </div>
+        <div class="pa-field">
+          <label class="pa-label">E-mail</label>
+          <input class="pa-input" id="pa-email" type="email" placeholder="seu@email.com"/>
+        </div>
+      </div>
+
+      <div class="pa-section-label" style="margin-top:20px">Endereço</div>
+
+      <div class="pa-row">
+        <div class="pa-field">
+          <label class="pa-label">CEP <span class="req">*</span></label>
+          <input class="pa-input" id="pa-cep" type="text" placeholder="00000-000" maxlength="9" oninput="maskCep(this)" onblur="buscarCep()"/>
+        </div>
+        <div class="pa-field">
+          <label class="pa-label">Número <span class="req">*</span></label>
+          <input class="pa-input" id="pa-num" type="text" placeholder="Nº"/>
+        </div>
+      </div>
+
+      <div class="pa-field">
+        <label class="pa-label">Rua / Logradouro <span class="req">*</span></label>
+        <input class="pa-input" id="pa-rua" type="text" placeholder="Rua, Avenida..."/>
+      </div>
+
+      <div class="pa-row">
+        <div class="pa-field">
+          <label class="pa-label">Bairro <span class="req">*</span></label>
+          <input class="pa-input" id="pa-bairro" type="text" placeholder="Bairro"/>
+        </div>
+        <div class="pa-field">
+          <label class="pa-label">Cidade <span class="req">*</span></label>
+          <input class="pa-input" id="pa-cidade" type="text" placeholder="Cidade"/>
+        </div>
+      </div>
+
+      <div class="pa-field">
+        <label class="pa-label">Estado <span class="req">*</span></label>
+        <select class="pa-input" id="pa-uf">
+          <option value="">Selecione o estado...</option>
+          <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
+          <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+          <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+          <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
+          <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+          <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+          <option selected>SP</option><option>SE</option><option>TO</option>
+        </select>
+      </div>
+
+      <div class="pa-nav">
+        <button class="btn-pa-back" onclick="paPasso(1)">← Voltar</button>
+        <button class="btn-pa-next" onclick="paPasso(3)">Próximo →</button>
+      </div>
+    </div>
+
+    <!-- ── PAINEL 3: Posto de trabalho + confirmar ── -->
+    <div class="pa-panel" id="pa-panel-3">
+      <div class="pa-section-label">Informações de trabalho</div>
+
+      <div class="pa-field">
+        <label class="pa-label">Posto / Função <span class="req">*</span></label>
+        <input class="pa-input" id="pa-posto" type="text" placeholder="Ex: Portaria, Recepção, Ronda..."/>
+      </div>
+
+      <div class="pa-field" style="margin-top:20px">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;font-size:13px;color:var(--muted);line-height:1.7">
+          ℹ️ Ao confirmar, seu cadastro será criado e o sistema gerará automaticamente seu <strong style="color:var(--accent)">usuário</strong> e uma <strong style="color:var(--accent)">senha temporária</strong>. Guarde bem essas informações.
+        </div>
+      </div>
+
+      <div class="pa-nav">
+        <button class="btn-pa-back" onclick="paPasso(2)">← Voltar</button>
+        <button class="btn-pa-next green" onclick="finalizarCadastro()">✅ Criar cadastro</button>
+      </div>
+    </div>
+
+    <!-- ── PAINEL 4: Sucesso + credenciais ── -->
+    <div class="pa-panel" id="pa-panel-4">
+      <div class="pa-success">
+        <div class="pa-success-icon">🎉</div>
+        <div class="pa-success-title">Cadastro criado!</div>
+        <div class="pa-success-sub">
+          Seus dados foram registrados com sucesso.<br>
+          Anote seu usuário e senha para acessar o sistema:
+        </div>
+
+        <div class="pa-credential-box">
+          <div class="pa-cred-row">
+            <span class="pa-cred-label">👤 Usuário</span>
+            <span class="pa-cred-val" id="pa-gen-login">—</span>
+          </div>
+          <div class="pa-cred-row">
+            <span class="pa-cred-label">🔒 Senha</span>
+            <span class="pa-cred-val" id="pa-gen-senha">—</span>
+          </div>
+        </div>
+
+        <div class="pa-warn-box">
+          ⚠️ <strong>Guarde essas credenciais!</strong> Esta tela não aparecerá novamente. Se perder o acesso, solicite ao administrador.
+        </div>
+
+        <button class="btn-pa-entrar" onclick="entrarComNovoCadastro()">🔐 Entrar agora</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -3280,6 +3636,285 @@ function copiarConfig(btn) {
     localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
   }
 })();
+
+// ─── PRIMEIRO ACESSO ──────────────────────────────────────────────────────────
+let paCurrentStep = 1;
+let paNovoCadastro = null; // dados do novo colaborador/usuário criado
+
+function abrirPrimeiroAcesso() {
+  paCurrentStep = 1;
+  paNovoCadastro = null;
+  // Limpa campos
+  ['pa-nome','pa-cpf','pa-rg','pa-nasc','pa-tel','pa-email',
+   'pa-cep','pa-rua','pa-num','pa-bairro','pa-cidade','pa-posto'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const uf = document.getElementById('pa-uf');
+  if (uf) uf.value = 'SP';
+  const ec = document.getElementById('pa-estado-civil');
+  if (ec) ec.value = '';
+  paMostrarStep(1);
+  document.getElementById('primeiro-acesso-screen').style.display = 'flex';
+  document.getElementById('login-screen').style.display = 'none';
+}
+
+function fecharPrimeiroAcesso() {
+  document.getElementById('primeiro-acesso-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+function paMostrarStep(n) {
+  // Paineis
+  for (let i = 1; i <= 4; i++) {
+    const p = document.getElementById('pa-panel-' + i);
+    if (p) p.classList.toggle('active', i === n);
+  }
+  // Dots
+  for (let i = 1; i <= 3; i++) {
+    const dot = document.getElementById('pa-dot-' + i);
+    if (!dot) continue;
+    dot.classList.remove('active','done');
+    if (i < n) dot.classList.add('done');
+    else if (i === n) dot.classList.add('active');
+  }
+  // Lines
+  for (let i = 1; i <= 2; i++) {
+    const line = document.getElementById('pa-line-' + i);
+    if (line) line.classList.toggle('done', i < n);
+  }
+  paCurrentStep = n;
+  // Scroll topo
+  const screen = document.getElementById('primeiro-acesso-screen');
+  if (screen) screen.scrollTop = 0;
+}
+
+function paShowError(msg) {
+  const el = document.getElementById('pa-error');
+  el.textContent = '❌ ' + msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+function paPasso(n) {
+  const el = document.getElementById('pa-error');
+  el.classList.remove('show');
+
+  if (n === 2) {
+    // Validar passo 1
+    const nome = document.getElementById('pa-nome').value.trim();
+    const cpf  = document.getElementById('pa-cpf').value.trim();
+    const rg   = document.getElementById('pa-rg').value.trim();
+    const nasc = document.getElementById('pa-nasc').value;
+    const ec   = document.getElementById('pa-estado-civil').value;
+
+    if (!nome || nome.split(' ').length < 2) {
+      paShowError('Digite o nome completo (nome e sobrenome).');
+      document.getElementById('pa-nome').classList.add('error');
+      return;
+    }
+    document.getElementById('pa-nome').classList.remove('error');
+
+    if (cpf.replace(/\D/g,'').length < 11) {
+      paShowError('CPF inválido. Digite os 11 dígitos.');
+      document.getElementById('pa-cpf').classList.add('error');
+      return;
+    }
+    document.getElementById('pa-cpf').classList.remove('error');
+
+    if (!rg || rg.replace(/\D/g,'').length < 7) {
+      paShowError('Digite um RG válido.');
+      document.getElementById('pa-rg').classList.add('error');
+      return;
+    }
+    document.getElementById('pa-rg').classList.remove('error');
+
+    if (!nasc) {
+      paShowError('Informe sua data de nascimento.');
+      return;
+    }
+    if (!ec) {
+      paShowError('Selecione o estado civil.');
+      return;
+    }
+
+    // Verificar CPF duplicado
+    const cpfNum = cpf.replace(/\D/g,'');
+    const dupCpf = usuarios.find(u => u.cpf && u.cpf.replace(/\D/g,'') === cpfNum);
+    if (dupCpf) {
+      paShowError('Já existe um cadastro com este CPF. Faça login ou contate o administrador.');
+      return;
+    }
+  }
+
+  if (n === 3) {
+    // Validar passo 2
+    const tel    = document.getElementById('pa-tel').value.trim();
+    const cep    = document.getElementById('pa-cep').value.trim();
+    const rua    = document.getElementById('pa-rua').value.trim();
+    const num    = document.getElementById('pa-num').value.trim();
+    const bairro = document.getElementById('pa-bairro').value.trim();
+    const cidade = document.getElementById('pa-cidade').value.trim();
+    const uf     = document.getElementById('pa-uf').value;
+
+    if (tel.replace(/\D/g,'').length < 10) {
+      paShowError('Digite um telefone válido com DDD.');
+      document.getElementById('pa-tel').classList.add('error');
+      return;
+    }
+    document.getElementById('pa-tel').classList.remove('error');
+
+    if (!rua || !num || !bairro || !cidade || !uf) {
+      paShowError('Preencha todos os campos de endereço obrigatórios.');
+      return;
+    }
+    if (cep.replace(/\D/g,'').length < 8) {
+      paShowError('CEP inválido.');
+      return;
+    }
+  }
+
+  paMostrarStep(n);
+}
+
+async function finalizarCadastro() {
+  const el = document.getElementById('pa-error');
+  el.classList.remove('show');
+
+  const posto = document.getElementById('pa-posto').value.trim();
+  if (!posto) {
+    paShowError('Informe seu posto ou função.');
+    document.getElementById('pa-posto').classList.add('error');
+    return;
+  }
+  document.getElementById('pa-posto').classList.remove('error');
+
+  // Coletar todos os dados
+  const nome    = document.getElementById('pa-nome').value.trim();
+  const cpf     = document.getElementById('pa-cpf').value.trim();
+  const rg      = document.getElementById('pa-rg').value.trim();
+  const nasc    = document.getElementById('pa-nasc').value;
+  const ec      = document.getElementById('pa-estado-civil').value;
+  const tel     = document.getElementById('pa-tel').value.trim();
+  const email   = document.getElementById('pa-email').value.trim();
+  const cep     = document.getElementById('pa-cep').value.trim();
+  const rua     = document.getElementById('pa-rua').value.trim();
+  const numEnd  = document.getElementById('pa-num').value.trim();
+  const bairro  = document.getElementById('pa-bairro').value.trim();
+  const cidade  = document.getElementById('pa-cidade').value.trim();
+  const uf      = document.getElementById('pa-uf').value;
+
+  // Gerar login: primeirnome + primeiros 3 dígitos do CPF
+  const primeiroNome = nome.split(' ')[0].toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+  const cpfDigitos = cpf.replace(/\D/g,'').slice(0, 4);
+  const loginGerado = primeiroNome + cpfDigitos;
+
+  // Gerar senha aleatória: 3 letras + 3 números
+  const letras = 'abcdefghjkmnpqrstuvwxyz';
+  const senhaGerada =
+    letras[Math.floor(Math.random()*letras.length)] +
+    letras[Math.floor(Math.random()*letras.length)] +
+    letras[Math.floor(Math.random()*letras.length)] +
+    Math.floor(Math.random()*9+1) +
+    Math.floor(Math.random()*10) +
+    Math.floor(Math.random()*10);
+
+  const idColab = uid();
+  const idUser  = uid();
+
+  const novoColab = {
+    id: idColab,
+    nome,
+    posto,
+    ativo: true,
+    cpf,
+    rg,
+    dataNasc: nasc,
+    estadoCivil: ec,
+    telefone: tel,
+    email,
+    endereco: { cep, rua, numero: numEnd, bairro, cidade, uf },
+    dataCadastro: Date.now()
+  };
+
+  const novoUser = {
+    id: idUser,
+    login: loginGerado,
+    senha: senhaGerada,
+    nome,
+    role: 'colaborador',
+    cpf,
+    colaboradorId: idColab,
+    dataCadastro: Date.now(),
+    primeiroAcesso: true
+  };
+
+  // Salvar
+  colaboradores.push(novoColab);
+  usuarios.push(novoUser);
+  saveColabs();
+  saveUsuarios();
+
+  // Guardar para entrar automaticamente
+  paNovoCadastro = novoUser;
+
+  // Exibir credenciais
+  document.getElementById('pa-gen-login').textContent = loginGerado;
+  document.getElementById('pa-gen-senha').textContent = senhaGerada;
+
+  // Ir para tela de sucesso (painel 4)
+  paMostrarStep(4);
+}
+
+function entrarComNovoCadastro() {
+  if (!paNovoCadastro) { fecharPrimeiroAcesso(); return; }
+  document.getElementById('primeiro-acesso-screen').style.display = 'none';
+  currentUser = paNovoCadastro;
+  sessionStorage.setItem('ms_session', JSON.stringify(paNovoCadastro));
+  entrarSistema(paNovoCadastro);
+}
+
+// ─── MÁSCARAS ─────────────────────────────────────────────────────────────────
+function maskCpf(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  v = v.replace(/(\d{3})(\d)/,'$1.$2');
+  v = v.replace(/(\d{3})\.(\d{3})(\d)/,'$1.$2.$3');
+  v = v.replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/,'$1.$2.$3-$4');
+  el.value = v;
+}
+function maskRg(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,9);
+  v = v.replace(/(\d{2})(\d)/,'$1.$2');
+  v = v.replace(/(\d{2})\.(\d{3})(\d)/,'$1.$2.$3');
+  v = v.replace(/(\d{2})\.(\d{3})\.(\d{3})(\d)/,'$1.$2.$3-$4');
+  el.value = v;
+}
+function maskTel(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if (v.length <= 10) v = v.replace(/(\d{2})(\d{4})(\d)/,'($1) $2-$3');
+  else v = v.replace(/(\d{2})(\d{5})(\d)/,'($1) $2-$3');
+  el.value = v;
+}
+function maskCep(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,8);
+  v = v.replace(/(\d{5})(\d)/,'$1-$2');
+  el.value = v;
+}
+async function buscarCep() {
+  const cep = document.getElementById('pa-cep').value.replace(/\D/g,'');
+  if (cep.length !== 8) return;
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const data = await res.json();
+    if (!data.erro) {
+      document.getElementById('pa-rua').value    = data.logradouro || '';
+      document.getElementById('pa-bairro').value = data.bairro     || '';
+      document.getElementById('pa-cidade').value = data.localidade || '';
+      document.getElementById('pa-uf').value     = data.uf         || '';
+    }
+  } catch(e) {}
+}
 
 checkSession();
 mostrarSetupSeNecessario();
