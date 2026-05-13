@@ -1728,11 +1728,7 @@ footer {
         <label class="pa-label">Posto / Função <span class="req">*</span></label>
         <select class="pa-input" id="pa-posto">
           <option value="">Selecione o posto...</option>
-          <option value="Portaria Principal">Portaria Principal</option>
-          <option value="Portaria Secundária">Portaria Secundária</option>
-          <option value="Recepção Bloco A">Recepção Bloco A</option>
-          <option value="Ronda Perimetral">Ronda Perimetral</option>
-          <option value="Central de Monitoramento">Central de Monitoramento</option>
+        </select>
           <option value="Estacionamento">Estacionamento</option>
           <option value="Sala de Controle">Sala de Controle</option>
           <option value="Guarita Externa">Guarita Externa</option>
@@ -1832,6 +1828,7 @@ footer {
       <button class="tab-btn" onclick="showTab('historico',this)">📋 Histórico</button>
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-usuarios" onclick="showTab('usuarios',this)" style="display:none">🔑 Usuários</button>
+      <button class="tab-btn admin-tab" id="tab-btn-postos" onclick="showTab('postos',this)" style="display:none">📍 Postos</button>
     </nav>
   </div>
 </header>
@@ -1861,14 +1858,6 @@ footer {
       </label>
       <select id="ponto-posto-select" class="input" style="font-size:15px;padding:13px 14px;border-radius:12px">
         <option value="">Selecione o posto...</option>
-        <option value="Portaria Principal">Portaria Principal</option>
-        <option value="Portaria Secundária">Portaria Secundária</option>
-        <option value="Recepção Bloco A">Recepção Bloco A</option>
-        <option value="Ronda Perimetral">Ronda Perimetral</option>
-        <option value="Central de Monitoramento">Central de Monitoramento</option>
-        <option value="Estacionamento">Estacionamento</option>
-        <option value="Sala de Controle">Sala de Controle</option>
-        <option value="Guarita Externa">Guarita Externa</option>
       </select>
     </div>
 
@@ -1989,14 +1978,6 @@ footer {
           <input class="input" id="f-colab-nome" type="text" placeholder="Nome completo do colaborador"/>
           <select class="input" id="f-colab-posto">
             <option value="">Posto de serviço...</option>
-            <option value="Portaria Principal">Portaria Principal</option>
-            <option value="Portaria Secundária">Portaria Secundária</option>
-            <option value="Recepção Bloco A">Recepção Bloco A</option>
-            <option value="Ronda Perimetral">Ronda Perimetral</option>
-            <option value="Central de Monitoramento">Central de Monitoramento</option>
-            <option value="Estacionamento">Estacionamento</option>
-            <option value="Sala de Controle">Sala de Controle</option>
-            <option value="Guarita Externa">Guarita Externa</option>
           </select>
         </div>
         <div class="form-row" style="margin-bottom:14px">
@@ -2112,6 +2093,32 @@ footer {
     <div class="user-list" id="user-admin-list"></div>
   </section>
 
+  <!-- ─── ABA: POSTOS (somente admin) ─── -->
+  <section id="tab-postos" class="tab-content">
+
+    <div class="info-box">
+      📍 <strong>Gestão de Postos:</strong> Crie, edite ou remova os postos de trabalho disponíveis no sistema.
+      Os postos cadastrados aqui aparecem automaticamente em todos os seletores de posto.
+    </div>
+
+    <div class="card" id="posto-form-card" style="margin-bottom:24px">
+      <p class="card-title" id="posto-form-title">➕ Novo Posto</p>
+      <div class="form-row" style="margin-bottom:14px">
+        <input class="input" id="f-posto-nome" type="text" placeholder="Nome do posto (ex: Portaria Norte)" style="min-width:260px"/>
+        <input class="input" id="f-posto-desc" type="text" placeholder="Descrição / observação (opcional)" style="min-width:200px"/>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn-primary" id="btn-salvar-posto" onclick="salvarPosto()">✅ Salvar Posto</button>
+        <button class="btn-secondary" id="btn-cancelar-posto" onclick="cancelarEdicaoPosto()" style="display:none">Cancelar</button>
+      </div>
+    </div>
+
+    <input class="input" id="f-busca-posto" type="text" placeholder="🔍 Buscar posto..."
+      oninput="renderPostos()" style="margin-bottom:16px"/>
+
+    <div class="user-list" id="postos-admin-list"></div>
+  </section>
+
 </main>
 
 <footer id="main-footer" style="display:none">
@@ -2223,6 +2230,7 @@ footer {
 let colaboradores  = [];
 let registros      = [];
 let usuarios       = [];       // lista de acessos
+let postos         = [];       // lista de postos cadastrados
 let currentUser    = null;     // usuário logado
 let selectedColab  = null;
 let pendingTipo    = null;
@@ -2230,6 +2238,8 @@ let editId         = null;
 let delTargetId    = null;
 let editUserId     = null;
 let delUserTargetId = null;
+let editPostoId    = null;
+let delPostoTargetId = null;
 let histPage       = 1;
 const POR_PAGINA   = 15;
 
@@ -2253,6 +2263,13 @@ function saveUsuarios() {
     window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'));
   }
   localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+}
+
+function savePostos() {
+  if (window._firebaseReady) {
+    window._fbSet(window._fbRef(window._db, 'postos'), toFirebaseObj(postos, 'id'));
+  }
+  localStorage.setItem('ms_postos', JSON.stringify(postos));
 }
 
 function toFirebaseObj(arr, key) {
@@ -2287,14 +2304,27 @@ function loadData() {
       } else { seedAdminUser(); }
       renderUsuarios();
     });
+    window._fbOnValue(window._fbRef(window._db, 'postos'), snap => {
+      const data = snap.val();
+      if (data) {
+        postos = fromFirebaseObj(data);
+        if (!postos.length) seedPostos();
+      } else { seedPostos(); }
+      renderPostos();
+      atualizarSelectsPostos();
+    });
   } else {
     try { colaboradores = JSON.parse(localStorage.getItem('ms_colaboradores')) || []; } catch { colaboradores=[]; }
     try { registros = JSON.parse(localStorage.getItem('ms_registros')) || []; } catch { registros=[]; }
     try { usuarios = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuarios=[]; }
+    try { postos = JSON.parse(localStorage.getItem('ms_postos')) || []; } catch { postos=[]; }
     if (!colaboradores.length) seedColaboradores();
     if (!usuarios.length) seedAdminUser();
+    if (!postos.length) seedPostos();
     renderAll();
     renderUsuarios();
+    renderPostos();
+    atualizarSelectsPostos();
   }
 }
 
@@ -2314,6 +2344,139 @@ function seedAdminUser() {
     { id: uid(), login: 'admin', senha: 'admin123', nome: 'Administrador', role: 'admin' }
   ];
   saveUsuarios();
+}
+
+function seedPostos() {
+  postos = [
+    { id: uid(), nome: 'Portaria Principal',       desc: '' },
+    { id: uid(), nome: 'Portaria Secundária',      desc: '' },
+    { id: uid(), nome: 'Recepção Bloco A',         desc: '' },
+    { id: uid(), nome: 'Ronda Perimetral',         desc: '' },
+    { id: uid(), nome: 'Central de Monitoramento', desc: '' },
+    { id: uid(), nome: 'Estacionamento',           desc: '' },
+    { id: uid(), nome: 'Sala de Controle',         desc: '' },
+    { id: uid(), nome: 'Guarita Externa',          desc: '' },
+  ];
+  savePostos();
+}
+
+// Atualiza todos os <select> de posto no sistema dinamicamente
+function atualizarSelectsPostos() {
+  const optsPostos = postos.map(p => `<option value="${esc(p.nome)}">${esc(p.nome)}</option>`).join('');
+
+  const selectores = [
+    { id: 'ponto-posto-select', placeholder: 'Selecione o posto...' },
+    { id: 'pa-posto',           placeholder: 'Selecione o posto...' },
+    { id: 'f-colab-posto',      placeholder: 'Posto de serviço...' },
+  ];
+
+  selectores.forEach(({ id, placeholder }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const val = el.value;
+    el.innerHTML = `<option value="">${placeholder}</option>` + optsPostos;
+    el.value = val; // mantém seleção atual se ainda existir
+  });
+}
+
+// ─── CRUD POSTOS ─────────────────────────────────────────────────────────────
+function renderPostos() {
+  const lista = document.getElementById('postos-admin-list');
+  if (!lista) return;
+  const busca = (document.getElementById('f-busca-posto')?.value || '').toLowerCase();
+  const filtrados = postos.filter(p => p.nome.toLowerCase().includes(busca));
+
+  if (!filtrados.length) {
+    lista.innerHTML = '<div style="text-align:center;color:var(--muted);padding:32px">Nenhum posto encontrado</div>';
+    return;
+  }
+
+  lista.innerHTML = filtrados.map(p => `
+    <div class="user-item" id="posto-item-${p.id}">
+      <div style="font-size:28px;line-height:1">📍</div>
+      <div class="user-info">
+        <div class="user-login">${esc(p.nome)}</div>
+        <div class="user-name-sub">${p.desc ? esc(p.desc) : '<span style="color:var(--muted2)">Sem descrição</span>'}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button class="btn-edit" onclick="editarPosto('${p.id}')">✏️ Editar</button>
+        <button class="btn-del" onclick="confirmarDelPosto('${p.id}')">🗑️ Remover</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function salvarPosto() {
+  const nome = document.getElementById('f-posto-nome').value.trim();
+  const desc = document.getElementById('f-posto-desc').value.trim();
+
+  if (!nome) {
+    document.getElementById('f-posto-nome').style.borderColor = 'var(--red)';
+    document.getElementById('f-posto-nome').focus();
+    setTimeout(() => { document.getElementById('f-posto-nome').style.borderColor = ''; }, 2000);
+    return;
+  }
+
+  // Verifica duplicata (ignora o próprio registro em edição)
+  const dup = postos.find(p => p.nome.toLowerCase() === nome.toLowerCase() && p.id !== editPostoId);
+  if (dup) {
+    document.getElementById('f-posto-nome').style.borderColor = 'var(--gold)';
+    alert('Já existe um posto com este nome.');
+    setTimeout(() => { document.getElementById('f-posto-nome').style.borderColor = ''; }, 2000);
+    return;
+  }
+
+  if (editPostoId) {
+    const idx = postos.findIndex(p => p.id === editPostoId);
+    if (idx !== -1) {
+      postos[idx].nome = nome;
+      postos[idx].desc = desc;
+    }
+  } else {
+    postos.push({ id: uid(), nome, desc });
+  }
+
+  savePostos();
+  atualizarSelectsPostos();
+  renderPostos();
+  cancelarEdicaoPosto();
+}
+
+function editarPosto(id) {
+  const p = postos.find(x => x.id === id);
+  if (!p) return;
+  editPostoId = id;
+  document.getElementById('f-posto-nome').value = p.nome;
+  document.getElementById('f-posto-desc').value = p.desc || '';
+  document.getElementById('posto-form-title').textContent = '✏️ Editar Posto';
+  document.getElementById('btn-salvar-posto').textContent = '💾 Salvar Alterações';
+  document.getElementById('btn-cancelar-posto').style.display = '';
+  document.getElementById('posto-form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelarEdicaoPosto() {
+  editPostoId = null;
+  document.getElementById('f-posto-nome').value = '';
+  document.getElementById('f-posto-desc').value = '';
+  document.getElementById('posto-form-title').textContent = '➕ Novo Posto';
+  document.getElementById('btn-salvar-posto').textContent = '✅ Salvar Posto';
+  document.getElementById('btn-cancelar-posto').style.display = 'none';
+}
+
+function confirmarDelPosto(id) {
+  delPostoTargetId = id;
+  const p = postos.find(x => x.id === id);
+  const emUso = colaboradores.some(c => c.posto === p?.nome);
+  const msg = emUso
+    ? `O posto "${p?.nome}" está em uso por colaboradores. Deseja remover mesmo assim?`
+    : `Deseja remover o posto "${p?.nome}"?`;
+  if (confirm(msg)) {
+    postos = postos.filter(x => x.id !== delPostoTargetId);
+    savePostos();
+    atualizarSelectsPostos();
+    renderPostos();
+    delPostoTargetId = null;
+  }
 }
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
@@ -2380,6 +2543,7 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-colaboradores').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-usuarios').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-dashboard').style.display = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-postos').style.display = isAdmin ? '' : 'none';
 
   // Reseta seleção ao entrar
   selectedColab = null;
@@ -2615,6 +2779,7 @@ function showTab(id, btn) {
   if (id==='historico')  { updatePostoFilter(); renderHistorico(); }
   if (id==='usuarios')   { renderUsuarios(); }
   if (id==='dashboard')  { renderDashboard(); }
+  if (id==='postos')     { renderPostos(); }
 }
 
 // ─── RENDER: LISTA PONTO ──────────────────────────────────────────────────────
@@ -2727,49 +2892,20 @@ let pendingLocalizacao = null;
 function obterLocalizacao() {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
-      console.warn('📍 Geolocalização não suportada neste navegador.');
       resolve(null);
       return;
     }
-
-    const opcoes = {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
-    };
-
-    const sucesso = (pos) => {
-      console.log('📍 Localização obtida:', pos.coords.latitude, pos.coords.longitude, '±', pos.coords.accuracy, 'm');
-      resolve({
-        lat: pos.coords.latitude.toFixed(6),
-        lng: pos.coords.longitude.toFixed(6),
-        precisao: Math.round(pos.coords.accuracy)
-      });
-    };
-
-    const erro = (err) => {
-      const msgs = {
-        1: 'Permissão negada pelo usuário',
-        2: 'Posição indisponível (GPS/rede sem sinal)',
-        3: 'Tempo esgotado ao obter localização'
-      };
-      console.warn('📍 Erro de geolocalização:', err.code, msgs[err.code] || err.message);
-      resolve(null);
-    };
-
-    // Tenta primeiro com alta precisão; em caso de timeout, tenta com baixa precisão
-    navigator.geolocation.getCurrentPosition(sucesso, (err) => {
-      if (err.code === 3) {
-        // Timeout com GPS — tenta fallback via rede (menos preciso mas mais rápido)
-        navigator.geolocation.getCurrentPosition(sucesso, erro, {
-          enableHighAccuracy: false,
-          timeout: 10000,
-          maximumAge: 30000
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({
+          lat: pos.coords.latitude.toFixed(6),
+          lng: pos.coords.longitude.toFixed(6),
+          precisao: Math.round(pos.coords.accuracy)
         });
-      } else {
-        erro(err);
-      }
-    }, opcoes);
+      },
+      () => resolve(null),
+      { timeout: 8000, maximumAge: 0 }
+    );
   });
 }
 
@@ -2809,14 +2945,7 @@ async function baterPonto(tipo) {
       locEl.textContent = `📍 ${pendingLocalizacao.lat}, ${pendingLocalizacao.lng} (±${pendingLocalizacao.precisao}m)`;
       locEl.style.color = 'var(--green)';
     } else {
-      // Verifica o motivo da falha para dar mensagem útil
-      if (!navigator.geolocation) {
-        locEl.textContent = '❌ Navegador não suporta geolocalização';
-      } else if (window.isSecureContext === false) {
-        locEl.textContent = '❌ Requer HTTPS para acessar localização';
-      } else {
-        locEl.textContent = '⚠️ Localização não capturada — verifique permissões do navegador';
-      }
+      locEl.textContent = '⚠️ Localização não disponível';
       locEl.style.color = 'var(--gold)';
     }
   }
