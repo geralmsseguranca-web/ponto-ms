@@ -3133,7 +3133,7 @@ function renderColaboradores() {
         ${c.dataNasc||c.estadoCivil ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">🎂 ${c.dataNasc ? fmtDataNasc(c.dataNasc) : ''}${c.dataNasc&&c.estadoCivil?' &nbsp;·&nbsp; ':''}${c.estadoCivil?esc(c.estadoCivil):''}</div>` : ''}
         ${c.telefone ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">📞 ${esc(c.telefone)}</div>` : ''}
         ${c.email ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">✉️ ${esc(c.email)}</div>` : ''}
-        ${c.endereco ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">🏠 ${esc(typeof c.endereco==='object' ? [c.endereco.rua,c.endereco.numero?'Nº '+c.endereco.numero:'',c.endereco.bairro,c.endereco.cidade,c.endereco.uf,c.endereco.cep?'CEP '+c.endereco.cep:''].filter(Boolean).join(', ') : c.endereco)}</div>` : ''}
+        ${c.endereco ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">🏠 ${esc(fmtEndereco(c.endereco))}</div>` : ''}
       </div>
       <div class="colab-admin-actions">
         ${c.ativo ? `
