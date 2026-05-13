@@ -1730,14 +1730,6 @@ footer {
         <label class="pa-label">Posto / Função <span class="req">*</span></label>
         <select class="pa-input" id="pa-posto">
           <option value="">Selecione o posto...</option>
-          <option value="Portaria Principal">Portaria Principal</option>
-          <option value="Portaria Secundária">Portaria Secundária</option>
-          <option value="Recepção Bloco A">Recepção Bloco A</option>
-          <option value="Ronda Perimetral">Ronda Perimetral</option>
-          <option value="Central de Monitoramento">Central de Monitoramento</option>
-          <option value="Estacionamento">Estacionamento</option>
-          <option value="Sala de Controle">Sala de Controle</option>
-          <option value="Guarita Externa">Guarita Externa</option>
         </select>
       </div>
 
@@ -1863,14 +1855,6 @@ footer {
       </label>
       <select id="ponto-posto-select" class="input" style="font-size:15px;padding:13px 14px;border-radius:12px">
         <option value="">Selecione o posto...</option>
-        <option value="Portaria Principal">Portaria Principal</option>
-        <option value="Portaria Secundária">Portaria Secundária</option>
-        <option value="Recepção Bloco A">Recepção Bloco A</option>
-        <option value="Ronda Perimetral">Ronda Perimetral</option>
-        <option value="Central de Monitoramento">Central de Monitoramento</option>
-        <option value="Estacionamento">Estacionamento</option>
-        <option value="Sala de Controle">Sala de Controle</option>
-        <option value="Guarita Externa">Guarita Externa</option>
       </select>
     </div>
 
@@ -1980,6 +1964,7 @@ footer {
     <!-- Sub-abas -->
     <div class="sub-tabs">
       <button class="sub-tab-btn active" id="sub-btn-cadastro" onclick="showSubTab('cadastro',this)">📋 Cadastro</button>
+      <button class="sub-tab-btn" id="sub-btn-postos" onclick="showSubTab('postos',this)">📍 Postos</button>
       <button class="sub-tab-btn" id="sub-btn-relatorio" onclick="showSubTab('relatorio',this)">📊 Relatório</button>
     </div>
 
@@ -1991,14 +1976,6 @@ footer {
           <input class="input" id="f-colab-nome" type="text" placeholder="Nome completo do colaborador"/>
           <select class="input" id="f-colab-posto">
             <option value="">Posto de serviço...</option>
-            <option value="Portaria Principal">Portaria Principal</option>
-            <option value="Portaria Secundária">Portaria Secundária</option>
-            <option value="Recepção Bloco A">Recepção Bloco A</option>
-            <option value="Ronda Perimetral">Ronda Perimetral</option>
-            <option value="Central de Monitoramento">Central de Monitoramento</option>
-            <option value="Estacionamento">Estacionamento</option>
-            <option value="Sala de Controle">Sala de Controle</option>
-            <option value="Guarita Externa">Guarita Externa</option>
           </select>
         </div>
         <div class="form-row" style="margin-bottom:14px">
@@ -2029,6 +2006,21 @@ footer {
       <input class="input" id="f-busca-colab" type="text" placeholder="🔍 Buscar por nome ou posto..."
         oninput="renderColaboradores()" style="margin-bottom:16px"/>
       <div class="colab-admin-list" id="colab-admin-list"></div>
+    </div>
+
+    <!-- ── Sub-aba: POSTOS ── -->
+    <div class="sub-tab-content" id="sub-postos">
+      <div class="card" id="posto-form-card" style="margin-bottom:24px">
+        <p class="card-title" id="posto-form-title">📍 Novo Posto</p>
+        <div class="form-row" style="margin-bottom:14px">
+          <input class="input" id="f-posto-nome" type="text" placeholder="Nome do posto (ex: Portaria Norte)" style="flex:1"/>
+          <button class="btn-primary" id="btn-salvar-posto" onclick="salvarPosto()">✅ Adicionar</button>
+          <button class="btn-secondary" id="btn-cancelar-posto" onclick="cancelarEdicaoPosto()" style="display:none">Cancelar</button>
+        </div>
+      </div>
+      <input class="input" id="f-busca-posto" type="text" placeholder="🔍 Buscar posto..."
+        oninput="renderPostos()" style="margin-bottom:16px"/>
+      <div class="colab-admin-list" id="postos-admin-list"></div>
     </div>
 
     <!-- ── Sub-aba: RELATÓRIO ── -->
@@ -2225,6 +2217,7 @@ footer {
 let colaboradores  = [];
 let registros      = [];
 let usuarios       = [];       // lista de acessos
+let postos         = [];       // lista de postos customizados
 let currentUser    = null;     // usuário logado
 let selectedColab  = null;
 let pendingTipo    = null;
@@ -2232,10 +2225,20 @@ let editId         = null;
 let delTargetId    = null;
 let editUserId     = null;
 let delUserTargetId = null;
+let editPostoId    = null;
 let histPage       = 1;
 const POR_PAGINA   = 15;
 
 // ─── STORAGE (Firebase ou localStorage) ──────────────────────────────────────
+function savePostos() {
+  if (window._firebaseReady) {
+    const obj = {};
+    postos.forEach((p, i) => { obj[p.id] = p; });
+    window._fbSet(window._fbRef(window._db, 'postos'), obj);
+  }
+  localStorage.setItem('ms_postos', JSON.stringify(postos));
+}
+
 function saveColabs() {
   if (window._firebaseReady) {
     window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'));
@@ -2296,13 +2299,23 @@ function loadData() {
       } else { seedAdminUser(); }
       renderUsuarios();
     });
-    _fbUnsubs = [u1, u2, u3];
+    const u4 = window._fbOnValue(window._fbRef(window._db, 'postos'), snap => {
+      const data = snap.val();
+      postos = data ? Object.values(data) : [];
+      if (!postos.length) seedPostos();
+      populatePostoSelects();
+      if (document.getElementById('sub-postos')?.classList.contains('active')) renderPostos();
+    });
+    _fbUnsubs = [u1, u2, u3, u4];
   } else {
     try { colaboradores = JSON.parse(localStorage.getItem('ms_colaboradores')) || []; } catch { colaboradores=[]; }
     try { registros    = JSON.parse(localStorage.getItem('ms_registros'))     || []; } catch { registros=[]; }
     try { usuarios     = JSON.parse(localStorage.getItem('ms_usuarios'))      || []; } catch { usuarios=[]; }
+    try { postos       = JSON.parse(localStorage.getItem('ms_postos'))        || []; } catch { postos=[]; }
     if (!colaboradores.length) seedColaboradores();
     if (!usuarios.length) seedAdminUser();
+    if (!postos.length) seedPostos();
+    populatePostoSelects();
     renderAll();
     renderUsuarios();
   }
@@ -2324,6 +2337,20 @@ function seedAdminUser() {
     { id: uid(), login: 'admin', senha: 'admin123', nome: 'Administrador', role: 'admin' }
   ];
   saveUsuarios();
+}
+
+function seedPostos() {
+  postos = [
+    { id: uid(), nome: 'Portaria Principal' },
+    { id: uid(), nome: 'Portaria Secundária' },
+    { id: uid(), nome: 'Recepção Bloco A' },
+    { id: uid(), nome: 'Ronda Perimetral' },
+    { id: uid(), nome: 'Central de Monitoramento' },
+    { id: uid(), nome: 'Estacionamento' },
+    { id: uid(), nome: 'Sala de Controle' },
+    { id: uid(), nome: 'Guarita Externa' },
+  ];
+  savePostos();
 }
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
@@ -3339,6 +3366,123 @@ function cancelarDelPermanente() {
   document.getElementById('del-perm-overlay').style.display = 'none';
 }
 
+// ─── GESTÃO DE POSTOS ────────────────────────────────────────────────────────
+function populatePostoSelects() {
+  const nomes = postos.map(p => p.nome).sort((a,b) => a.localeCompare(b,'pt-BR'));
+  const opts = nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  const ids = ['f-colab-posto', 'ponto-posto-select', 'pa-posto'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const prev = el.value;
+    const first = id === 'ponto-posto-select'
+      ? '<option value="">Selecione o posto...</option>'
+      : id === 'pa-posto'
+        ? '<option value="">Selecione o posto...</option>'
+        : '<option value="">Posto de serviço...</option>';
+    el.innerHTML = first + opts;
+    if (prev && nomes.includes(prev)) el.value = prev;
+  });
+}
+
+function salvarPosto() {
+  const nome = (document.getElementById('f-posto-nome').value || '').trim();
+  if (!nome) { alert('Digite o nome do posto.'); return; }
+  const dup = postos.find(p => p.nome.toLowerCase() === nome.toLowerCase() && p.id !== editPostoId);
+  if (dup) { alert(`Já existe um posto com o nome "${nome}".`); return; }
+
+  if (editPostoId) {
+    const antigo = postos.find(p => p.id === editPostoId)?.nome;
+    postos = postos.map(p => p.id === editPostoId ? {...p, nome} : p);
+    // Atualiza colaboradores que usavam o posto antigo
+    if (antigo && antigo !== nome) {
+      colaboradores = colaboradores.map(c => c.posto === antigo ? {...c, posto: nome} : c);
+      saveColabs();
+    }
+    cancelarEdicaoPosto();
+  } else {
+    postos.push({ id: uid(), nome });
+  }
+  savePostos();
+  document.getElementById('f-posto-nome').value = '';
+  populatePostoSelects();
+  renderPostos();
+}
+
+function editarPosto(id) {
+  const p = postos.find(p => p.id === id);
+  if (!p) return;
+  editPostoId = id;
+  document.getElementById('f-posto-nome').value = p.nome;
+  document.getElementById('posto-form-title').textContent = '✏️ Editando Posto';
+  document.getElementById('btn-salvar-posto').textContent = '💾 Salvar';
+  document.getElementById('btn-cancelar-posto').style.display = 'inline-block';
+  document.getElementById('posto-form-card').classList.add('editing');
+  document.getElementById('f-posto-nome').focus();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function cancelarEdicaoPosto() {
+  editPostoId = null;
+  document.getElementById('f-posto-nome').value = '';
+  document.getElementById('posto-form-title').textContent = '📍 Novo Posto';
+  document.getElementById('btn-salvar-posto').textContent = '✅ Adicionar';
+  document.getElementById('btn-cancelar-posto').style.display = 'none';
+  document.getElementById('posto-form-card').classList.remove('editing');
+}
+
+function excluirPosto(id) {
+  const p = postos.find(p => p.id === id);
+  if (!p) return;
+  const emUso = colaboradores.filter(c => c.ativo && c.posto === p.nome).length;
+  if (emUso > 0) {
+    if (!confirm(`O posto "${p.nome}" está em uso por ${emUso} colaborador(es) ativo(s).\n\nDeseja excluir mesmo assim? Os colaboradores ficarão sem posto definido.`)) return;
+    colaboradores = colaboradores.map(c => c.posto === p.nome ? {...c, posto: ''} : c);
+    saveColabs();
+    renderAll();
+  } else {
+    if (!confirm(`Excluir o posto "${p.nome}"?`)) return;
+  }
+  postos = postos.filter(p => p.id !== id);
+  savePostos();
+  populatePostoSelects();
+  renderPostos();
+}
+
+function renderPostos() {
+  const busca = (document.getElementById('f-busca-posto')?.value || '').toLowerCase();
+  const lista = postos.filter(p => p.nome.toLowerCase().includes(busca))
+    .sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'));
+
+  const container = document.getElementById('postos-admin-list');
+  if (!container) return;
+
+  if (!lista.length) {
+    container.innerHTML = '<p style="color:var(--muted);text-align:center;padding:32px">Nenhum posto encontrado</p>';
+    return;
+  }
+
+  container.innerHTML = lista.map(p => {
+    const emUso = colaboradores.filter(c => c.ativo && c.posto === p.nome).length;
+    return `
+    <div class="colab-admin-item">
+      <div class="avatar" style="background:linear-gradient(135deg,var(--accent2),var(--accent));font-size:20px">📍</div>
+      <div class="colab-admin-info">
+        <div class="colab-name">${esc(p.nome)}</div>
+        <div class="colab-posto" style="margin-top:4px">
+          ${emUso > 0
+            ? `<span style="color:var(--green);font-family:var(--font-mono);font-size:12px">● ${emUso} colaborador(es) ativo(s)</span>`
+            : `<span style="color:var(--muted2);font-family:var(--font-mono);font-size:12px">○ Nenhum colaborador ativo</span>`}
+        </div>
+      </div>
+      <div class="colab-admin-actions">
+        <button class="btn-edit" onclick="editarPosto('${p.id}')">✏️ Editar</button>
+        <button class="btn-del" onclick="excluirPosto('${p.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // ─── SUB-ABAS COLABORADORES ──────────────────────────────────────────────────
 function showSubTab(name, btn) {
   document.querySelectorAll('.sub-tab-content').forEach(el => el.classList.remove('active'));
@@ -3346,6 +3490,7 @@ function showSubTab(name, btn) {
   document.getElementById('sub-' + name).classList.add('active');
   btn.classList.add('active');
   if (name === 'relatorio') renderRelatorio();
+  if (name === 'postos') renderPostos();
 }
 
 // ─── RENDER: RELATÓRIO ────────────────────────────────────────────────────────
