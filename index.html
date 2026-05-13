@@ -3994,6 +3994,43 @@ function abrirPrimeiroAcesso() {
   if (uf) uf.value = 'SP';
   const ec = document.getElementById('pa-estado-civil');
   if (ec) ec.value = '';
+
+  // Carrega postos para o select do cadastro (usuário ainda não está logado)
+  function carregarPostosParaCadastro() {
+    if (postos.length) {
+      populatePostoSelects();
+      return;
+    }
+    // Tenta buscar do Firebase primeiro
+    if (window._firebaseReady) {
+      window._fbGet(window._fbRef(window._db, 'postos')).then(snap => {
+        const data = snap.val();
+        postos = data ? Object.values(data) : [];
+        if (!postos.length) {
+          // Fallback: tenta localStorage
+          try { postos = JSON.parse(localStorage.getItem('ms_postos')) || []; } catch { postos = []; }
+        }
+        if (!postos.length) seedPostos();
+        populatePostoSelects();
+      }).catch(() => {
+        try { postos = JSON.parse(localStorage.getItem('ms_postos')) || []; } catch { postos = []; }
+        if (!postos.length) seedPostos();
+        populatePostoSelects();
+      });
+    } else {
+      try { postos = JSON.parse(localStorage.getItem('ms_postos')) || []; } catch { postos = []; }
+      if (!postos.length) seedPostos();
+      populatePostoSelects();
+    }
+  }
+
+  // Também carrega usuários para validação de CPF duplicado
+  if (!usuarios.length) {
+    try { usuarios = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuarios = []; }
+  }
+
+  carregarPostosParaCadastro();
+
   paMostrarStep(1);
   document.getElementById('primeiro-acesso-screen').style.display = 'flex';
   document.getElementById('login-screen').style.display = 'none';
