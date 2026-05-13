@@ -1930,7 +1930,7 @@ footer {
         <table>
           <thead>
             <tr>
-              <th>Data</th><th>Colaborador</th><th>Posto</th><th>Entrada</th><th>Saída</th><th id="th-acoes" style="display:none">Ações</th>
+              <th>Data</th><th>Colaborador</th><th>Posto</th><th>Entrada</th><th>Saída</th><th>Duração</th><th id="th-acoes" style="display:none">Ações</th>
             </tr>
           </thead>
           <tbody id="hist-tbody"></tbody>
@@ -1975,6 +1975,18 @@ footer {
           <input class="input" id="f-colab-rg" type="text" placeholder="RG (ex: 12.345.678-9)" style="min-width:180px"/>
           <input class="input" id="f-colab-cpf" type="text" placeholder="CPF (ex: 000.000.000-00)" style="min-width:180px"/>
           <input class="input" id="f-colab-telefone" type="text" placeholder="Telefone (ex: (11) 99999-9999)" style="min-width:190px"/>
+        </div>
+        <div class="form-row" style="margin-bottom:14px">
+          <input class="input" id="f-colab-email" type="email" placeholder="E-mail" style="min-width:220px"/>
+          <input class="input" id="f-colab-datanasc" type="date" title="Data de nascimento" style="min-width:160px"/>
+          <select class="input" id="f-colab-estadocivil" style="min-width:160px">
+            <option value="">Estado civil...</option>
+            <option>Solteiro(a)</option>
+            <option>Casado(a)</option>
+            <option>Divorciado(a)</option>
+            <option>Viúvo(a)</option>
+            <option>União estável</option>
+          </select>
         </div>
         <div class="form-row" style="margin-bottom:14px">
           <input class="input" id="f-colab-endereco" type="text" placeholder="Endereço completo (Rua, Nº, Bairro, Cidade/UF)" style="flex:1;min-width:300px"/>
@@ -2024,7 +2036,10 @@ footer {
                 <th>Posto</th>
                 <th>RG</th>
                 <th>CPF</th>
+                <th>Nascimento</th>
+                <th>Est. Civil</th>
                 <th>Telefone</th>
+                <th>E-mail</th>
                 <th>Endereço</th>
                 <th>Status</th>
               </tr>
@@ -2342,7 +2357,6 @@ function entrarSistema(usuario) {
   selectedColab = null;
   document.getElementById('ponto-btns').style.display = 'none';
 
-  // Mensagem de boas-vindas inicial (colaborador terá instrução ocultada pela auto-seleção)
   const instrucao = document.getElementById('ponto-instrucao');
   if (instrucao) {
     instrucao.style.display = '';
@@ -2517,6 +2531,19 @@ function renderUsuarios() {
 
 // ─── UTILITÁRIOS ──────────────────────────────────────────────────────────────
 function uid() { return Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+function fmtDataNasc(nasc) {
+  if (!nasc) return '';
+  // nasc pode ser "YYYY-MM-DD"
+  const [y,m,d] = nasc.split('-');
+  if (!y||!m||!d) return nasc;
+  return d+'/'+m+'/'+y;
+}
+function fmtEndereco(end) {
+  if (!end) return '';
+  if (typeof end === 'string') return end;
+  return [end.rua, end.numero?'Nº '+end.numero:'', end.bairro, end.cidade, end.uf, end.cep?'CEP '+end.cep:'']
+    .filter(Boolean).join(', ');
+}
 function fmtHora(ts) { return new Date(ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
 function fmtData(ts) { return new Date(ts).toLocaleDateString('pt-BR'); }
 function avatarColor(nome) { return `hsl(${(nome.charCodeAt(0)*7+(nome.charCodeAt(1)||0)*13)%360},50%,35%)`; }
@@ -2569,38 +2596,30 @@ function renderColabPonto() {
   let ativos = todosAtivos;
   let meuColab = null;
 
-  // Se colaborador comum: mostra SÓ ele mesmo
   if (!isAdmin && currentUser) {
-    // 1ª tentativa: vínculo direto por colaboradorId (cadastros novos)
+    // 1ª tentativa: colaboradorId direto
     if (currentUser.colaboradorId) {
       meuColab = todosAtivos.find(c => c.id === currentUser.colaboradorId);
     }
-    // 2ª tentativa: match por nome exato
+    // 2ª tentativa: nome exato
     if (!meuColab) {
       meuColab = todosAtivos.find(c => c.nome.toLowerCase() === (currentUser.nome||'').toLowerCase());
     }
-    // 3ª tentativa: match parcial (primeiro nome)
+    // 3ª tentativa: primeiro nome
     if (!meuColab) {
-      const primeiroNome = (currentUser.nome||'').split(' ')[0].toLowerCase();
-      if (primeiroNome.length > 2) {
-        meuColab = todosAtivos.find(c => c.nome.toLowerCase().startsWith(primeiroNome));
-      }
+      const pNome = (currentUser.nome||'').split(' ')[0].toLowerCase();
+      if (pNome.length > 2) meuColab = todosAtivos.find(c => c.nome.toLowerCase().startsWith(pNome));
     }
 
     if (meuColab) {
       ativos = [meuColab];
-      // Auto-seleciona o colaborador para o usuário não precisar clicar
       if (!selectedColab || selectedColab.id !== meuColab.id) {
         selectedColab = meuColab;
-        setTimeout(() => {
-          document.getElementById('ponto-btns').style.display = 'grid';
-        }, 50);
+        setTimeout(() => { document.getElementById('ponto-btns').style.display = 'grid'; }, 50);
       }
-      // Instrução dispensável quando já há auto-seleção
       const instrEl = document.getElementById('ponto-instrucao');
       if (instrEl) instrEl.style.display = 'none';
     } else {
-      // Não encontrou vínculo: mostra mensagem de erro clara
       ativos = [];
       const instrucao = document.getElementById('ponto-instrucao');
       if (instrucao) instrucao.style.display = 'none';
@@ -2623,7 +2642,6 @@ function renderColabPonto() {
     }
   }
 
-  // Restaura visibilidade da instrução para admin (pode ter sido ocultada antes)
   const instrucaoEl = document.getElementById('ponto-instrucao');
   if (instrucaoEl && isAdmin) instrucaoEl.style.display = '';
 
@@ -2847,7 +2865,6 @@ function updatePostoFilter() {
     const isAdmin = currentUser?.role === 'admin';
     let lista = colaboradores.filter(c => c.ativo);
     if (!isAdmin && currentUser) {
-      // Tenta vínculo direto por colaboradorId, depois por nome
       if (currentUser.colaboradorId) {
         lista = lista.filter(c => c.id === currentUser.colaboradorId);
       } else {
@@ -2901,7 +2918,6 @@ function _renderHistTabla() {
   // Filtra registros individuais (tipo NÃO filtra aqui — é aplicado após agrupamento)
   const regFiltrados = registros.filter(r => {
     if (!isAdmin) {
-      // Filtra pelo colaboradorId vinculado (mais confiável) ou por nome
       if (myColabId) {
         if (r.colaboradorId !== myColabId) return false;
       } else {
@@ -3009,7 +3025,7 @@ function _renderHistTabla() {
 
   const tbody = document.getElementById('hist-tbody');
   if (!slice.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="${isAdmin?6:5}">Nenhum registro encontrado</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="${isAdmin?7:6}">Nenhum registro encontrado</td></tr>`;
   } else {
     tbody.innerHTML = slice.map(l => {
       const idsEsc = esc(JSON.stringify(l.ids || []));
@@ -3023,6 +3039,15 @@ function _renderHistTabla() {
       const acoesHtml = isAdmin
         ? `<td style="text-align:center"><button class="btn-del" title="Excluir este turno" onclick="confirmarDelRegistroPorIds(${idsEsc},'${esc(l.colaboradorNome)}','${esc(fmtData(l.dataTs))}')" >🗑️</button></td>`
         : '';
+      const duracaoHtml = (l.entrada && l.saida)
+        ? (() => {
+            const ms = l.saida - l.entrada;
+            const h  = Math.floor(ms/3600000);
+            const m  = Math.floor((ms%3600000)/60000);
+            const s  = Math.floor((ms%60000)/1000);
+            return `<span style="font-family:var(--font-mono);font-size:13px;color:var(--accent)">${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</span>`;
+          })()
+        : `<span style="color:var(--muted);font-size:12px">–</span>`;
       return `
         <tr>
           <td class="td-data">${fmtData(l.dataTs)}${turnoLabel}</td>
@@ -3030,6 +3055,7 @@ function _renderHistTabla() {
           <td class="td-posto">${esc(l.posto)}</td>
           <td>${entradaHtml}</td>
           <td>${saidaHtml}</td>
+          <td style="text-align:center">${duracaoHtml}</td>
           ${acoesHtml}
         </tr>
       `;
@@ -3104,8 +3130,10 @@ function renderColaboradores() {
         </div>
         <div class="colab-posto">📍 ${esc(c.posto)}</div>
         ${c.rg||c.cpf ? `<div style="font-size:12px;color:var(--muted);margin-top:3px;font-family:var(--font-mono)">${c.rg?'RG: '+esc(c.rg):''}${c.rg&&c.cpf?' &nbsp;·&nbsp; ':''}${c.cpf?'CPF: '+esc(c.cpf):''}</div>` : ''}
+        ${c.dataNasc||c.estadoCivil ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">🎂 ${c.dataNasc ? fmtDataNasc(c.dataNasc) : ''}${c.dataNasc&&c.estadoCivil?' &nbsp;·&nbsp; ':''}${c.estadoCivil?esc(c.estadoCivil):''}</div>` : ''}
         ${c.telefone ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">📞 ${esc(c.telefone)}</div>` : ''}
-        ${c.endereco ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">🏠 ${esc(c.endereco)}</div>` : ''}
+        ${c.email ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">✉️ ${esc(c.email)}</div>` : ''}
+        ${c.endereco ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">🏠 ${esc(typeof c.endereco==='object' ? [c.endereco.rua,c.endereco.numero?'Nº '+c.endereco.numero:'',c.endereco.bairro,c.endereco.cidade,c.endereco.uf,c.endereco.cep?'CEP '+c.endereco.cep:''].filter(Boolean).join(', ') : c.endereco)}</div>` : ''}
       </div>
       <div class="colab-admin-actions">
         ${c.ativo ? `
@@ -3121,27 +3149,32 @@ function renderColaboradores() {
 }
 
 function salvarColaborador() {
-  const nome      = document.getElementById('f-colab-nome').value.trim();
-  const posto     = document.getElementById('f-colab-posto').value.trim();
-  const rg        = document.getElementById('f-colab-rg').value.trim();
-  const cpf       = document.getElementById('f-colab-cpf').value.trim();
-  const telefone  = document.getElementById('f-colab-telefone').value.trim();
-  const endereco  = document.getElementById('f-colab-endereco').value.trim();
+  const nome        = document.getElementById('f-colab-nome').value.trim();
+  const posto       = document.getElementById('f-colab-posto').value.trim();
+  const rg          = document.getElementById('f-colab-rg').value.trim();
+  const cpf         = document.getElementById('f-colab-cpf').value.trim();
+  const telefone    = document.getElementById('f-colab-telefone').value.trim();
+  const email       = document.getElementById('f-colab-email').value.trim();
+  const dataNasc    = document.getElementById('f-colab-datanasc').value;
+  const estadoCivil = document.getElementById('f-colab-estadocivil').value;
+  const endereco    = document.getElementById('f-colab-endereco').value.trim();
   if (!nome || !posto) return;
 
   if (editId) {
-    colaboradores = colaboradores.map(c=> c.id===editId ? {...c, nome, posto, rg, cpf, telefone, endereco} : c);
+    colaboradores = colaboradores.map(c=> c.id===editId
+      ? {...c, nome, posto, rg, cpf, telefone, email, dataNasc, estadoCivil, endereco}
+      : c);
     cancelarEdicao();
   } else {
-    colaboradores.push({ id: uid(), nome, posto, rg, cpf, telefone, endereco, ativo: true });
+    colaboradores.push({ id: uid(), nome, posto, rg, cpf, telefone, email, dataNasc, estadoCivil, endereco, ativo: true });
   }
   saveColabs();
-  document.getElementById('f-colab-nome').value='';
-  document.getElementById('f-colab-posto').value='';
-  document.getElementById('f-colab-rg').value='';
-  document.getElementById('f-colab-cpf').value='';
-  document.getElementById('f-colab-telefone').value='';
-  document.getElementById('f-colab-endereco').value='';
+  ['f-colab-nome','f-colab-posto','f-colab-rg','f-colab-cpf',
+   'f-colab-telefone','f-colab-email','f-colab-endereco'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('f-colab-datanasc').value = '';
+  document.getElementById('f-colab-estadocivil').value = '';
   renderAll();
 }
 
@@ -3154,7 +3187,10 @@ function editarColaborador(id) {
   document.getElementById('f-colab-rg').value = c.rg || '';
   document.getElementById('f-colab-cpf').value = c.cpf || '';
   document.getElementById('f-colab-telefone').value = c.telefone || '';
-  document.getElementById('f-colab-endereco').value = c.endereco || '';
+  document.getElementById('f-colab-email').value = c.email || '';
+  document.getElementById('f-colab-datanasc').value = c.dataNasc || '';
+  document.getElementById('f-colab-estadocivil').value = c.estadoCivil || '';
+  document.getElementById('f-colab-endereco').value = fmtEndereco(c.endereco) || '';
   document.getElementById('form-title').textContent = '✏️ Editando Colaborador';
   document.getElementById('btn-salvar').textContent = '💾 Salvar Alterações';
   document.getElementById('btn-cancelar-edit').style.display='inline-block';
@@ -3170,6 +3206,9 @@ function cancelarEdicao() {
   document.getElementById('f-colab-rg').value='';
   document.getElementById('f-colab-cpf').value='';
   document.getElementById('f-colab-telefone').value='';
+  document.getElementById('f-colab-email').value='';
+  document.getElementById('f-colab-datanasc').value='';
+  document.getElementById('f-colab-estadocivil').value='';
   document.getElementById('f-colab-endereco').value='';
   document.getElementById('form-title').textContent = '➕ Novo Colaborador';
   document.getElementById('btn-salvar').textContent = '✅ Adicionar';
@@ -3268,7 +3307,7 @@ function renderRelatorio() {
 
   const tbody = document.getElementById('rel-tbody');
   if (!lista.length) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Nenhum colaborador encontrado</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="11">Nenhum colaborador encontrado</td></tr>';
     return;
   }
 
@@ -3279,8 +3318,11 @@ function renderRelatorio() {
       <td class="td-posto">${esc(c.posto)}</td>
       <td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">${esc(c.rg || '—')}</td>
       <td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">${esc(c.cpf || '—')}</td>
+      <td style="font-size:13px;color:var(--muted)">${esc(c.dataNasc ? fmtDataNasc(c.dataNasc) : '—')}</td>
+      <td style="font-size:13px;color:var(--muted)">${esc(c.estadoCivil || '—')}</td>
       <td style="font-size:13px;color:var(--muted)">${esc(c.telefone || '—')}</td>
-      <td style="font-size:12px;color:var(--muted);max-width:200px">${esc(c.endereco || '—')}</td>
+      <td style="font-size:13px;color:var(--muted)">${esc(c.email || '—')}</td>
+      <td style="font-size:12px;color:var(--muted);max-width:200px">${esc(fmtEndereco(c.endereco) || '—')}</td>
       <td>
         <span class="tipo-tag ${c.ativo ? 'tipo-entrada' : 'tipo-saida'}">
           ${c.ativo ? '✅ ATIVO' : '⛔ INATIVO'}
@@ -3311,8 +3353,11 @@ function exportarPDF() {
       <td>${esc(c.posto)}</td>
       <td>${esc(c.rg || '—')}</td>
       <td>${esc(c.cpf || '—')}</td>
+      <td>${esc(c.dataNasc ? fmtDataNasc(c.dataNasc) : '—')}</td>
+      <td>${esc(c.estadoCivil || '—')}</td>
       <td>${esc(c.telefone || '—')}</td>
-      <td>${esc(c.endereco || '—')}</td>
+      <td>${esc(c.email || '—')}</td>
+      <td>${esc(fmtEndereco(c.endereco) || '—')}</td>
       <td style="text-align:center">
         <span style="
           display:inline-block;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:700;
@@ -3364,7 +3409,7 @@ function exportarPDF() {
     <table>
       <thead>
         <tr>
-          <th>#</th><th>Nome</th><th>Posto</th><th>RG</th><th>CPF</th><th>Telefone</th><th>Endereço</th><th>Status</th>
+          <th>#</th><th>Nome</th><th>Posto</th><th>RG</th><th>CPF</th><th>Nascimento</th><th>Est. Civil</th><th>Telefone</th><th>E-mail</th><th>Endereço</th><th>Status</th>
         </tr>
       </thead>
       <tbody>${linhas}</tbody>
@@ -3390,15 +3435,18 @@ function exportarExcel() {
 
   // Monta CSV com BOM UTF-8 para Excel reconhecer acentos
   const bom = '\uFEFF';
-  const cabecalho = ['#','Nome','Posto','RG','CPF','Telefone','Endereço','Status'];
+  const cabecalho = ['#','Nome','Posto','RG','CPF','Nascimento','Est. Civil','Telefone','E-mail','Endereço','Status'];
   const linhas = lista.map((c, i) => [
     i + 1,
     c.nome || '',
     c.posto || '',
     c.rg || '',
     c.cpf || '',
+    c.dataNasc ? fmtDataNasc(c.dataNasc) : '',
+    c.estadoCivil || '',
     c.telefone || '',
-    c.endereco || '',
+    c.email || '',
+    fmtEndereco(c.endereco) || '',
     c.ativo ? 'Ativo' : 'Inativo'
   ]);
 
@@ -3895,6 +3943,10 @@ async function finalizarCadastro() {
   const idColab = uid();
   const idUser  = uid();
 
+  // Monta endereço como string formatada (compatível com todo o sistema)
+  const enderecoStr = [rua, numEnd ? 'Nº '+numEnd : '', bairro, cidade, uf, cep ? 'CEP '+cep : '']
+    .filter(Boolean).join(', ');
+
   const novoColab = {
     id: idColab,
     nome,
@@ -3906,7 +3958,7 @@ async function finalizarCadastro() {
     estadoCivil: ec,
     telefone: tel,
     email,
-    endereco: { cep, rua, numero: numEnd, bairro, cidade, uf },
+    endereco: enderecoStr,
     dataCadastro: Date.now()
   };
 
