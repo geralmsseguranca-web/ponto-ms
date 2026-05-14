@@ -2278,6 +2278,26 @@ function saveColabs() {
   }
 }
 
+// Salva UM colaborador individualmente — evita sobrescrever outros em paralelo
+function saveUmColab(colab) {
+  localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+  if (window._firebaseReady) {
+    _syncStart();
+    window._fbSet(window._fbRef(window._db, 'colaboradores/' + colab.id), colab)
+      .then(_syncDone).catch(e => { _syncErr(); console.warn('saveUmColab:', e.message); });
+  }
+}
+
+// Remove UM colaborador individualmente do Firebase
+function removeUmColab(id) {
+  localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+  if (window._firebaseReady) {
+    _syncStart();
+    window._fbRemove(window._fbRef(window._db, 'colaboradores/' + id))
+      .then(_syncDone).catch(e => { _syncErr(); console.warn('removeUmColab:', e.message); });
+  }
+}
+
 // Salva um único registro (mais seguro — não sobrescreve outros em paralelo)
 function saveUmRegistro(reg) {
   localStorage.setItem('ms_registros', JSON.stringify(registros));
@@ -2303,6 +2323,26 @@ function saveUsuarios() {
     _syncStart();
     window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'))
       .then(_syncDone).catch(e => { _syncErr(); console.warn('saveUsuarios:', e.message); });
+  }
+}
+
+// Salva UM usuário individualmente
+function saveUmUsuario(user) {
+  localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+  if (window._firebaseReady) {
+    _syncStart();
+    window._fbSet(window._fbRef(window._db, 'usuarios/' + user.id), user)
+      .then(_syncDone).catch(e => { _syncErr(); console.warn('saveUmUsuario:', e.message); });
+  }
+}
+
+// Remove UM usuário individualmente do Firebase
+function removeUmUsuario(id) {
+  localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+  if (window._firebaseReady) {
+    _syncStart();
+    window._fbRemove(window._fbRef(window._db, 'usuarios/' + id))
+      .then(_syncDone).catch(e => { _syncErr(); console.warn('removeUmUsuario:', e.message); });
   }
 }
 
@@ -2617,18 +2657,21 @@ function salvarUsuario() {
   }
 
   if (editUserId) {
-    usuarios = usuarios.map(u => u.id === editUserId ? { ...u, login, senha, nome, role } : u);
-    // Atualizar sessão se editou o próprio usuário
+    const atualizado = { ...usuarios.find(u => u.id === editUserId), login, senha, nome, role };
+    usuarios = usuarios.map(u => u.id === editUserId ? atualizado : u);
     if (currentUser && currentUser.id === editUserId) {
-      currentUser = usuarios.find(u => u.id === editUserId);
+      currentUser = atualizado;
       sessionStorage.setItem('ms_session', JSON.stringify(currentUser));
       document.getElementById('chip-user-name').textContent = currentUser.nome || currentUser.login;
     }
+    saveUmUsuario(atualizado);
     cancelarEdicaoUser();
   } else {
-    usuarios.push({ id: uid(), login, senha, nome, role });
+    const novoUser = { id: uid(), login, senha, nome, role };
+    usuarios.push(novoUser);
+    saveUmUsuario(novoUser);
   }
-  saveUsuarios();
+  localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
   limparFormUser();
   renderUsuarios();
 }
@@ -2677,8 +2720,9 @@ function confirmarDelUser() {
     document.getElementById('del-user-overlay').style.display = 'none';
     return;
   }
-  usuarios = usuarios.filter(u => u.id !== delUserTargetId);
-  saveUsuarios();
+  const idDel = delUserTargetId;
+  usuarios = usuarios.filter(u => u.id !== idDel);
+  removeUmUsuario(idDel);
   delUserTargetId = null;
   document.getElementById('del-user-overlay').style.display = 'none';
   renderUsuarios();
@@ -3416,38 +3460,41 @@ function salvarColaborador() {
   const role        = document.getElementById('f-colab-role').value || 'colaborador';
   if (!nome || !posto) return;
 
-  let colabId = editId || uid();
-
   if (editId) {
-    colaboradores = colaboradores.map(c=> c.id===editId
-      ? {...c, nome, posto, rg, cpf, telefone, email, dataNasc, estadoCivil, endereco}
-      : c);
+    const colabAtualizado = { ...colaboradores.find(c => c.id === editId), nome, posto, rg, cpf, telefone, email, dataNasc, estadoCivil, endereco };
+    colaboradores = colaboradores.map(c => c.id === editId ? colabAtualizado : c);
+    saveUmColab(colabAtualizado); // salva só este, não sobrescreve os outros
 
-    // Atualiza ou cria usuário vinculado
     if (login && senha) {
-      const dupLogin = usuarios.find(u => u.login.toLowerCase() === login && u.colaboradorId !== editId && u.id !== (usuarios.find(u2=>u2.colaboradorId===editId)||{}).id);
+      const dupLogin = usuarios.find(u => u.login.toLowerCase() === login && u.colaboradorId !== editId);
       if (dupLogin) { alert(`Usuário "${login}" já existe para outro colaborador.`); return; }
       const idx = usuarios.findIndex(u => u.colaboradorId === editId);
       if (idx >= 0) {
         usuarios[idx] = { ...usuarios[idx], login, senha, nome, role };
+        saveUmUsuario(usuarios[idx]);
       } else {
-        usuarios.push({ id: uid(), login, senha, nome, role, colaboradorId: editId });
+        const novoUser = { id: uid(), login, senha, nome, role, colaboradorId: editId };
+        usuarios.push(novoUser);
+        saveUmUsuario(novoUser);
       }
-      saveUsuarios();
+      localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
     }
     cancelarEdicao();
   } else {
-    colaboradores.push({ id: colabId, nome, posto, rg, cpf, telefone, email, dataNasc, estadoCivil, endereco, ativo: true });
+    const colabId = uid();
+    const novoColab = { id: colabId, nome, posto, rg, cpf, telefone, email, dataNasc, estadoCivil, endereco, ativo: true };
+    colaboradores.push(novoColab);
+    saveUmColab(novoColab); // salva só o novo, não toca nos outros
 
-    // Cria usuário vinculado se preenchido
     if (login && senha) {
       const dupLogin = usuarios.find(u => u.login.toLowerCase() === login);
       if (dupLogin) { alert(`Usuário "${login}" já existe.`); return; }
-      usuarios.push({ id: uid(), login, senha, nome, role, colaboradorId: colabId });
-      saveUsuarios();
+      const novoUser = { id: uid(), login, senha, nome, role, colaboradorId: colabId };
+      usuarios.push(novoUser);
+      saveUmUsuario(novoUser);
+      localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
     }
   }
-  saveColabs();
   ['f-colab-nome','f-colab-posto','f-colab-rg','f-colab-cpf',
    'f-colab-telefone','f-colab-email','f-colab-endereco',
    'f-colab-login','f-colab-senha'].forEach(id => {
@@ -3511,16 +3558,18 @@ function confirmarDel(id) {
 }
 
 function confirmarExclusao() {
-  colaboradores = colaboradores.map(c=> c.id===delTargetId ? {...c, ativo:false} : c);
-  saveColabs();
+  const atualizado = { ...colaboradores.find(c => c.id === delTargetId), ativo: false };
+  colaboradores = colaboradores.map(c => c.id === delTargetId ? atualizado : c);
+  saveUmColab(atualizado);
   delTargetId=null;
   document.getElementById('del-overlay').style.display='none';
   renderAll();
 }
 
 function reativarColaborador(id) {
-  colaboradores = colaboradores.map(c=> c.id===id ? {...c, ativo:true} : c);
-  saveColabs();
+  const atualizado = { ...colaboradores.find(c => c.id === id), ativo: true };
+  colaboradores = colaboradores.map(c => c.id === id ? atualizado : c);
+  saveUmColab(atualizado);
   renderAll();
 }
 
@@ -3536,13 +3585,30 @@ function confirmarDelPermanente(id, nome) {
 
 function executarDelPermanente() {
   if (!_delPermId) return;
-  colaboradores = colaboradores.filter(c => c.id !== _delPermId);
-  // Remove também o usuário de acesso vinculado e os registros de ponto
-  usuarios  = usuarios.filter(u => u.colaboradorId !== _delPermId);
-  registros = registros.filter(r => r.colaboradorId !== _delPermId);
-  saveColabs();
-  saveUsuarios();
-  saveRegistros();
+  const idRemover = _delPermId;
+  // Usuário vinculado a remover
+  const userVinculado = usuarios.find(u => u.colaboradorId === idRemover);
+
+  colaboradores = colaboradores.filter(c => c.id !== idRemover);
+  usuarios      = usuarios.filter(u => u.colaboradorId !== idRemover);
+  registros     = registros.filter(r => r.colaboradorId !== idRemover);
+
+  // Salva localStorage
+  localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+  localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+  localStorage.setItem('ms_registros', JSON.stringify(registros));
+
+  // Remove individualmente no Firebase — nunca sobrescreve outras entradas
+  if (window._firebaseReady) {
+    _syncStart();
+    const ops = [
+      window._fbRemove(window._fbRef(window._db, 'colaboradores/' + idRemover)),
+      window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id')),
+    ];
+    if (userVinculado) ops.push(window._fbRemove(window._fbRef(window._db, 'usuarios/' + userVinculado.id)));
+    Promise.all(ops).then(_syncDone).catch(e => { _syncErr(); console.warn('delPerm:', e.message); });
+  }
+
   _delPermId = null;
   _delPermNome = null;
   document.getElementById('del-perm-overlay').style.display = 'none';
@@ -3586,7 +3652,10 @@ function salvarPosto() {
     // Atualiza colaboradores que usavam o posto antigo
     if (antigo && antigo !== nome) {
       colaboradores = colaboradores.map(c => c.posto === antigo ? {...c, posto: nome} : c);
-      saveColabs();
+      // Salva cada colaborador afetado individualmente
+      colaboradores.filter(c => c.posto === nome).forEach(c => saveUmColab(c));
+      localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+      renderAll();
     }
     cancelarEdicaoPosto();
   } else {
@@ -3627,7 +3696,8 @@ function excluirPosto(id) {
   if (emUso > 0) {
     if (!confirm(`O posto "${p.nome}" está em uso por ${emUso} colaborador(es) ativo(s).\n\nDeseja excluir mesmo assim? Os colaboradores ficarão sem posto definido.`)) return;
     colaboradores = colaboradores.map(c => c.posto === p.nome ? {...c, posto: ''} : c);
-    saveColabs();
+    colaboradores.filter(c => c.posto === '').forEach(c => saveUmColab(c));
+    localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
     renderAll();
   } else {
     if (!confirm(`Excluir o posto "${p.nome}"?`)) return;
@@ -4420,11 +4490,11 @@ async function finalizarCadastro() {
     primeiroAcesso: true
   };
 
-  // Salvar
+  // Salvar individualmente — nunca sobrescreve outros cadastros
   colaboradores.push(novoColab);
   usuarios.push(novoUser);
-  saveColabs();
-  saveUsuarios();
+  saveUmColab(novoColab);
+  saveUmUsuario(novoUser);
 
   // Guardar para entrar automaticamente
   paNovoCadastro = novoUser;
