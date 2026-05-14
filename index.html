@@ -1810,8 +1810,8 @@ footer {
         <p>Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico</p>
       </div>
       <div class="header-right">
-        <div class="status-badge">
-          <span class="status-dot"></span> ONLINE
+        <div class="status-badge" id="sync-indicator" onclick="abrirDiagnostico()" title="Clique para diagnóstico" style="cursor:pointer">
+          <span style="color:#0ea5e9">🔵 Aguardando</span>
         </div>
         <div class="user-chip" onclick="sairSistema()" title="Clique para sair">
           <span id="chip-user-icon">👤</span>
@@ -2211,6 +2211,33 @@ footer {
   </div>
 </div>
 
+<!-- ══ MODAL DIAGNÓSTICO DE SINCRONIZAÇÃO ══ -->
+<div class="overlay" id="diag-overlay" style="display:none;z-index:1100" onclick="if(event.target===this)fecharDiagnostico()">
+  <div class="confirm-modal" style="max-width:460px;width:94%;text-align:left">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="font-size:17px;color:var(--text)">🔧 Diagnóstico de Sincronização</h3>
+      <button onclick="fecharDiagnostico()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <div id="diag-content" style="font-family:var(--font-mono);font-size:13px;line-height:2;color:var(--muted)">
+      Carregando...
+    </div>
+    <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+      <button onclick="diagnosticoAtualizar()" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:11px;cursor:pointer;font-weight:700;font-size:13px">
+        🔄 Atualizar
+      </button>
+      <button onclick="diagnosticoForcarSync()" style="flex:1;background:#052e0f;border:1px solid var(--green);color:var(--green);border-radius:10px;padding:11px;cursor:pointer;font-weight:700;font-size:13px">
+        ☁️ Forçar Sync
+      </button>
+      <button onclick="diagnosticoForcarLocal()" style="flex:1;background:#2d0808;border:1px solid var(--red);color:var(--red);border-radius:10px;padding:11px;cursor:pointer;font-weight:700;font-size:13px">
+        💾 Restaurar Local
+      </button>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-top:12px;text-align:center">
+      "Forçar Sync" envia dados locais ao Firebase · "Restaurar Local" recarrega do localStorage
+    </p>
+  </div>
+</div>
+
 <!-- ══ SCRIPT PRINCIPAL ══ -->
 <script>
 // ─── ESTADO ───────────────────────────────────────────────────────────────────
@@ -2230,34 +2257,71 @@ let histPage       = 1;
 const POR_PAGINA   = 15;
 
 // ─── STORAGE (Firebase ou localStorage) ──────────────────────────────────────
+// ─── SYNC STATE ──────────────────────────────────────────────────────────────
+let _syncStatus = 'idle'; // 'idle' | 'syncing' | 'ok' | 'error'
+let _syncPending = 0;
+function _setSyncStatus(s) {
+  _syncStatus = s;
+  const el = document.getElementById('sync-indicator');
+  if (!el) return;
+  const map = {
+    idle:    { icon:'🔵', txt:'Aguardando',  color:'#0ea5e9' },
+    syncing: { icon:'🔄', txt:'Sincronizando…', color:'#f59e0b' },
+    ok:      { icon:'✅', txt:'Sincronizado', color:'#22c55e' },
+    error:   { icon:'❌', txt:'Erro ao salvar', color:'#ef4444' },
+  };
+  const m = map[s] || map.idle;
+  el.innerHTML = `<span style="color:${m.color}">${m.icon} ${m.txt}</span>`;
+}
+function _syncStart() { _syncPending++; _setSyncStatus('syncing'); }
+function _syncDone()  { _syncPending = Math.max(0,_syncPending-1); if (_syncPending===0) _setSyncStatus('ok'); }
+function _syncErr()   { _setSyncStatus('error'); setTimeout(()=>{ if(_syncPending===0) _setSyncStatus('idle');},4000); }
+
 function savePostos() {
-  if (window._firebaseReady) {
-    const obj = {};
-    postos.forEach((p, i) => { obj[p.id] = p; });
-    window._fbSet(window._fbRef(window._db, 'postos'), obj);
-  }
   localStorage.setItem('ms_postos', JSON.stringify(postos));
+  if (window._firebaseReady) {
+    const obj = {}; postos.forEach(p => { obj[p.id] = p; });
+    _syncStart();
+    window._fbSet(window._fbRef(window._db, 'postos'), obj)
+      .then(_syncDone).catch(e => { _syncErr(); console.warn('savePostos:', e.message); });
+  }
 }
 
 function saveColabs() {
-  if (window._firebaseReady) {
-    window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'));
-  }
   localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+  if (window._firebaseReady) {
+    _syncStart();
+    window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'))
+      .then(_syncDone).catch(e => { _syncErr(); console.warn('saveColabs:', e.message); });
+  }
+}
+
+// Salva um único registro (mais seguro — não sobrescreve outros em paralelo)
+function saveUmRegistro(reg) {
+  localStorage.setItem('ms_registros', JSON.stringify(registros));
+  if (window._firebaseReady) {
+    _syncStart();
+    window._fbSet(window._fbRef(window._db, 'registros/' + reg.id), reg)
+      .then(_syncDone).catch(e => { _syncErr(); console.warn('saveRegistro:', e.message); });
+  }
 }
 
 function saveRegistros() {
-  if (window._firebaseReady) {
-    window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'));
-  }
   localStorage.setItem('ms_registros', JSON.stringify(registros));
+  if (window._firebaseReady) {
+    _syncStart();
+    window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'))
+      .then(_syncDone).catch(e => { _syncErr(); console.warn('saveRegistros:', e.message); });
+  }
 }
 
 function saveUsuarios() {
-  if (window._firebaseReady) {
-    window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'));
-  }
   localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+  if (window._firebaseReady) {
+    _syncStart();
+    window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'))
+      .then(_syncDone).catch(e => { _syncErr(); console.warn('saveUsuarios:', e.message); });
+  }
 }
 
 function toFirebaseObj(arr, key) {
@@ -2273,32 +2337,57 @@ function fromFirebaseObj(obj) {
 let _fbUnsubs = [];
 
 function loadData() {
-  // Cancela subscrições anteriores (evita duplicatas ao relogar)
   _fbUnsubs.forEach(fn => { try { fn(); } catch(e){} });
   _fbUnsubs = [];
 
   if (window._firebaseReady) {
+    _setSyncStatus('syncing');
+
+    // Flag: só faz seed se o nó estiver REALMENTE vazio no Firebase (primeira leitura confirmada)
+    let colabsCarregado = false;
+    let usuariosCarregado = false;
+
     const u1 = window._fbOnValue(window._fbRef(window._db, 'colaboradores'), snap => {
       const data = snap.val();
       if (data) {
         colaboradores = fromFirebaseObj(data);
-        if (!colaboradores.length) seedColaboradores();
-      } else { seedColaboradores(); }
+      } else if (!colabsCarregado) {
+        // Firebase confirmou que o nó está vazio — seed seguro
+        seedColaboradores();
+      }
+      colabsCarregado = true;
+      _setSyncStatus('ok');
       renderAll();
     });
+
     const u2 = window._fbOnValue(window._fbRef(window._db, 'registros'), snap => {
       const data = snap.val();
-      registros = data ? fromFirebaseObj(data).sort((a,b)=>b.timestamp-a.timestamp) : [];
+      registros = data ? fromFirebaseObj(data).sort((a,b) => b.timestamp - a.timestamp) : [];
       renderAll();
     });
+
     const u3 = window._fbOnValue(window._fbRef(window._db, 'usuarios'), snap => {
       const data = snap.val();
       if (data) {
-        usuarios = fromFirebaseObj(data);
-        if (!usuarios.length) seedAdminUser();
-      } else { seedAdminUser(); }
+        const lista = fromFirebaseObj(data);
+        if (lista.length) {
+          usuarios = lista;
+          // Atualiza sessão se o usuário logado foi alterado no Firebase
+          if (currentUser) {
+            const atualizado = usuarios.find(x => x.id === currentUser.id);
+            if (atualizado) {
+              currentUser = atualizado;
+              sessionStorage.setItem('ms_session', JSON.stringify(atualizado));
+            }
+          }
+        }
+      } else if (!usuariosCarregado) {
+        seedAdminUser();
+      }
+      usuariosCarregado = true;
       renderUsuarios();
     });
+
     const u4 = window._fbOnValue(window._fbRef(window._db, 'postos'), snap => {
       const data = snap.val();
       postos = data ? Object.values(data) : [];
@@ -2306,6 +2395,7 @@ function loadData() {
       populatePostoSelects();
       if (document.getElementById('sub-postos')?.classList.contains('active')) renderPostos();
     });
+
     _fbUnsubs = [u1, u2, u3, u4];
   } else {
     try { colaboradores = JSON.parse(localStorage.getItem('ms_colaboradores')) || []; } catch { colaboradores=[]; }
@@ -2980,7 +3070,7 @@ function registrarPonto() {
     localizacao: pendingLocalizacao || null
   };
   registros.unshift(reg);
-  saveRegistros();
+  saveUmRegistro(reg); // salva somente este registro — não sobrescreve os demais
   showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao);
   selectedColab = null;
   pendingTipo = null;
@@ -4352,6 +4442,112 @@ async function buscarCep() {
       document.getElementById('pa-uf').value     = data.uf         || '';
     }
   } catch(e) {}
+}
+
+// ─── DIAGNÓSTICO DE SINCRONIZAÇÃO ────────────────────────────────────────────
+function abrirDiagnostico() {
+  document.getElementById('diag-overlay').style.display = 'flex';
+  diagnosticoAtualizar();
+}
+function fecharDiagnostico() {
+  document.getElementById('diag-overlay').style.display = 'none';
+}
+
+async function diagnosticoAtualizar() {
+  const el = document.getElementById('diag-content');
+  el.innerHTML = '<span style="color:var(--gold)">⏳ Verificando…</span>';
+
+  const fbOk = window._firebaseReady === true;
+  let fbColabs = '—', fbRegs = '—', fbUsers = '—';
+  let fbLatency = '—';
+
+  if (fbOk) {
+    try {
+      const t0 = Date.now();
+      const [sc, sr, su] = await Promise.all([
+        window._fbGet(window._fbRef(window._db, 'colaboradores')),
+        window._fbGet(window._fbRef(window._db, 'registros')),
+        window._fbGet(window._fbRef(window._db, 'usuarios')),
+      ]);
+      fbLatency = (Date.now() - t0) + 'ms';
+      fbColabs = sc.val() ? Object.keys(sc.val()).length : 0;
+      fbRegs   = sr.val() ? Object.keys(sr.val()).length : 0;
+      fbUsers  = su.val() ? Object.keys(su.val()).length : 0;
+    } catch(e) {
+      fbLatency = '❌ ' + e.message;
+    }
+  }
+
+  const lcColabs = (()=>{ try { return JSON.parse(localStorage.getItem('ms_colaboradores')||'[]').length; } catch{return '?';} })();
+  const lcRegs   = (()=>{ try { return JSON.parse(localStorage.getItem('ms_registros')||'[]').length;    } catch{return '?';} })();
+  const lcUsers  = (()=>{ try { return JSON.parse(localStorage.getItem('ms_usuarios')||'[]').length;     } catch{return '?';} })();
+
+  const row = (label, fb, lc) => {
+    const diff = (typeof fb==='number' && typeof lc==='number' && fb !== lc)
+      ? ` <span style="color:var(--red)">⚠️ divergência!</span>` : '';
+    return `<div style="display:flex;gap:8px;border-bottom:1px solid var(--border);padding:4px 0">
+      <span style="flex:1.2;color:var(--text)">${label}</span>
+      <span style="flex:0.8;color:${fbOk?'var(--green)':'var(--muted)'}">☁️ ${fb}</span>
+      <span style="flex:0.8;color:var(--accent)">💾 ${lc}</span>
+      ${diff}
+    </div>`;
+  };
+
+  el.innerHTML = `
+    <div style="margin-bottom:10px">
+      <span style="color:${fbOk?'var(--green)':'var(--red)'}">
+        ${fbOk ? '✅ Firebase conectado' : '❌ Firebase offline'} ${fbOk?'· '+fbLatency:''}
+      </span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">☁️ Firebase &nbsp;&nbsp; 💾 Local</div>
+    ${row('Colaboradores', fbColabs, lcColabs)}
+    ${row('Registros', fbRegs, lcRegs)}
+    ${row('Usuários', fbUsers, lcUsers)}
+    <div style="margin-top:10px;font-size:12px">
+      <span style="color:var(--muted)">Usuário logado: </span>
+      <span style="color:var(--text)">${currentUser ? (currentUser.nome || currentUser.login) : '—'}</span>
+      ${currentUser?.colaboradorId ? `<br><span style="color:var(--muted)">ColabID: </span><span style="color:var(--accent);font-size:11px">${currentUser.colaboradorId}</span>` : ''}
+    </div>
+  `;
+}
+
+async function diagnosticoForcarSync() {
+  const el = document.getElementById('diag-content');
+  el.innerHTML = '<span style="color:var(--gold)">⏳ Enviando dados ao Firebase…</span>';
+  if (!window._firebaseReady) {
+    el.innerHTML = '<span style="color:var(--red)">❌ Firebase offline. Impossível sincronizar.</span>';
+    return;
+  }
+  try {
+    await Promise.all([
+      window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id')),
+      window._fbSet(window._fbRef(window._db, 'registros'),     toFirebaseObj(registros,    'id')),
+      window._fbSet(window._fbRef(window._db, 'usuarios'),      toFirebaseObj(usuarios,     'id')),
+    ]);
+    el.innerHTML = '<span style="color:var(--green)">✅ Dados enviados com sucesso!</span>';
+    _setSyncStatus('ok');
+    setTimeout(diagnosticoAtualizar, 800);
+  } catch(e) {
+    el.innerHTML = `<span style="color:var(--red)">❌ Erro: ${e.message}</span>`;
+  }
+}
+
+function diagnosticoForcarLocal() {
+  try {
+    const lc = JSON.parse(localStorage.getItem('ms_colaboradores') || '[]');
+    const lr = JSON.parse(localStorage.getItem('ms_registros')     || '[]');
+    const lu = JSON.parse(localStorage.getItem('ms_usuarios')      || '[]');
+    if (lc.length) colaboradores = lc;
+    if (lr.length) registros     = lr.sort((a,b)=>b.timestamp-a.timestamp);
+    if (lu.length) usuarios      = lu;
+    renderAll();
+    renderUsuarios();
+    const el = document.getElementById('diag-content');
+    el.innerHTML = `<span style="color:var(--green)">✅ Dados locais restaurados (${lc.length} colabs, ${lr.length} registros, ${lu.length} usuários)</span>`;
+    setTimeout(diagnosticoAtualizar, 800);
+  } catch(e) {
+    document.getElementById('diag-content').innerHTML = `<span style="color:var(--red)">❌ Erro: ${e.message}</span>`;
+  }
 }
 
 checkSession();
