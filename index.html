@@ -113,13 +113,51 @@ body::before {
 
 .login-card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1.5px solid #f59e0b99;
   border-radius: 24px;
   padding: 48px 40px;
   width: 100%; max-width: 440px;
   position: relative; z-index: 1;
-  box-shadow: 0 32px 80px #000b, 0 0 0 1px #1a305033;
+  box-shadow: 0 32px 80px #000b, 0 0 32px #f59e0b18, 0 0 0 1px #f59e0b22;
   animation: slideUp .35s ease;
+}
+
+.login-input {
+  width: 100%;
+  background: var(--surface2); border: 1px solid #f59e0b55;
+  border-radius: 12px; color: var(--text); padding: 14px 16px;
+  font-size: 15px; font-family: var(--font-body); outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.login-input:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px #f59e0b20;
+}
+
+.btn-login {
+  width: 100%; margin-top: 8px;
+  background: linear-gradient(135deg, #b45309, #f59e0b);
+  color: #000; border: none; border-radius: 12px;
+  padding: 16px; font-family: var(--font-head); font-size: 18px;
+  font-weight: 700; cursor: pointer; letter-spacing: 1px;
+  transition: all .2s; box-shadow: 0 4px 20px #f59e0b44;
+}
+.btn-login:hover { transform: translateY(-2px); box-shadow: 0 8px 32px #f59e0b66; }
+.btn-login:active { transform: scale(.98); }
+.btn-login:disabled { background: var(--surface2); color: var(--muted); transform: none; box-shadow: none; cursor: not-allowed; }
+
+/* Lupa de diagnóstico na tela de login */
+.login-diag-btn {
+  position: absolute; top: 14px; right: 14px;
+  background: #f59e0b18; border: 1px solid #f59e0b44;
+  border-radius: 10px; width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px; transition: all .2s;
+  color: #f59e0b; z-index: 2;
+}
+.login-diag-btn:hover {
+  background: #f59e0b30; border-color: #f59e0baa;
+  box-shadow: 0 0 12px #f59e0b33;
 }
 
 .login-logo {
@@ -141,39 +179,16 @@ body::before {
   text-align: center; color: var(--text); margin-bottom: 4px;
 }
 .login-subtitle {
-  text-align: center; font-size: 12px; color: var(--muted);
+  text-align: center; font-size: 12px; color: #f59e0baa;
   letter-spacing: 2px; text-transform: uppercase; margin-bottom: 36px;
 }
 
 .login-field { margin-bottom: 16px; }
 .login-label {
-  display: block; font-size: 12px; color: var(--muted);
+  display: block; font-size: 12px; color: #f59e0bcc;
   letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px;
   font-family: var(--font-mono);
 }
-.login-input {
-  width: 100%;
-  background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 12px; color: var(--text); padding: 14px 16px;
-  font-size: 15px; font-family: var(--font-body); outline: none;
-  transition: border-color .2s, box-shadow .2s;
-}
-.login-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px #0ea5e920;
-}
-
-.btn-login {
-  width: 100%; margin-top: 8px;
-  background: linear-gradient(135deg, var(--accent2), var(--accent));
-  color: #fff; border: none; border-radius: 12px;
-  padding: 16px; font-family: var(--font-head); font-size: 18px;
-  font-weight: 700; cursor: pointer; letter-spacing: 1px;
-  transition: all .2s; box-shadow: 0 4px 20px #0ea5e933;
-}
-.btn-login:hover { transform: translateY(-2px); box-shadow: 0 8px 32px #0ea5e955; }
-.btn-login:active { transform: scale(.98); }
-.btn-login:disabled { background: var(--surface2); color: var(--muted); transform: none; box-shadow: none; cursor: not-allowed; }
 
 .login-error {
   background: var(--red-bg); border: 1px solid #dc262655;
@@ -186,7 +201,7 @@ body::before {
 .login-divider {
   text-align: center; font-size: 11px; color: var(--muted2);
   margin-top: 24px; font-family: var(--font-mono);
-  border-top: 1px solid var(--border2); padding-top: 16px;
+  border-top: 1px solid #f59e0b33; padding-top: 16px;
 }
 
 /* ══════════════════════════════════════════
@@ -1540,6 +1555,8 @@ footer {
 <!-- ══ TELA DE LOGIN ══ -->
 <div id="login-screen">
   <div class="login-card">
+    <!-- Lupa de diagnóstico Firebase -->
+    <button class="login-diag-btn" onclick="abrirDiagnosticoLogin()" title="Diagnóstico de conexão Firebase">🔍</button>
     <div class="login-logo" style="background:none;box-shadow:none;width:80px;height:88px;border-radius:0">
       <svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;filter:drop-shadow(0 0 14px rgba(0,200,248,.55))">
         <defs>
@@ -1585,7 +1602,7 @@ footer {
     </div>
     <button class="btn-login" id="btn-entrar" onclick="fazerLogin()">🔐 ENTRAR</button>
 
-    <div class="login-divider" style="margin-top:20px;border-top:1px solid var(--border2);padding-top:16px">
+    <div class="login-divider" style="margin-top:20px;border-top:1px solid #f59e0b33;padding-top:16px">
       Ainda não tem acesso?
       <button onclick="abrirPrimeiroAcesso()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font-mono);font-size:11px;text-decoration:underline;padding:0;margin-left:4px">
         Criar cadastro →
@@ -4558,6 +4575,12 @@ async function buscarCep() {
 
 // ─── DIAGNÓSTICO DE SINCRONIZAÇÃO ────────────────────────────────────────────
 function abrirDiagnostico() {
+  document.getElementById('diag-overlay').style.display = 'flex';
+  diagnosticoAtualizar();
+}
+
+// Versão acessível da tela de login (Firebase ainda pode estar carregando)
+function abrirDiagnosticoLogin() {
   document.getElementById('diag-overlay').style.display = 'flex';
   diagnosticoAtualizar();
 }
