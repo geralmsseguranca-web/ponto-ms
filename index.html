@@ -2393,25 +2393,15 @@ function loadData() {
       const data = snap.val();
       if (data) {
         clearTimeout(seedColabTimer);
-        // Firebase é a fonte da verdade — aceita sempre
+        // Firebase é a ÚNICA fonte da verdade — nunca sobrescreve com dado local
         colaboradores = fromFirebaseObj(data);
-        // Mantém localStorage sincronizado como cache
         localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
       } else if (!colabsCarregado) {
-        // Firebase vazio na primeira leitura — verifica se há cache local para restaurar
+        // Firebase confirmou nó vazio na primeira leitura
         clearTimeout(seedColabTimer);
         seedColabTimer = setTimeout(() => {
-          try {
-            const lcColabs = JSON.parse(localStorage.getItem('ms_colaboradores') || '[]');
-            if (lcColabs.length) {
-              colaboradores = lcColabs;
-              // Restaura cache local para o Firebase (única vez)
-              window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'))
-                .catch(e => console.warn('restore colabs to fb:', e.message));
-            } else if (!colaboradores.length) {
-              seedColaboradores();
-            }
-          } catch(e) { if (!colaboradores.length) seedColaboradores(); }
+          // Só cria seed se ainda não há nada na memória
+          if (!colaboradores.length) seedColaboradores();
         }, 1500);
       }
       colabsCarregado = true;
@@ -2421,22 +2411,8 @@ function loadData() {
 
     const u2 = window._fbOnValue(window._fbRef(window._db, 'registros'), snap => {
       const data = snap.val();
-      if (data) {
-        registros = fromFirebaseObj(data).sort((a,b) => b.timestamp - a.timestamp);
-        localStorage.setItem('ms_registros', JSON.stringify(registros));
-      } else {
-        // Firebase vazio — verifica cache local
-        try {
-          const lcRegs = JSON.parse(localStorage.getItem('ms_registros') || '[]');
-          if (lcRegs.length) {
-            registros = lcRegs.sort((a,b) => b.timestamp - a.timestamp);
-            window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'))
-              .catch(e => console.warn('restore regs to fb:', e.message));
-          } else {
-            registros = [];
-          }
-        } catch(e) { registros = []; }
-      }
+      registros = data ? fromFirebaseObj(data).sort((a,b) => b.timestamp - a.timestamp) : [];
+      localStorage.setItem('ms_registros', JSON.stringify(registros));
       renderAll();
     });
 
@@ -2460,16 +2436,7 @@ function loadData() {
       } else if (!usuariosCarregado) {
         clearTimeout(seedUserTimer);
         seedUserTimer = setTimeout(() => {
-          try {
-            const lcUsers = JSON.parse(localStorage.getItem('ms_usuarios') || '[]');
-            if (lcUsers.length) {
-              usuarios = lcUsers;
-              window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'))
-                .catch(e => console.warn('restore users to fb:', e.message));
-            } else if (!usuarios.length) {
-              seedAdminUser();
-            }
-          } catch(e) { if (!usuarios.length) seedAdminUser(); }
+          if (!usuarios.length) seedAdminUser();
         }, 1500);
       }
       usuariosCarregado = true;
@@ -4702,21 +4669,19 @@ async function diagnosticoForcarSync() {
     return;
   }
   try {
-    // Usa localStorage como fonte da verdade para o sync (mais completo)
-    var syncColabs = colaboradores.length ? colaboradores
-      : (function(){ try { return JSON.parse(localStorage.getItem('ms_colaboradores')||'[]'); } catch(x){return [];} })();
-    var syncRegs = registros.length ? registros
-      : (function(){ try { return JSON.parse(localStorage.getItem('ms_registros')||'[]'); } catch(x){return [];} })();
-    var syncUsers = usuarios.length ? usuarios
-      : (function(){ try { return JSON.parse(localStorage.getItem('ms_usuarios')||'[]'); } catch(x){return [];} })();
-
+    // Usa APENAS os dados em memória (carregados do Firebase) como fonte
+    // Nunca usa localStorage para sobrescrever o Firebase
+    if (!colaboradores.length && !registros.length) {
+      el.innerHTML = '<span style="color:var(--gold)">\u26A0\uFE0F Nenhum dado em mem\xF3ria. Fa\xE7a login primeiro para carregar os dados.</span>';
+      return;
+    }
     await Promise.all([
-      window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(syncColabs, 'id')),
-      window._fbSet(window._fbRef(window._db, 'registros'),     toFirebaseObj(syncRegs,   'id')),
-      window._fbSet(window._fbRef(window._db, 'usuarios'),      toFirebaseObj(syncUsers,  'id')),
+      window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id')),
+      window._fbSet(window._fbRef(window._db, 'registros'),     toFirebaseObj(registros,   'id')),
+      window._fbSet(window._fbRef(window._db, 'usuarios'),      toFirebaseObj(usuarios,  'id')),
     ]);
     el.innerHTML = '<span style="color:var(--green)">\u2705 Dados enviados com sucesso! ('
-      + syncColabs.length + ' colabs, ' + syncRegs.length + ' registros, ' + syncUsers.length + ' usu\xE1rios)</span>';
+      + colaboradores.length + ' colabs, ' + registros.length + ' registros, ' + usuarios.length + ' usu\xE1rios)</span>';
     _setSyncStatus('ok');
     setTimeout(diagnosticoAtualizar, 1200);
   } catch(e) {
@@ -4725,20 +4690,31 @@ async function diagnosticoForcarSync() {
 }
 
 function diagnosticoForcarLocal() {
-  try {
-    const lc = JSON.parse(localStorage.getItem('ms_colaboradores') || '[]');
-    const lr = JSON.parse(localStorage.getItem('ms_registros')     || '[]');
-    const lu = JSON.parse(localStorage.getItem('ms_usuarios')      || '[]');
-    if (lc.length) colaboradores = lc;
-    if (lr.length) registros     = lr.sort((a,b)=>b.timestamp-a.timestamp);
-    if (lu.length) usuarios      = lu;
-    renderAll();
-    renderUsuarios();
-    const el = document.getElementById('diag-content');
-    el.innerHTML = `<span style="color:var(--green)">✅ Dados locais restaurados (${lc.length} colabs, ${lr.length} registros, ${lu.length} usuários)</span>`;
-    setTimeout(diagnosticoAtualizar, 800);
-  } catch(e) {
-    document.getElementById('diag-content').innerHTML = `<span style="color:var(--red)">❌ Erro: ${e.message}</span>`;
+  // Apenas recarrega os dados do Firebase (fonte da verdade) — não usa localStorage para sobrescrever
+  const el = document.getElementById('diag-content');
+  el.innerHTML = '<span style="color:var(--gold)">\u23F3 Recarregando dados do Firebase\u2026</span>';
+  if (window._firebaseReady) {
+    loadData();
+    setTimeout(() => {
+      el.innerHTML = '<span style="color:var(--green)">\u2705 Dados recarregados do Firebase (' + colaboradores.length + ' colabs, ' + registros.length + ' registros, ' + usuarios.length + ' usu\xE1rios)</span>';
+      setTimeout(diagnosticoAtualizar, 800);
+    }, 2000);
+  } else {
+    // Sem Firebase: usa localStorage como fallback de leitura
+    try {
+      const lc = JSON.parse(localStorage.getItem('ms_colaboradores') || '[]');
+      const lr = JSON.parse(localStorage.getItem('ms_registros')     || '[]');
+      const lu = JSON.parse(localStorage.getItem('ms_usuarios')      || '[]');
+      if (lc.length) colaboradores = lc;
+      if (lr.length) registros = lr.sort(function(a,b){return b.timestamp-a.timestamp;});
+      if (lu.length) usuarios = lu;
+      renderAll();
+      renderUsuarios();
+      el.innerHTML = '<span style="color:var(--green)">\u2705 Dados locais carregados (' + lc.length + ' colabs, ' + lr.length + ' registros, ' + lu.length + ' usu\xE1rios)</span>';
+      setTimeout(diagnosticoAtualizar, 800);
+    } catch(e) {
+      el.innerHTML = '<span style="color:var(--red)">\u274C Erro: ' + e.message + '</span>';
+    }
   }
 }
 
