@@ -2925,11 +2925,12 @@ function showTab(id, btn) {
 function renderColabPonto() {
   const isAdmin = currentUser?.role === 'admin';
   let todosAtivos = colaboradores.filter(c => c.ativo !== false);
-  let ativos = todosAtivos;
+  // Para não-admin: começa com lista VAZIA — só mostra o próprio colaborador
+  let ativos = isAdmin ? todosAtivos : [];
   let meuColab = null;
 
   if (!isAdmin && currentUser) {
-    // 1ª tentativa: colaboradorId direto
+    // 1ª tentativa: colaboradorId direto (mais confiável)
     if (currentUser.colaboradorId) {
       meuColab = todosAtivos.find(c => c.id === currentUser.colaboradorId);
     }
@@ -2937,15 +2938,10 @@ function renderColabPonto() {
     if (!meuColab) {
       meuColab = todosAtivos.find(c => c.nome.toLowerCase() === (currentUser.nome||'').toLowerCase());
     }
-    // 3ª tentativa: primeiro nome do campo nome do usuário
+    // 3ª tentativa: nome completo do usuário começa com nome do colaborador
     if (!meuColab) {
       const pNome = (currentUser.nome||'').split(' ')[0].toLowerCase();
-      if (pNome.length > 2) meuColab = todosAtivos.find(c => c.nome.toLowerCase().startsWith(pNome));
-    }
-    // 4ª tentativa: primeiro nome extraído do login (ex: "ezequiel1234" → "ezequiel")
-    if (!meuColab) {
-      const loginBase = (currentUser.login||'').replace(/\d+/g,'').toLowerCase();
-      if (loginBase.length > 2) meuColab = todosAtivos.find(c => c.nome.toLowerCase().startsWith(loginBase));
+      if (pNome.length > 3) meuColab = todosAtivos.find(c => c.nome.toLowerCase().startsWith(pNome));
     }
 
     if (meuColab) {
