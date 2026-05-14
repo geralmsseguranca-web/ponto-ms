@@ -2393,13 +2393,37 @@ function loadData() {
       const data = snap.val();
       if (data) {
         clearTimeout(seedColabTimer);
-        colaboradores = fromFirebaseObj(data);
+        const fbColabs = fromFirebaseObj(data);
+        // Só substitui se Firebase tiver pelo menos tantos dados quanto o local
+        // Isso evita sobrescrever dados locais com Firebase desatualizado
+        const lcColabs = (()=>{ try { return JSON.parse(localStorage.getItem('ms_colaboradores')||'[]'); } catch{return [];} })();
+        if (fbColabs.length >= lcColabs.length) {
+          colaboradores = fbColabs;
+        } else {
+          // Firebase tem menos dados — usa localStorage e agenda sync ao Firebase
+          colaboradores = lcColabs.length ? lcColabs : fbColabs;
+          console.warn('⚠️ Firebase com menos colaboradores que local — usando localStorage');
+          // Sincroniza locais para o Firebase em background
+          setTimeout(() => {
+            if (window._firebaseReady && colaboradores.length) {
+              window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'))
+                .catch(e => console.warn('auto-sync colabs:', e.message));
+            }
+          }, 2000);
+        }
       } else if (!colabsCarregado) {
-        // Firebase confirmou que o nó está vazio — aguarda 1s extra antes de fazer seed
-        // para evitar seed acidental durante propagação de escrita
+        // Firebase confirmou que o nó está vazio — tenta localStorage primeiro
         clearTimeout(seedColabTimer);
         seedColabTimer = setTimeout(() => {
-          if (!colaboradores.length) seedColaboradores();
+          const lcColabs = (()=>{ try { return JSON.parse(localStorage.getItem('ms_colaboradores')||'[]'); } catch{return [];} })();
+          if (lcColabs.length) {
+            colaboradores = lcColabs;
+            // Envia para o Firebase
+            window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'))
+              .catch(e => console.warn('restore colabs to fb:', e.message));
+          } else if (!colaboradores.length) {
+            seedColaboradores();
+          }
         }, 1000);
       }
       colabsCarregado = true;
@@ -2409,7 +2433,36 @@ function loadData() {
 
     const u2 = window._fbOnValue(window._fbRef(window._db, 'registros'), snap => {
       const data = snap.val();
-      registros = data ? fromFirebaseObj(data).sort((a,b) => b.timestamp - a.timestamp) : [];
+      if (data) {
+        const fbRegs = fromFirebaseObj(data).sort((a,b) => b.timestamp - a.timestamp);
+        const lcRegs = (()=>{ try { return JSON.parse(localStorage.getItem('ms_registros')||'[]'); } catch{return [];} })();
+        if (fbRegs.length >= lcRegs.length) {
+          registros = fbRegs;
+        } else {
+          // Firebase tem menos registros — usa localStorage e sincroniza
+          registros = lcRegs.sort((a,b) => b.timestamp - a.timestamp);
+          console.warn('⚠️ Firebase com menos registros que local — usando localStorage');
+          setTimeout(() => {
+            if (window._firebaseReady && registros.length) {
+              window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'))
+                .catch(e => console.warn('auto-sync regs:', e.message));
+            }
+          }, 2000);
+        }
+      } else {
+        const lcRegs = (()=>{ try { return JSON.parse(localStorage.getItem('ms_registros')||'[]'); } catch{return [];} })();
+        if (lcRegs.length) {
+          registros = lcRegs.sort((a,b) => b.timestamp - a.timestamp);
+          setTimeout(() => {
+            if (window._firebaseReady && registros.length) {
+              window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'))
+                .catch(e => console.warn('restore regs to fb:', e.message));
+            }
+          }, 2000);
+        } else {
+          registros = [];
+        }
+      }
       renderAll();
     });
 
@@ -2418,21 +2471,43 @@ function loadData() {
       if (data) {
         clearTimeout(seedUserTimer);
         const lista = fromFirebaseObj(data);
-        if (lista.length) {
-          usuarios = lista;
-          // Atualiza sessão se o usuário logado foi alterado no Firebase
-          if (currentUser) {
-            const atualizado = usuarios.find(x => x.id === currentUser.id);
-            if (atualizado) {
-              currentUser = atualizado;
-              sessionStorage.setItem('ms_session', JSON.stringify(atualizado));
+        const lcUsers = (()=>{ try { return JSON.parse(localStorage.getItem('ms_usuarios')||'[]'); } catch{return [];} })();
+        if (lista.length >= lcUsers.length) {
+          if (lista.length) {
+            usuarios = lista;
+            // Atualiza sessão se o usuário logado foi alterado no Firebase
+            if (currentUser) {
+              const atualizado = usuarios.find(x => x.id === currentUser.id);
+              if (atualizado) {
+                currentUser = atualizado;
+                sessionStorage.setItem('ms_session', JSON.stringify(atualizado));
+              }
             }
+          }
+        } else {
+          // Firebase tem menos usuários — usa localStorage e sincroniza
+          if (lcUsers.length) {
+            usuarios = lcUsers;
+            console.warn('⚠️ Firebase com menos usuários que local — usando localStorage');
+            setTimeout(() => {
+              if (window._firebaseReady && usuarios.length) {
+                window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'))
+                  .catch(e => console.warn('auto-sync users:', e.message));
+              }
+            }, 2000);
           }
         }
       } else if (!usuariosCarregado) {
         clearTimeout(seedUserTimer);
         seedUserTimer = setTimeout(() => {
-          if (!usuarios.length) seedAdminUser();
+          const lcUsers = (()=>{ try { return JSON.parse(localStorage.getItem('ms_usuarios')||'[]'); } catch{return [];} })();
+          if (lcUsers.length) {
+            usuarios = lcUsers;
+            window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'))
+              .catch(e => console.warn('restore users to fb:', e.message));
+          } else if (!usuarios.length) {
+            seedAdminUser();
+          }
         }, 1000);
       }
       usuariosCarregado = true;
@@ -4590,80 +4665,104 @@ function fecharDiagnostico() {
 
 async function diagnosticoAtualizar() {
   const el = document.getElementById('diag-content');
-  el.innerHTML = '<span style="color:var(--gold)">⏳ Verificando…</span>';
+  el.innerHTML = '<span style="color:var(--gold)">&#x23F3; Verificando\u2026</span>';
 
   const fbOk = window._firebaseReady === true;
-  let fbColabs = '—', fbRegs = '—', fbUsers = '—';
-  let fbLatency = '—';
+  let fbColabs = '\u2014', fbRegs = '\u2014', fbUsers = '\u2014';
+  let fbLatency = '\u2014';
 
   if (fbOk) {
     try {
       const t0 = Date.now();
-      const [sc, sr, su] = await Promise.all([
+      const snapArr = await Promise.all([
         window._fbGet(window._fbRef(window._db, 'colaboradores')),
         window._fbGet(window._fbRef(window._db, 'registros')),
         window._fbGet(window._fbRef(window._db, 'usuarios')),
       ]);
       fbLatency = (Date.now() - t0) + 'ms';
-      fbColabs = sc.val() ? Object.keys(sc.val()).length : 0;
-      fbRegs   = sr.val() ? Object.keys(sr.val()).length : 0;
-      fbUsers  = su.val() ? Object.keys(su.val()).length : 0;
+      fbColabs = snapArr[0].val() ? Object.keys(snapArr[0].val()).length : 0;
+      fbRegs   = snapArr[1].val() ? Object.keys(snapArr[1].val()).length : 0;
+      fbUsers  = snapArr[2].val() ? Object.keys(snapArr[2].val()).length : 0;
     } catch(e) {
-      fbLatency = '❌ ' + e.message;
+      fbLatency = '\u274C ' + e.message;
     }
   }
 
-  const lcColabs = (()=>{ try { return JSON.parse(localStorage.getItem('ms_colaboradores')||'[]').length; } catch{return '?';} })();
-  const lcRegs   = (()=>{ try { return JSON.parse(localStorage.getItem('ms_registros')||'[]').length;    } catch{return '?';} })();
-  const lcUsers  = (()=>{ try { return JSON.parse(localStorage.getItem('ms_usuarios')||'[]').length;     } catch{return '?';} })();
+  const lcColabs = (function(){ try { return JSON.parse(localStorage.getItem('ms_colaboradores')||'[]').length; } catch(x){return '?';} })();
+  const lcRegs   = (function(){ try { return JSON.parse(localStorage.getItem('ms_registros')||'[]').length;    } catch(x){return '?';} })();
+  const lcUsers  = (function(){ try { return JSON.parse(localStorage.getItem('ms_usuarios')||'[]').length;     } catch(x){return '?';} })();
 
-  const row = (label, fb, lc) => {
-    const diff = (typeof fb==='number' && typeof lc==='number' && fb !== lc)
-      ? ` <span style="color:var(--red)">⚠️ divergência!</span>` : '';
-    return `<div style="display:flex;gap:8px;border-bottom:1px solid var(--border);padding:4px 0">
-      <span style="flex:1.2;color:var(--text)">${label}</span>
-      <span style="flex:0.8;color:${fbOk?'var(--green)':'var(--muted)'}">☁️ ${fb}</span>
-      <span style="flex:0.8;color:var(--accent)">💾 ${lc}</span>
-      ${diff}
-    </div>`;
-  };
+  function diagRow(label, fb, lc) {
+    var diff = (typeof fb==='number' && typeof lc==='number' && fb !== lc)
+      ? ' <span style="color:var(--red)">\u26A0\uFE0F diverg\xEAncia!</span>' : '';
+    var igual = (typeof fb==='number' && typeof lc==='number' && fb === lc)
+      ? ' <span style="color:var(--green);font-size:11px">\u2713 ok</span>' : '';
+    return '<div style="display:flex;gap:8px;border-bottom:1px solid var(--border);padding:4px 0;align-items:center">'
+      + '<span style="flex:1.2;color:var(--text)">' + label + '</span>'
+      + '<span style="flex:0.8;color:' + (fbOk?'var(--green)':'var(--muted)') + '">\u2601\uFE0F ' + fb + '</span>'
+      + '<span style="flex:0.8;color:var(--accent)">\uD83D\uDCBE ' + lc + '</span>'
+      + diff + igual
+      + '</div>';
+  }
 
-  el.innerHTML = `
-    <div style="margin-bottom:10px">
-      <span style="color:${fbOk?'var(--green)':'var(--red)'}">
-        ${fbOk ? '✅ Firebase conectado' : '❌ Firebase offline'} ${fbOk?'· '+fbLatency:''}
-      </span>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">☁️ Firebase &nbsp;&nbsp; 💾 Local</div>
-    ${row('Colaboradores', fbColabs, lcColabs)}
-    ${row('Registros', fbRegs, lcRegs)}
-    ${row('Usuários', fbUsers, lcUsers)}
-    <div style="margin-top:10px;font-size:12px">
-      <span style="color:var(--muted)">Usuário logado: </span>
-      <span style="color:var(--text)">${currentUser ? (currentUser.nome || currentUser.login) : '—'}</span>
-      ${currentUser?.colaboradorId ? `<br><span style="color:var(--muted)">ColabID: </span><span style="color:var(--accent);font-size:11px">${currentUser.colaboradorId}</span>` : ''}
-    </div>
-  `;
+  var fbDesatualizado = fbOk && (
+    (typeof fbColabs==='number' && typeof lcColabs==='number' && fbColabs < lcColabs) ||
+    (typeof fbRegs==='number'   && typeof lcRegs==='number'   && fbRegs < lcRegs)
+  );
+
+  var avisoHtml = fbDesatualizado
+    ? '<div style="background:#2d1a00;border:1px solid #f59e0b55;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px;color:var(--gold)">'
+      + '\u26A0\uFE0F Firebase desatualizado em rela\xE7\xE3o ao armazenamento local.<br>'
+      + '<span style="font-size:11px;color:var(--muted)">Use "For\xE7ar Sync" para enviar os dados locais ao Firebase.</span>'
+      + '</div>'
+    : '';
+
+  el.innerHTML = '<div style="margin-bottom:10px">'
+    + '<span style="color:' + (fbOk?'var(--green)':'var(--red)') + '">'
+    + (fbOk ? '\u2705 Firebase conectado' : '\u274C Firebase offline') + (fbOk?' \xB7 '+fbLatency:'')
+    + '</span></div>'
+    + avisoHtml
+    + '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">\u2601\uFE0F Firebase \xA0\xA0 \uD83D\uDCBE Local</div>'
+    + diagRow('Colaboradores', fbColabs, lcColabs)
+    + diagRow('Registros', fbRegs, lcRegs)
+    + diagRow('Usu\xE1rios', fbUsers, lcUsers)
+    + '<div style="margin-top:8px;font-size:11px;color:var(--muted2);border-top:1px solid var(--border);padding-top:6px">'
+    + 'Em mem\xF3ria: ' + colaboradores.length + ' colabs \xB7 ' + registros.length + ' registros \xB7 ' + usuarios.length + ' usu\xE1rios'
+    + '</div>'
+    + '<div style="margin-top:6px;font-size:12px">'
+    + '<span style="color:var(--muted)">Usu\xE1rio logado: </span>'
+    + '<span style="color:var(--text)">' + (currentUser ? (currentUser.nome || currentUser.login) : '\u2014') + '</span>'
+    + (currentUser && currentUser.colaboradorId ? '<br><span style="color:var(--muted)">ColabID: </span><span style="color:var(--accent);font-size:11px">' + currentUser.colaboradorId + '</span>' : '')
+    + '</div>';
 }
 
 async function diagnosticoForcarSync() {
   const el = document.getElementById('diag-content');
-  el.innerHTML = '<span style="color:var(--gold)">⏳ Enviando dados ao Firebase…</span>';
+  el.innerHTML = '<span style="color:var(--gold)">\u23F3 Enviando dados ao Firebase\u2026</span>';
   if (!window._firebaseReady) {
-    el.innerHTML = '<span style="color:var(--red)">❌ Firebase offline. Impossível sincronizar.</span>';
+    el.innerHTML = '<span style="color:var(--red)">\u274C Firebase offline. Imposs\xEDvel sincronizar.</span>';
     return;
   }
   try {
+    // Usa localStorage como fonte da verdade para o sync (mais completo)
+    var syncColabs = colaboradores.length ? colaboradores
+      : (function(){ try { return JSON.parse(localStorage.getItem('ms_colaboradores')||'[]'); } catch(x){return [];} })();
+    var syncRegs = registros.length ? registros
+      : (function(){ try { return JSON.parse(localStorage.getItem('ms_registros')||'[]'); } catch(x){return [];} })();
+    var syncUsers = usuarios.length ? usuarios
+      : (function(){ try { return JSON.parse(localStorage.getItem('ms_usuarios')||'[]'); } catch(x){return [];} })();
+
     await Promise.all([
-      window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id')),
-      window._fbSet(window._fbRef(window._db, 'registros'),     toFirebaseObj(registros,    'id')),
-      window._fbSet(window._fbRef(window._db, 'usuarios'),      toFirebaseObj(usuarios,     'id')),
+      window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(syncColabs, 'id')),
+      window._fbSet(window._fbRef(window._db, 'registros'),     toFirebaseObj(syncRegs,   'id')),
+      window._fbSet(window._fbRef(window._db, 'usuarios'),      toFirebaseObj(syncUsers,  'id')),
     ]);
-    el.innerHTML = '<span style="color:var(--green)">✅ Dados enviados com sucesso!</span>';
+    el.innerHTML = '<span style="color:var(--green)">\u2705 Dados enviados com sucesso! ('
+      + syncColabs.length + ' colabs, ' + syncRegs.length + ' registros, ' + syncUsers.length + ' usu\xE1rios)</span>';
     _setSyncStatus('ok');
-    setTimeout(diagnosticoAtualizar, 800);
+    setTimeout(diagnosticoAtualizar, 1200);
   } catch(e) {
-    el.innerHTML = `<span style="color:var(--red)">❌ Erro: ${e.message}</span>`;
+    el.innerHTML = '<span style="color:var(--red)">\u274C Erro: ' + e.message + '</span>';
   }
 }
 
