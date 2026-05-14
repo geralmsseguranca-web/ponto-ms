@@ -2233,32 +2233,29 @@ const POR_PAGINA   = 15;
 function savePostos() {
   if (window._firebaseReady) {
     const obj = {};
-    postos.forEach((p) => { obj[p.id] = p; });
-    window._fbSet(window._fbRef(window._db, 'postos'), obj).catch(e => console.warn('Firebase savePostos:', e.message));
+    postos.forEach((p, i) => { obj[p.id] = p; });
+    window._fbSet(window._fbRef(window._db, 'postos'), obj);
   }
   localStorage.setItem('ms_postos', JSON.stringify(postos));
 }
 
 function saveColabs() {
   if (window._firebaseReady) {
-    window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'))
-      .catch(e => console.warn('Firebase saveColabs:', e.message));
+    window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'));
   }
   localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
 }
 
 function saveRegistros() {
   if (window._firebaseReady) {
-    window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'))
-      .catch(e => console.warn('Firebase saveRegistros:', e.message));
+    window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'));
   }
   localStorage.setItem('ms_registros', JSON.stringify(registros));
 }
 
 function saveUsuarios() {
   if (window._firebaseReady) {
-    window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'))
-      .catch(e => console.warn('Firebase saveUsuarios:', e.message));
+    window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'));
   }
   localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
 }
@@ -2281,23 +2278,12 @@ function loadData() {
   _fbUnsubs = [];
 
   if (window._firebaseReady) {
-    let primeiraColabs = true;
-    let primeiroUsers  = true;
-
     const u1 = window._fbOnValue(window._fbRef(window._db, 'colaboradores'), snap => {
       const data = snap.val();
-      const novaLista = data ? fromFirebaseObj(data) : [];
-      // Notifica ADM sobre novo cadastro (após carga inicial)
-      if (!primeiraColabs && currentUser?.role === 'admin') {
-        const novos = novaLista.filter(c => !colaboradores.find(x => x.id === c.id) && c.dataCadastro);
-        novos.forEach(c => mostrarToastNovoCadastro(c));
-      }
-      if (novaLista.length) {
-        colaboradores = novaLista;
-      } else if (primeiraColabs) {
-        seedColaboradores();
-      }
-      primeiraColabs = false;
+      if (data) {
+        colaboradores = fromFirebaseObj(data);
+        if (!colaboradores.length) seedColaboradores();
+      } else { seedColaboradores(); }
       renderAll();
     });
     const u2 = window._fbOnValue(window._fbRef(window._db, 'registros'), snap => {
@@ -2307,26 +2293,10 @@ function loadData() {
     });
     const u3 = window._fbOnValue(window._fbRef(window._db, 'usuarios'), snap => {
       const data = snap.val();
-      const novaLista = data ? fromFirebaseObj(data) : [];
-      // Notifica ADM sobre novo usuário (após carga inicial)
-      if (!primeiroUsers && currentUser?.role === 'admin') {
-        const novos = novaLista.filter(u => !usuarios.find(x => x.id === u.id) && u.primeiroAcesso);
-        novos.forEach(u => mostrarToastNovoUsuario(u));
-      }
-      if (novaLista.length) {
-        usuarios = novaLista;
-        // Atualiza sessão se usuário logado foi modificado
-        if (currentUser) {
-          const atualizado = usuarios.find(x => x.id === currentUser.id);
-          if (atualizado) {
-            currentUser = atualizado;
-            sessionStorage.setItem('ms_session', JSON.stringify(atualizado));
-          }
-        }
-      } else if (primeiroUsers) {
-        seedAdminUser();
-      }
-      primeiroUsers = false;
+      if (data) {
+        usuarios = fromFirebaseObj(data);
+        if (!usuarios.length) seedAdminUser();
+      } else { seedAdminUser(); }
       renderUsuarios();
     });
     const u4 = window._fbOnValue(window._fbRef(window._db, 'postos'), snap => {
@@ -2415,10 +2385,7 @@ function fazerLogin() {
     window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
       const data = snap.val();
       const lista = data ? fromFirebaseObj(data) : [];
-      if (lista.length) {
-        usuarios = lista; // atualiza lista local com dados frescos do Firebase
-        localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
-      }
+      if (lista.length) usuarios = lista;
       tentarLogin(lista.length ? lista : usuarios);
     }).catch(() => {
       tentarLogin(usuarios);
@@ -2471,6 +2438,45 @@ function entrarSistema(usuario) {
     // Fallback: se Firebase não responder em 4s, usa localStorage
     setTimeout(() => { if (!window._firebaseReady) loadData(); }, 4000);
   }
+
+  // Para colaboradores sem colaboradorId: tenta vincular automaticamente
+  // após os dados do Firebase chegarem (aguarda até 6s)
+  if (!isAdmin && !usuario.colaboradorId) {
+    const tentarVincular = () => {
+      const ativos = colaboradores.filter(c => c.ativo !== false);
+      const nomeU  = (usuario.nome || '').toLowerCase();
+      const loginBase = (usuario.login || '').replace(/\d+/g,'').toLowerCase();
+      let colab = ativos.find(c => c.id === usuario.colaboradorId)
+        || ativos.find(c => c.nome.toLowerCase() === nomeU)
+        || ativos.find(c => nomeU.length > 2 && c.nome.toLowerCase().startsWith(nomeU.split(' ')[0]))
+        || ativos.find(c => loginBase.length > 2 && c.nome.toLowerCase().startsWith(loginBase));
+      if (colab && colab.id !== usuario.colaboradorId) {
+        // Vincula e salva no Firebase/localStorage para não precisar buscar de novo
+        currentUser = { ...currentUser, colaboradorId: colab.id };
+        sessionStorage.setItem('ms_session', JSON.stringify(currentUser));
+        if (window._firebaseReady) {
+          window._fbSet(window._fbRef(window._db, 'usuarios/' + currentUser.id + '/colaboradorId'), colab.id)
+            .catch(() => {});
+        }
+        usuarios = usuarios.map(u => u.id === currentUser.id ? currentUser : u);
+        localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+        renderColabPonto();
+      }
+    };
+    // Aguarda dados carregarem antes de tentar vincular
+    if (colaboradores.length > 0) {
+      tentarVincular();
+    } else {
+      let tentativas = 0;
+      const intervalo = setInterval(() => {
+        tentativas++;
+        if (colaboradores.length > 0 || tentativas >= 12) {
+          clearInterval(intervalo);
+          if (colaboradores.length > 0) tentarVincular();
+        }
+      }, 500);
+    }
+  }
 }
 
 function sairSistema() {
@@ -2491,35 +2497,21 @@ function sairSistema() {
 
 // Verificar sessão existente ao carregar
 function checkSession() {
+  // Usuários já foram carregados do localStorage no init
+  // Tenta restaurar sessão salva
   try {
     const saved = sessionStorage.getItem('ms_session');
-    if (!saved) return;
-    const u = JSON.parse(saved);
-    // Valida na lista local (funciona offline)
-    const validLocal = usuarios.find(x => x.id === u.id && x.login === u.login && x.senha === u.senha);
-    if (validLocal) {
-      currentUser = validLocal;
-      entrarSistema(validLocal);
-      return;
+    if (saved) {
+      const u = JSON.parse(saved);
+      const valid = usuarios.find(x => x.id === u.id && x.login === u.login && x.senha === u.senha);
+      if (valid) {
+        currentUser = valid;
+        entrarSistema(valid);
+        return;
+      }
     }
-    // Tenta validar no Firebase (usuário pode ter sido criado em outro dispositivo)
-    const tryFirebase = () => {
-      if (!window._firebaseReady || !window._db) return;
-      window._fbGet(window._fbRef(window._db, 'usuarios/' + u.id)).then(snap => {
-        const fb = snap.val();
-        if (fb && fb.login === u.login && fb.senha === u.senha) {
-          currentUser = fb;
-          if (!usuarios.find(x => x.id === fb.id)) {
-            usuarios.push(fb);
-            localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
-          }
-          entrarSistema(fb);
-        }
-      }).catch(() => {});
-    };
-    if (window._firebaseReady) { tryFirebase(); }
-    else { window.addEventListener('firebaseReady', tryFirebase, { once: true }); }
   } catch(e) {}
+  // Nenhuma sessão válida: mostra tela de login normalmente
 }
 
 // ─── GESTÃO DE USUÁRIOS ───────────────────────────────────────────────────────
@@ -2727,10 +2719,15 @@ function renderColabPonto() {
     if (!meuColab) {
       meuColab = todosAtivos.find(c => c.nome.toLowerCase() === (currentUser.nome||'').toLowerCase());
     }
-    // 3ª tentativa: primeiro nome
+    // 3ª tentativa: primeiro nome do campo nome do usuário
     if (!meuColab) {
       const pNome = (currentUser.nome||'').split(' ')[0].toLowerCase();
       if (pNome.length > 2) meuColab = todosAtivos.find(c => c.nome.toLowerCase().startsWith(pNome));
+    }
+    // 4ª tentativa: primeiro nome extraído do login (ex: "ezequiel1234" → "ezequiel")
+    if (!meuColab) {
+      const loginBase = (currentUser.login||'').replace(/\d+/g,'').toLowerCase();
+      if (loginBase.length > 2) meuColab = todosAtivos.find(c => c.nome.toLowerCase().startsWith(loginBase));
     }
 
     if (meuColab) {
@@ -2748,6 +2745,19 @@ function renderColabPonto() {
       const instrEl = document.getElementById('ponto-instrucao');
       if (instrEl) instrEl.style.display = 'none';
     } else {
+      // Guarda: se colaboradores ainda está vazio (Firebase ainda carregando),
+      // mostra spinner e aguarda — NÃO mostra erro prematuramente.
+      if (colaboradores.length === 0) {
+        const container = document.getElementById('colab-list-ponto');
+        container.innerHTML = `
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;
+            padding:32px 24px;text-align:center;color:var(--muted);">
+            <div style="font-size:32px;margin-bottom:12px">⏳</div>
+            <div style="font-size:14px">Carregando dados...</div>
+          </div>`;
+        document.getElementById('ponto-btns').style.display = 'none';
+        return;
+      }
       ativos = [];
       const instrucao = document.getElementById('ponto-instrucao');
       if (instrucao) instrucao.style.display = 'none';
@@ -4071,18 +4081,8 @@ function abrirPrimeiroAcesso() {
     }
   }
 
-  // Carrega usuários frescos do Firebase para validação de CPF duplicado
-  if (window._firebaseReady) {
-    window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
-      const data = snap.val();
-      if (data) {
-        const fbList = fromFirebaseObj(data);
-        // Mescla sem duplicar
-        fbList.forEach(u => { if (!usuarios.find(x => x.id === u.id)) usuarios.push(u); });
-        localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
-      }
-    }).catch(() => {});
-  } else if (!usuarios.length) {
+  // Também carrega usuários para validação de CPF duplicado
+  if (!usuarios.length) {
     try { usuarios = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuarios = []; }
   }
 
@@ -4172,7 +4172,7 @@ function paPasso(n) {
       return;
     }
 
-    // Verificar CPF duplicado (checagem local; a verificação completa ocorre ao finalizar)
+    // Verificar CPF duplicado
     const cpfNum = cpf.replace(/\D/g,'');
     const dupCpf = usuarios.find(u => u.cpf && u.cpf.replace(/\D/g,'') === cpfNum);
     if (dupCpf) {
@@ -4238,33 +4238,9 @@ async function finalizarCadastro() {
   const cidade  = document.getElementById('pa-cidade').value.trim();
   const uf      = document.getElementById('pa-uf').value;
 
-  // Verificar CPF duplicado também no Firebase (usuário pode não ter a lista local atualizada)
-  const cpfNum = cpf.replace(/\D/g,'');
-  if (window._firebaseReady) {
-    try {
-      const snapU = await window._fbGet(window._fbRef(window._db, 'usuarios'));
-      const listaFb = snapU.val() ? fromFirebaseObj(snapU.val()) : [];
-      // Mescla lista local com Firebase para checar duplicatas
-      const listaTodos = [...usuarios, ...listaFb.filter(u => !usuarios.find(x => x.id === u.id))];
-      const dupCpf = listaTodos.find(u => u.cpf && u.cpf.replace(/\D/g,'') === cpfNum);
-      if (dupCpf) {
-        paShowError('Já existe um cadastro com este CPF. Faça login ou contate o administrador.');
-        return;
-      }
-      usuarios = listaTodos; // garante lista local atualizada
-    } catch(e) {
-      // Se Firebase falhar, usa lista local
-      const dupCpf = usuarios.find(u => u.cpf && u.cpf.replace(/\D/g,'') === cpfNum);
-      if (dupCpf) {
-        paShowError('Já existe um cadastro com este CPF. Faça login ou contate o administrador.');
-        return;
-      }
-    }
-  }
-
-  // Gerar login: primeironome + primeiros 4 dígitos do CPF
+  // Gerar login: primeirnome + primeiros 3 dígitos do CPF
   const primeiroNome = nome.split(' ')[0].toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+    .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
   const cpfDigitos = cpf.replace(/\D/g,'').slice(0, 4);
   const loginGerado = primeiroNome + cpfDigitos;
 
@@ -4274,9 +4250,9 @@ async function finalizarCadastro() {
     letras[Math.floor(Math.random()*letras.length)] +
     letras[Math.floor(Math.random()*letras.length)] +
     letras[Math.floor(Math.random()*letras.length)] +
-    String(Math.floor(Math.random()*9+1)) +
-    String(Math.floor(Math.random()*10)) +
-    String(Math.floor(Math.random()*10));
+    Math.floor(Math.random()*9+1) +
+    Math.floor(Math.random()*10) +
+    Math.floor(Math.random()*10);
 
   const idColab = uid();
   const idUser  = uid();
@@ -4312,32 +4288,11 @@ async function finalizarCadastro() {
     primeiroAcesso: true
   };
 
-  // Desabilitar botão para evitar duplo clique
-  const btnCriar = document.querySelector('#pa-panel-3 .btn-pa-next.green');
-  if (btnCriar) { btnCriar.disabled = true; btnCriar.textContent = '⏳ Salvando...'; }
-
-  // Salvar localmente primeiro (garante funcionamento offline)
+  // Salvar
   colaboradores.push(novoColab);
   usuarios.push(novoUser);
-
-  // Persiste no localStorage imediatamente
-  localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
-  localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
-
-  // Salvar no Firebase (await para garantir sincronização com ADM)
-  if (window._firebaseReady) {
-    try {
-      await Promise.all([
-        window._fbSet(window._fbRef(window._db, 'colaboradores/' + idColab), novoColab),
-        window._fbSet(window._fbRef(window._db, 'usuarios/' + idUser), novoUser)
-      ]);
-    } catch(e) {
-      console.warn('Firebase save falhou, dados salvos localmente:', e.message);
-      // Não bloqueia o fluxo — dados já estão no localStorage
-    }
-  }
-
-  if (btnCriar) { btnCriar.disabled = false; btnCriar.textContent = '✅ Criar cadastro'; }
+  saveColabs();
+  saveUsuarios();
 
   // Guardar para entrar automaticamente
   paNovoCadastro = novoUser;
@@ -4397,30 +4352,6 @@ async function buscarCep() {
       document.getElementById('pa-uf').value     = data.uf         || '';
     }
   } catch(e) {}
-}
-
-// ─── NOTIFICAÇÕES TOAST (ADM em tempo real) ───────────────────────────────────
-function mostrarToastNovoCadastro(colab) {
-  mostrarToast(`🆕 Novo cadastro: <strong>${esc(colab.nome)}</strong><br><small>${esc(colab.posto)}</small>`, 'green', 6000);
-}
-function mostrarToastNovoUsuario(user) {
-  mostrarToast(`👤 Novo acesso criado: <strong>${esc(user.nome)}</strong><br><small>@${esc(user.login)}</small>`, 'blue', 6000);
-}
-function mostrarToast(html, tipo, duracao) {
-  let container = document.getElementById('toast-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'toast-container';
-    container.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;max-width:320px';
-    document.body.appendChild(container);
-  }
-  const toast = document.createElement('div');
-  const cor = tipo === 'green' ? '#22c55e' : tipo === 'blue' ? '#0ea5e9' : '#f59e0b';
-  toast.style.cssText = `background:#0d1829;border:1px solid ${cor}55;border-left:4px solid ${cor};border-radius:12px;padding:14px 18px;color:#e2eaf5;font-size:13px;line-height:1.5;box-shadow:0 8px 32px #000a;animation:fadeUp .3s ease;cursor:pointer`;
-  toast.innerHTML = html;
-  toast.onclick = () => toast.remove();
-  container.appendChild(toast);
-  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .4s'; setTimeout(() => toast.remove(), 400); }, duracao);
 }
 
 checkSession();
