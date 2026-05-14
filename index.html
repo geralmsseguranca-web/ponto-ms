@@ -1825,7 +1825,7 @@ footer {
       <button class="tab-btn admin-tab" id="tab-btn-dashboard" onclick="showTab('dashboard',this)" style="display:none">📊 Dashboard</button>
       <button class="tab-btn" onclick="showTab('historico',this)">📋 Histórico</button>
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
-      <button class="tab-btn admin-tab" id="tab-btn-usuarios" onclick="showTab('usuarios',this)" style="display:none">🔑 Usuários</button>
+
     </nav>
   </div>
 </header>
@@ -1998,6 +1998,18 @@ footer {
         <div class="form-row" style="margin-bottom:14px">
           <input class="input" id="f-colab-endereco" type="text" placeholder="Endereço completo (Rua, Nº, Bairro, Cidade/UF)" style="flex:1;min-width:300px"/>
         </div>
+        <div style="background:var(--surface2);border:1px solid #0ea5e933;border-radius:12px;padding:14px 16px;margin-bottom:14px">
+          <p style="font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:12px">🔑 Acesso ao Sistema (opcional)</p>
+          <div class="form-row" style="margin-bottom:0">
+            <input class="input" id="f-colab-login" type="text" placeholder="Usuário de acesso (ex: carlos.silva)" style="min-width:180px"/>
+            <input class="input" id="f-colab-senha" type="text" placeholder="Senha" style="min-width:150px"/>
+            <select class="input" id="f-colab-role" style="min-width:150px">
+              <option value="colaborador">👷 Colaborador</option>
+              <option value="admin">🛡️ Admin</option>
+            </select>
+          </div>
+          <p style="font-size:12px;color:var(--muted);margin-top:8px">Deixe em branco se o colaborador ainda não terá acesso. O sistema gerará as credenciais automaticamente no Primeiro Acesso.</p>
+        </div>
         <div style="display:flex;gap:10px">
           <button class="btn-primary" id="btn-salvar" onclick="salvarColaborador()">✅ Adicionar</button>
           <button class="btn-secondary" id="btn-cancelar-edit" onclick="cancelarEdicao()" style="display:none">Cancelar</button>
@@ -2074,37 +2086,7 @@ footer {
 
   </section>
 
-  <!-- ─── ABA: USUÁRIOS (somente admin) ─── -->
-  <section id="tab-usuarios" class="tab-content">
-
-    <div class="info-box">
-      🔑 <strong>Gestão de Acessos:</strong> Crie usuário e senha para cada colaborador.
-      Envie o <strong>usuário</strong> e a <strong>senha</strong> para o colaborador acessar o sistema pelo link desta página.
-      <br>Perfil <strong>Admin</strong> vê todas as abas e pode gerenciar usuários. Perfil <strong>Colaborador</strong> acessa apenas "Bater Ponto" e "Histórico".
-    </div>
-
-    <div class="card" id="user-form-card" style="margin-bottom:24px">
-      <p class="card-title" id="user-form-title">➕ Novo Acesso</p>
-      <div class="form-row" style="margin-bottom:14px">
-        <input class="input" id="f-user-login" type="text" placeholder="Usuário (ex: carlos.silva)" style="min-width:180px"/>
-        <input class="input" id="f-user-senha" type="text" placeholder="Senha" style="min-width:150px"/>
-        <input class="input" id="f-user-nome" type="text" placeholder="Nome completo (exibição)" style="min-width:200px"/>
-        <select class="input" id="f-user-role" style="min-width:150px">
-          <option value="colaborador">👷 Colaborador</option>
-          <option value="admin">🛡️ Admin</option>
-        </select>
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn-primary" id="btn-salvar-user" onclick="salvarUsuario()">✅ Criar Acesso</button>
-        <button class="btn-secondary" id="btn-cancelar-user" onclick="cancelarEdicaoUser()" style="display:none">Cancelar</button>
-      </div>
-    </div>
-
-    <input class="input" id="f-busca-user" type="text" placeholder="🔍 Buscar usuário..."
-      oninput="renderUsuarios()" style="margin-bottom:16px"/>
-
-    <div class="user-list" id="user-admin-list"></div>
-  </section>
+  <!-- Aba Usuários removida — gestão de acesso agora está dentro do cadastro do colaborador -->
 
 </main>
 
@@ -2344,16 +2326,24 @@ function loadData() {
     _setSyncStatus('syncing');
 
     // Flag: só faz seed se o nó estiver REALMENTE vazio no Firebase (primeira leitura confirmada)
+    // Usa um temporizador: só faz seed após 2s da primeira leitura confirmando vazio
     let colabsCarregado = false;
     let usuariosCarregado = false;
+    let seedColabTimer = null;
+    let seedUserTimer  = null;
 
     const u1 = window._fbOnValue(window._fbRef(window._db, 'colaboradores'), snap => {
       const data = snap.val();
       if (data) {
+        clearTimeout(seedColabTimer);
         colaboradores = fromFirebaseObj(data);
       } else if (!colabsCarregado) {
-        // Firebase confirmou que o nó está vazio — seed seguro
-        seedColaboradores();
+        // Firebase confirmou que o nó está vazio — aguarda 1s extra antes de fazer seed
+        // para evitar seed acidental durante propagação de escrita
+        clearTimeout(seedColabTimer);
+        seedColabTimer = setTimeout(() => {
+          if (!colaboradores.length) seedColaboradores();
+        }, 1000);
       }
       colabsCarregado = true;
       _setSyncStatus('ok');
@@ -2369,6 +2359,7 @@ function loadData() {
     const u3 = window._fbOnValue(window._fbRef(window._db, 'usuarios'), snap => {
       const data = snap.val();
       if (data) {
+        clearTimeout(seedUserTimer);
         const lista = fromFirebaseObj(data);
         if (lista.length) {
           usuarios = lista;
@@ -2382,7 +2373,10 @@ function loadData() {
           }
         }
       } else if (!usuariosCarregado) {
-        seedAdminUser();
+        clearTimeout(seedUserTimer);
+        seedUserTimer = setTimeout(() => {
+          if (!usuarios.length) seedAdminUser();
+        }, 1000);
       }
       usuariosCarregado = true;
       renderUsuarios();
@@ -2505,7 +2499,6 @@ function entrarSistema(usuario) {
   // Controle de abas por perfil
   const isAdmin = usuario.role === 'admin';
   document.getElementById('tab-btn-colaboradores').style.display = isAdmin ? '' : 'none';
-  document.getElementById('tab-btn-usuarios').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-dashboard').style.display = isAdmin ? '' : 'none';
 
   // Reseta seleção ao entrar
@@ -2789,7 +2782,6 @@ function showTab(id, btn) {
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
   if (id==='historico')  { updatePostoFilter(); renderHistorico(); }
-  if (id==='usuarios')   { renderUsuarios(); }
   if (id==='dashboard')  { renderDashboard(); }
 }
 
@@ -3369,7 +3361,18 @@ function renderColaboradores() {
     return;
   }
 
-  container.innerHTML = lista.map(c=>`
+  container.innerHTML = lista.map(c=>{
+    const user = usuarios.find(u => u.colaboradorId === c.id);
+    const isAdm = currentUser?.role === 'admin';
+    const credencialHtml = isAdm && user ? `
+      <div style="margin-top:5px;background:var(--surface2);border:1px solid #0ea5e922;border-radius:8px;padding:6px 10px;display:inline-flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">👤 ${esc(user.login)}</span>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">🔒 ${esc(user.senha)}</span>
+        <span style="font-size:10px;padding:2px 7px;border-radius:4px;font-family:var(--font-mono);font-weight:600;${user.role==='admin'?'background:#451a0333;color:var(--gold);border:1px solid #f59e0b44':'background:#0c2a1e44;color:var(--green);border:1px solid #22c55e44'}">
+          ${user.role==='admin'?'🛡️ Admin':'👷 Colaborador'}
+        </span>
+      </div>` : (isAdm ? `<div style="margin-top:4px;font-size:12px;color:var(--muted2);font-family:var(--font-mono)">⚪ Sem acesso cadastrado</div>` : '');
+    return `
     <div class="colab-admin-item ${c.ativo?'':'inactive'}">
       <div class="avatar" style="background:${c.ativo?avatarColor(c.nome):'var(--surface2)'};${c.ativo?'':'color:var(--muted)'}">${c.nome.charAt(0)}</div>
       <div class="colab-admin-info">
@@ -3383,6 +3386,7 @@ function renderColaboradores() {
         ${c.telefone ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">📞 ${esc(c.telefone)}</div>` : ''}
         ${c.email ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">✉️ ${esc(c.email)}</div>` : ''}
         ${c.endereco ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">🏠 ${esc(fmtEndereco(c.endereco))}</div>` : ''}
+        ${credencialHtml}
       </div>
       <div class="colab-admin-actions">
         ${c.ativo ? `
@@ -3394,7 +3398,7 @@ function renderColaboradores() {
         `}
       </div>
     </div>
-  `).join('');
+  `}).join('');
 }
 
 function salvarColaborador() {
@@ -3407,23 +3411,51 @@ function salvarColaborador() {
   const dataNasc    = document.getElementById('f-colab-datanasc').value;
   const estadoCivil = document.getElementById('f-colab-estadocivil').value;
   const endereco    = document.getElementById('f-colab-endereco').value.trim();
+  const login       = (document.getElementById('f-colab-login').value || '').trim().toLowerCase();
+  const senha       = (document.getElementById('f-colab-senha').value || '').trim();
+  const role        = document.getElementById('f-colab-role').value || 'colaborador';
   if (!nome || !posto) return;
+
+  let colabId = editId || uid();
 
   if (editId) {
     colaboradores = colaboradores.map(c=> c.id===editId
       ? {...c, nome, posto, rg, cpf, telefone, email, dataNasc, estadoCivil, endereco}
       : c);
+
+    // Atualiza ou cria usuário vinculado
+    if (login && senha) {
+      const dupLogin = usuarios.find(u => u.login.toLowerCase() === login && u.colaboradorId !== editId && u.id !== (usuarios.find(u2=>u2.colaboradorId===editId)||{}).id);
+      if (dupLogin) { alert(`Usuário "${login}" já existe para outro colaborador.`); return; }
+      const idx = usuarios.findIndex(u => u.colaboradorId === editId);
+      if (idx >= 0) {
+        usuarios[idx] = { ...usuarios[idx], login, senha, nome, role };
+      } else {
+        usuarios.push({ id: uid(), login, senha, nome, role, colaboradorId: editId });
+      }
+      saveUsuarios();
+    }
     cancelarEdicao();
   } else {
-    colaboradores.push({ id: uid(), nome, posto, rg, cpf, telefone, email, dataNasc, estadoCivil, endereco, ativo: true });
+    colaboradores.push({ id: colabId, nome, posto, rg, cpf, telefone, email, dataNasc, estadoCivil, endereco, ativo: true });
+
+    // Cria usuário vinculado se preenchido
+    if (login && senha) {
+      const dupLogin = usuarios.find(u => u.login.toLowerCase() === login);
+      if (dupLogin) { alert(`Usuário "${login}" já existe.`); return; }
+      usuarios.push({ id: uid(), login, senha, nome, role, colaboradorId: colabId });
+      saveUsuarios();
+    }
   }
   saveColabs();
   ['f-colab-nome','f-colab-posto','f-colab-rg','f-colab-cpf',
-   'f-colab-telefone','f-colab-email','f-colab-endereco'].forEach(id => {
+   'f-colab-telefone','f-colab-email','f-colab-endereco',
+   'f-colab-login','f-colab-senha'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('f-colab-datanasc').value = '';
   document.getElementById('f-colab-estadocivil').value = '';
+  document.getElementById('f-colab-role').value = 'colaborador';
   renderAll();
 }
 
@@ -3440,6 +3472,11 @@ function editarColaborador(id) {
   document.getElementById('f-colab-datanasc').value = c.dataNasc || '';
   document.getElementById('f-colab-estadocivil').value = c.estadoCivil || '';
   document.getElementById('f-colab-endereco').value = fmtEndereco(c.endereco) || '';
+  // Carrega credenciais vinculadas
+  const user = usuarios.find(u => u.colaboradorId === id);
+  document.getElementById('f-colab-login').value = user ? user.login : '';
+  document.getElementById('f-colab-senha').value = user ? user.senha : '';
+  document.getElementById('f-colab-role').value  = user ? (user.role || 'colaborador') : 'colaborador';
   document.getElementById('form-title').textContent = '✏️ Editando Colaborador';
   document.getElementById('btn-salvar').textContent = '💾 Salvar Alterações';
   document.getElementById('btn-cancelar-edit').style.display='inline-block';
@@ -3459,6 +3496,9 @@ function cancelarEdicao() {
   document.getElementById('f-colab-datanasc').value='';
   document.getElementById('f-colab-estadocivil').value='';
   document.getElementById('f-colab-endereco').value='';
+  document.getElementById('f-colab-login').value='';
+  document.getElementById('f-colab-senha').value='';
+  document.getElementById('f-colab-role').value='colaborador';
   document.getElementById('form-title').textContent = '➕ Novo Colaborador';
   document.getElementById('btn-salvar').textContent = '✅ Adicionar';
   document.getElementById('btn-cancelar-edit').style.display='none';
@@ -3497,9 +3537,11 @@ function confirmarDelPermanente(id, nome) {
 function executarDelPermanente() {
   if (!_delPermId) return;
   colaboradores = colaboradores.filter(c => c.id !== _delPermId);
-  // Remove também os registros de ponto do colaborador
+  // Remove também o usuário de acesso vinculado e os registros de ponto
+  usuarios  = usuarios.filter(u => u.colaboradorId !== _delPermId);
   registros = registros.filter(r => r.colaboradorId !== _delPermId);
   saveColabs();
+  saveUsuarios();
   saveRegistros();
   _delPermId = null;
   _delPermNome = null;
