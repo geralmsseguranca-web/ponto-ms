@@ -481,6 +481,75 @@ main {
   margin-top: 10px; margin-bottom: 0;
 }
 .filter-count { font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+
+/* ── DATE RANGE (Android style) ── */
+.date-range-wrap {
+  margin: 10px 0 4px;
+}
+.date-range-chip {
+  display: flex; align-items: center; gap: 0;
+  background: var(--surface2); border: 1.5px solid var(--accent);
+  border-radius: 50px; overflow: hidden;
+  box-shadow: 0 0 0 4px #0ea5e910; transition: box-shadow .2s;
+}
+.date-range-chip:focus-within {
+  box-shadow: 0 0 0 4px #0ea5e922;
+}
+.drc-icon {
+  padding: 0 10px 0 16px; font-size: 15px; flex-shrink: 0;
+  color: var(--accent);
+}
+.drc-field {
+  display: flex; flex-direction: column; flex: 1; min-width: 0;
+  padding: 7px 12px 7px 0;
+}
+.drc-lbl {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 1px;
+}
+.drc-input {
+  background: transparent; border: none; outline: none;
+  color: var(--text); font-size: 14px; font-family: var(--font-mono);
+  font-weight: 600; width: 100%; padding: 0;
+  color-scheme: dark;
+}
+.drc-input::-webkit-calendar-picker-indicator {
+  filter: invert(60%) sepia(60%) saturate(600%) hue-rotate(180deg);
+  opacity: .7; cursor: pointer;
+}
+.drc-sep {
+  display: flex; align-items: center; padding: 0 10px;
+  color: var(--accent); font-size: 18px; font-weight: 300;
+  flex-shrink: 0; align-self: stretch;
+  border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+}
+.drc-clear {
+  flex-shrink: 0; background: transparent; border: none;
+  color: var(--muted); font-size: 14px; cursor: pointer;
+  padding: 0 16px; align-self: stretch;
+  transition: color .2s; border-left: 1px solid var(--border);
+  display: flex; align-items: center;
+}
+.drc-clear:hover { color: var(--red); }
+/* Shortcut chips */
+.drc-shortcuts {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;
+}
+.drc-chip {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 20px; padding: 5px 13px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .18s; white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+.drc-chip:hover { border-color: var(--accent); color: var(--accent); background: #0ea5e910; }
+.drc-chip.active { background: #0ea5e920; border-color: var(--accent); color: var(--accent); }
+@media(max-width:600px) {
+  .date-range-chip { border-radius: 16px; }
+  .drc-sep { padding: 0 6px; }
+  .drc-icon { padding: 0 6px 0 12px; }
+}
 .input {
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: 10px; color: var(--text); padding: 11px 14px;
@@ -1948,8 +2017,32 @@ footer {
           <option value="entrada">🟢 Apenas Entradas</option>
           <option value="saida">🔴 Apenas Saídas</option>
         </select>
-        <input class="input" id="f-data" type="date" onchange="renderHistorico()"/>
         <input class="input" id="f-nome"  type="text"   placeholder="🔍 Busca livre por nome..."  oninput="renderHistorico()"/>
+      </div>
+
+      <!-- ── DATE RANGE CHIP (Android style) ── -->
+      <div class="date-range-wrap">
+        <div class="date-range-chip">
+          <span class="drc-icon">📅</span>
+          <div class="drc-field">
+            <span class="drc-lbl">De</span>
+            <input id="f-data-de" type="date" class="drc-input" onchange="onDateRangeChange()"/>
+          </div>
+          <div class="drc-sep">→</div>
+          <div class="drc-field">
+            <span class="drc-lbl">Até</span>
+            <input id="f-data-ate" type="date" class="drc-input" onchange="onDateRangeChange()"/>
+          </div>
+          <button class="drc-clear" onclick="clearDateRange()" title="Limpar período">✕</button>
+        </div>
+        <div class="drc-shortcuts">
+          <button class="drc-chip" id="drc-hoje"   onclick="setDateRange('today')">Hoje</button>
+          <button class="drc-chip" id="drc-ontem"  onclick="setDateRange('yesterday')">Ontem</button>
+          <button class="drc-chip" id="drc-semana" onclick="setDateRange('week')">Esta semana</button>
+          <button class="drc-chip" id="drc-mes"    onclick="setDateRange('month')">Este mês</button>
+          <button class="drc-chip" id="drc-7"      onclick="setDateRange('last7')">7 dias</button>
+          <button class="drc-chip" id="drc-30"     onclick="setDateRange('last30')">30 dias</button>
+        </div>
       </div>
       <div class="filter-meta">
         <span class="filter-count" id="filter-count">0 registros</span>
@@ -3185,10 +3278,98 @@ function updatePostoFilter() {
 }
 
 function clearFilters() {
-  ['f-colaborador','f-nome','f-posto','f-tipo','f-data'].forEach(id=>{
+  ['f-colaborador','f-nome','f-posto','f-tipo','f-data-de','f-data-ate'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
+  document.querySelectorAll('.drc-chip').forEach(b=>b.classList.remove('active'));
   histPage=1; renderHistorico();
+}
+
+// ─── DATE RANGE CHIP ─────────────────────────────────────────────────────────
+function _toDateKey(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+
+function onDateRangeChange() {
+  // Remove destaque de todos os chips quando o usuário edita manualmente
+  document.querySelectorAll('.drc-chip').forEach(b => b.classList.remove('active'));
+  renderHistorico();
+}
+
+function clearDateRange() {
+  const de  = document.getElementById('f-data-de');
+  const ate = document.getElementById('f-data-ate');
+  if (de)  de.value  = '';
+  if (ate) ate.value = '';
+  document.querySelectorAll('.drc-chip').forEach(b => b.classList.remove('active'));
+  renderHistorico();
+}
+
+function setDateRange(preset) {
+  const de   = document.getElementById('f-data-de');
+  const ate  = document.getElementById('f-data-ate');
+  if (!de || !ate) return;
+
+  const today  = new Date();
+  const todayK = _toDateKey(today);
+
+  const chipMap = {
+    today:     'drc-hoje',
+    yesterday: 'drc-ontem',
+    week:      'drc-semana',
+    month:     'drc-mes',
+    last7:     'drc-7',
+    last30:    'drc-30',
+  };
+
+  // Remove active de todos e ativa o chip clicado
+  document.querySelectorAll('.drc-chip').forEach(b => b.classList.remove('active'));
+  const activeChip = document.getElementById(chipMap[preset]);
+  if (activeChip) activeChip.classList.add('active');
+
+  if (preset === 'today') {
+    de.value  = todayK;
+    ate.value = todayK;
+
+  } else if (preset === 'yesterday') {
+    const ontem = new Date(today);
+    ontem.setDate(today.getDate() - 1);
+    const k = _toDateKey(ontem);
+    de.value  = k;
+    ate.value = k;
+
+  } else if (preset === 'week') {
+    // Segunda-feira da semana atual
+    const dow    = today.getDay(); // 0=Dom, 1=Seg…
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    de.value  = _toDateKey(monday);
+    ate.value = _toDateKey(sunday);
+
+  } else if (preset === 'month') {
+    const primeiro = new Date(today.getFullYear(), today.getMonth(), 1);
+    const ultimo   = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    de.value  = _toDateKey(primeiro);
+    ate.value = _toDateKey(ultimo);
+
+  } else if (preset === 'last7') {
+    const from = new Date(today);
+    from.setDate(today.getDate() - 6);
+    de.value  = _toDateKey(from);
+    ate.value = todayK;
+
+  } else if (preset === 'last30') {
+    const from = new Date(today);
+    from.setDate(today.getDate() - 29);
+    de.value  = _toDateKey(from);
+    ate.value = todayK;
+  }
+
+  renderHistorico();
 }
 
 let _filtrados = [];
@@ -3211,11 +3392,12 @@ function _getDateKey(ts) {
 }
 
 function _renderHistTabla() {
-  const nome    = (document.getElementById('f-nome')?.value||'').toLowerCase().trim();
-  const posto   = document.getElementById('f-posto')?.value||'';
-  const tipo    = document.getElementById('f-tipo')?.value||'';
-  const dataVal = document.getElementById('f-data')?.value||'';
-  const colabId = document.getElementById('f-colaborador')?.value||'';
+  const nome      = (document.getElementById('f-nome')?.value||'').toLowerCase().trim();
+  const posto     = document.getElementById('f-posto')?.value||'';
+  const tipo      = document.getElementById('f-tipo')?.value||'';
+  const dataDeVal = document.getElementById('f-data-de')?.value  || '';
+  const dataAteVal= document.getElementById('f-data-ate')?.value || '';
+  const colabId   = document.getElementById('f-colaborador')?.value||'';
 
   const isAdmin  = currentUser?.role === 'admin';
   const nomeUser = (currentUser?.nome||'').toLowerCase();
@@ -3232,7 +3414,9 @@ function _renderHistTabla() {
     }
     if (colabId && r.colaboradorId !== colabId) return false;
     if (posto && r.posto !== posto) return false;
-    if (dataVal && _getDateKey(r.timestamp) !== dataVal) return false;
+    const dk = _getDateKey(r.timestamp);
+    if (dataDeVal  && dk < dataDeVal)  return false;
+    if (dataAteVal && dk > dataAteVal) return false;
     if (nome && !r.colaboradorNome.toLowerCase().includes(nome) && !r.posto.toLowerCase().includes(nome)) return false;
     return true;
   });
