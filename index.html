@@ -1953,7 +1953,11 @@ footer {
       </div>
       <div class="filter-meta">
         <span class="filter-count" id="filter-count">0 registros</span>
-        <button class="btn-clear" onclick="clearFilters()">Limpar filtros</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn-export btn-export-pdf" onclick="exportarHistoricoPDF()" style="padding:8px 16px;font-size:13px">📄 PDF</button>
+          <button class="btn-export btn-export-xlsx" onclick="exportarHistoricoExcel()" style="padding:8px 16px;font-size:13px">📊 Excel</button>
+          <button class="btn-clear" onclick="clearFilters()">Limpar filtros</button>
+        </div>
       </div>
     </div>
     <div class="table-wrap">
@@ -3371,6 +3375,125 @@ function _renderHistTabla() {
     document.getElementById('btn-prev').disabled=(histPage===1);
     document.getElementById('btn-next').disabled=(histPage===pages);
   } else { pagEl.style.display='none'; }
+}
+
+// ─── EXPORTAR HISTÓRICO PDF ───────────────────────────────────────────────────
+function exportarHistoricoPDF() {
+  const dados = _filtrados;
+  if (!dados.length) { alert('Nenhum registro para exportar.'); return; }
+
+  const agora = new Date().toLocaleString('pt-BR');
+
+  function _fmtDur(entrada, saida) {
+    if (!entrada || !saida) return '–';
+    const ms = saida - entrada;
+    const h  = Math.floor(ms / 3600000);
+    const m  = Math.floor((ms % 3600000) / 60000);
+    const s  = Math.floor((ms % 60000) / 1000);
+    return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  }
+
+  const linhas = dados.map(l => `
+    <tr>
+      <td>${fmtData(l.dataTs)}</td>
+      <td><strong>${l.colaboradorNome || ''}</strong></td>
+      <td>${l.posto || ''}</td>
+      <td class="e">${l.entrada ? fmtHora(l.entrada) : '–'}</td>
+      <td class="s">${l.saida   ? fmtHora(l.saida)   : '–'}</td>
+      <td class="d">${_fmtDur(l.entrada, l.saida)}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="UTF-8"/>
+<title>Histórico de Ponto — Grupo M.S</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; color: #111; padding: 28px 32px; font-size: 13px; }
+  .topo { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px; border-bottom:3px solid #0d3878; padding-bottom:14px; }
+  .topo h1 { font-size:22px; color:#0d3878; margin-bottom:4px; }
+  .topo p  { font-size:11px; color:#555; }
+  .meta { font-size:11px; color:#777; text-align:right; line-height:1.6; }
+  table { width:100%; border-collapse:collapse; margin-top:4px; }
+  thead tr { background:#0d3878; color:#fff; }
+  th { padding:9px 10px; text-align:left; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; white-space:nowrap; }
+  td { padding:8px 10px; border-bottom:1px solid #e9eef5; vertical-align:middle; }
+  tbody tr:nth-child(even) { background:#f4f7ff; }
+  tbody tr:hover { background:#eaf1ff; }
+  td.e { color:#15803d; font-weight:700; font-family:monospace; }
+  td.s { color:#b91c1c; font-weight:700; font-family:monospace; }
+  td.d { color:#1e40af; font-family:monospace; font-weight:600; }
+  .rodape { margin-top:20px; font-size:10px; color:#aaa; text-align:center; border-top:1px solid #e5e7eb; padding-top:10px; }
+  @media print { body { padding:0 16px; } }
+</style>
+</head><body>
+<div class="topo">
+  <div>
+    <h1>Grupo M.S — Histórico de Ponto</h1>
+    <p>${dados.length} registro(s) exportado(s)</p>
+  </div>
+  <div class="meta">Gerado em:<br>${agora}</div>
+</div>
+<table>
+  <thead>
+    <tr><th>Data</th><th>Colaborador</th><th>Posto</th><th>Entrada</th><th>Saída</th><th>Duração</th></tr>
+  </thead>
+  <tbody>${linhas}</tbody>
+</table>
+<div class="rodape">Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico &nbsp;·&nbsp; ${agora}</div>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  setTimeout(() => { win.focus(); win.print(); }, 400);
+}
+
+// ─── EXPORTAR HISTÓRICO EXCEL (CSV) ───────────────────────────────────────────
+function exportarHistoricoExcel() {
+  const dados = _filtrados;
+  if (!dados.length) { alert('Nenhum registro para exportar.'); return; }
+
+  function _fmtDur(entrada, saida) {
+    if (!entrada || !saida) return '';
+    const ms = saida - entrada;
+    const h  = Math.floor(ms / 3600000);
+    const m  = Math.floor((ms % 3600000) / 60000);
+    const s  = Math.floor((ms % 60000) / 1000);
+    return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  }
+
+  const bom = '\uFEFF';
+  const cabecalho = ['Data','Colaborador','Posto','Entrada','Saída','Duração'];
+  const linhas = dados.map(l => [
+    fmtData(l.dataTs),
+    l.colaboradorNome || '',
+    l.posto || '',
+    l.entrada ? fmtHora(l.entrada) : '',
+    l.saida   ? fmtHora(l.saida)   : '',
+    _fmtDur(l.entrada, l.saida)
+  ]);
+
+  const csvEscape = v => {
+    const s = String(v);
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+
+  const csv = bom
+    + cabecalho.map(csvEscape).join(',') + '\n'
+    + linhas.map(row => row.map(csvEscape).join(',')).join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const data = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+  a.href     = url;
+  a.download = `historico_ponto_grupo_ms_${data}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ─── EXCLUIR REGISTROS DO HISTÓRICO ──────────────────────────────────────────
