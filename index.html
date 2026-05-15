@@ -2129,8 +2129,12 @@ footer {
           <button class="btn-secondary" id="btn-cancelar-edit" onclick="cancelarEdicao()" style="display:none">Cancelar</button>
         </div>
       </div>
-      <input class="input" id="f-busca-colab" type="text" placeholder="🔍 Buscar por nome ou posto..."
-        oninput="renderColaboradores()" style="margin-bottom:16px"/>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
+        <input class="input" id="f-busca-colab" type="text" placeholder="🔍 Buscar por nome ou posto..."
+          oninput="renderColaboradores()" style="flex:1;margin-bottom:0"/>
+        <button class="btn-secondary" onclick="repararVinculos()" title="Vincula automaticamente usuários sem colaboradorId pelo nome" style="white-space:nowrap;font-size:13px">🔧 Reparar Vínculos</button>
+        <button class="btn-secondary" onclick="exportarCredenciais()" title="Exportar lista de usuários e senhas" style="white-space:nowrap;font-size:13px;background:linear-gradient(135deg,#7c3aed,#00d4ff);color:#fff;border:none">📋 Exportar Credenciais</button>
+      </div>
       <div class="colab-admin-list" id="colab-admin-list"></div>
     </div>
 
@@ -2538,6 +2542,10 @@ function loadData() {
       }
       usuariosCarregado = true;
       renderUsuarios();
+      // Auto-reparo silencioso: vincula usuários sem colaboradorId quando ambas as listas estão prontas
+      if (currentUser?.role === 'admin' && colaboradores.length > 0) {
+        setTimeout(() => { try { repararVinculosSilencioso(); } catch(e){} }, 800);
+      }
     });
 
     const u4 = window._fbOnValue(window._fbRef(window._db, 'postos'), snap => {
@@ -3767,6 +3775,167 @@ function renderColaboradores() {
       </div>
     </div>
   `}).join('');
+}
+
+// ── Exportar credenciais de todos os colaboradores ───────────────────────────
+function exportarCredenciais() {
+  if (currentUser?.role !== 'admin') return;
+
+  const colabsAtivos = colaboradores.filter(c => c.ativo !== false);
+  const linhas = [];
+
+  colabsAtivos.forEach(c => {
+    const u = usuarios.find(u => u.colaboradorId === c.id);
+    linhas.push({ nome: c.nome, posto: c.posto || '—', login: u ? u.login : null, senha: u ? u.senha : null });
+  });
+
+  const comAcesso   = linhas.filter(l => l.login);
+  const semAcesso   = linhas.filter(l => !l.login);
+  const dataHoje    = new Date().toLocaleDateString('pt-BR');
+  const linkSistema = window.location.href.split('?')[0];
+
+  // ── Gera HTML imprimível ──────────────────────────────────────────────────
+  const htmlCards = comAcesso.map(l => `
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin-bottom:12px;page-break-inside:avoid;background:#fff">
+      <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:4px">👤 ${l.nome}</div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:10px">📍 ${l.posto}</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <div><span style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px">Usuário</span><br>
+          <span style="font-family:monospace;font-size:15px;font-weight:700;color:#0ea5e9">${l.login}</span></div>
+        <div><span style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px">Senha</span><br>
+          <span style="font-family:monospace;font-size:15px;font-weight:700;color:#7c3aed">${l.senha}</span></div>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:#94a3b8;word-break:break-all">🔗 ${linkSistema}</div>
+    </div>`).join('');
+
+  const semAcessoHtml = semAcesso.length ? `
+    <div style="margin-top:24px;padding:14px 18px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px">
+      <div style="font-weight:700;color:#c2410c;margin-bottom:8px">⚠️ Sem acesso cadastrado (${semAcesso.length})</div>
+      ${semAcesso.map(l=>`<div style="font-size:13px;color:#7c2d12;padding:2px 0">• ${l.nome} — ${l.posto}</div>`).join('')}
+    </div>` : '';
+
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+  <title>Credenciais — Grupo M.S — ${dataHoje}</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background:#f8fafc; margin:0; padding:32px; color:#1e293b; }
+    h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:14px; font-weight:400; color:#64748b; margin:0 0 24px; }
+    .header { background:#0f172a; color:#fff; padding:20px 28px; border-radius:12px; margin-bottom:28px; display:flex; justify-content:space-between; align-items:center; }
+    .badge { background:#00d4ff22; border:1px solid #00d4ff55; color:#00d4ff; padding:4px 12px; border-radius:20px; font-size:12px; font-family:monospace; }
+    @media print { body{padding:16px} button{display:none!important} }
+  </style></head><body>
+  <div class="header">
+    <div><h1>🔐 Credenciais de Acesso</h1><h2>Grupo M.S · Gerado em ${dataHoje}</h2></div>
+    <div class="badge">${comAcesso.length} colaboradores</div>
+  </div>
+  <button onclick="window.print()" style="margin-bottom:20px;padding:10px 24px;background:#0f172a;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer">🖨️ Imprimir / Salvar PDF</button>
+  ${htmlCards}
+  ${semAcessoHtml}
+  </body></html>`;
+
+  // Abre em nova aba
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+
+  // Também copia texto simples para área de transferência
+  const texto = ['=== CREDENCIAIS DE ACESSO — GRUPO M.S ===', `Gerado em: ${dataHoje}`, `Link: ${linkSistema}`, '',
+    ...comAcesso.map(l => `${l.nome}\n  Usuário: ${l.login}\n  Senha:   ${l.senha}`),
+    semAcesso.length ? `\nSem acesso: ${semAcesso.map(l=>l.nome).join(', ')}` : ''
+  ].join('\n');
+
+  navigator.clipboard.writeText(texto).catch(() => {});
+}
+
+// Versão silenciosa do reparo — roda automaticamente ao carregar
+function repararVinculosSilencioso() {
+  if (currentUser?.role !== 'admin') return;
+  const norm = s => (s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\s+/g,' ').trim();
+
+  let corrigidos = 0;
+  usuarios.forEach(u => {
+    if (u.role === 'admin') return;
+    if (colaboradores.find(c => c.id === u.colaboradorId)) return;
+    const nomeU  = norm(u.nome);
+    const loginU = norm(u.login).replace(/\d+/g,'');
+    const colab =
+      colaboradores.find(c => norm(c.nome) === nomeU) ||
+      colaboradores.find(c => nomeU.length > 3 && norm(c.nome).startsWith(nomeU.split(' ')[0])) ||
+      colaboradores.find(c => loginU.length > 3 && norm(c.nome).startsWith(loginU));
+    if (!colab) return;
+    u.colaboradorId = colab.id;
+    corrigidos++;
+    if (window._firebaseReady) {
+      window._fbSet(window._fbRef(window._db, 'usuarios/' + u.id + '/colaboradorId'), colab.id)
+        .catch(() => {});
+    }
+  });
+  if (corrigidos > 0) {
+    localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+    renderColaboradores();
+    renderUsuarios();
+    console.log('[AutoReparo] ' + corrigidos + ' vínculo(s) corrigido(s) automaticamente.');
+  }
+}
+
+// ── Reparo automático de vínculos colaborador ↔ usuário ──────────────────────
+function repararVinculos() {
+  if (currentUser?.role !== 'admin') return;
+
+  // Normaliza string para comparação: minúsculas, sem acentos, sem espaços duplos
+  const norm = s => (s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/\s+/g,' ').trim();
+
+  let corrigidos = 0;
+  const promessas = [];
+
+  usuarios.forEach(u => {
+    // Pula admin e usuários que já têm vínculo válido
+    if (u.role === 'admin') return;
+    const jaVinculado = colaboradores.find(c => c.id === u.colaboradorId);
+    if (jaVinculado) return;
+
+    const nomeU  = norm(u.nome);
+    const loginU = norm(u.login).replace(/\d+/g,'');
+
+    // Tenta casar pelo nome exato, depois nome parcial, depois login
+    const colab =
+      colaboradores.find(c => norm(c.nome) === nomeU) ||
+      colaboradores.find(c => nomeU.length > 3 && norm(c.nome).startsWith(nomeU.split(' ')[0])) ||
+      colaboradores.find(c => loginU.length > 3 && norm(c.nome).startsWith(loginU));
+
+    if (!colab) return;
+
+    // Atualiza localmente
+    u.colaboradorId = colab.id;
+    corrigidos++;
+
+    // Persiste no Firebase
+    if (window._firebaseReady) {
+      promessas.push(
+        window._fbSet(
+          window._fbRef(window._db, 'usuarios/' + u.id + '/colaboradorId'),
+          colab.id
+        ).catch(e => console.warn('repararVinculos Firebase:', e.message))
+      );
+    }
+  });
+
+  // Salva lista completa no localStorage
+  localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+
+  // Aguarda Firebase e re-renderiza
+  Promise.allSettled(promessas).then(() => {
+    renderColaboradores();
+    renderUsuarios();
+    if (corrigidos > 0) {
+      alert(`✅ ${corrigidos} vínculo(s) reparado(s) com sucesso!\n\nOs colaboradores afetados agora exibem suas credenciais corretamente.`);
+    } else {
+      alert('ℹ️ Nenhum vínculo quebrado encontrado.\n\nTodos os usuários já estão corretamente vinculados aos seus colaboradores.');
+    }
+  });
 }
 
 function salvarColaborador() {
