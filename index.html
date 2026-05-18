@@ -2320,6 +2320,18 @@ footer {
         <button class="ft-btn-sync" onclick="ftSyncFirestore()" id="ft-btn-sync">🔄 Sincronizar FT</button>
         <button class="ft-btn-sync" onclick="ftRecuperarDoHistorico()" id="ft-btn-recuperar" title="Varre o histórico de ponto e gera FTs para registros que ainda não possuem lançamento">🔍 Recuperar FTs do histórico</button>
       </div>
+      <!-- ADICIONAR HORÁRIO RÁPIDO -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;background:var(--surface);border:1px solid rgba(0,212,255,.2);border-radius:12px;padding:10px 14px;">
+        <span style="font-size:.78rem;font-weight:700;color:var(--accent);white-space:nowrap;font-family:var(--font-mono)">🕐 Novo horário:</span>
+        <input type="text" id="ft-ger-horario-input-top" placeholder="Ex: 08:00 – 17:00" maxlength="30"
+          style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:.82rem;outline:none;"
+          onkeydown="if(event.key==='Enter')ftGerAdicionarHorarioTop()"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+        <button onclick="ftGerAdicionarHorarioTop()"
+          style="background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.35);color:var(--accent);border-radius:8px;padding:8px 16px;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+          + Adicionar
+        </button>
+      </div>
       <div class="ft-export-row">
         <button class="ft-btn-export ft-btn-export-pdf" onclick="ftExportarPDF()">🖨️ Exportar PDF</button>
         <button class="ft-btn-export ft-btn-export-xlsx" onclick="ftExportarExcel()">📊 Exportar Excel</button>
@@ -4637,6 +4649,17 @@ window.ftGerAdicionarHorario=function(){
   if(!val){ftToast('⚠️ Digite o horário.','warn');return;}
   if(FT_HORARIOS.some(function(h){return h.toLowerCase()===val.toLowerCase();})){ftToast('⚠️ Horário já existe.','warn');return;}
   FT_HORARIOS.push(val);ftSalvarHorarios();inp.value='';ftGerRenderHorarios();ftToast('✅ Horário adicionado!','success');
+};
+window.ftGerAdicionarHorarioTop=function(){
+  var inp=document.getElementById('ft-ger-horario-input-top');
+  var val=(inp?inp.value||'':'').trim();
+  if(!val){ftToast('⚠️ Digite o horário. Ex: 08:00 – 17:00','warn');return;}
+  if(FT_HORARIOS.some(function(h){return h.toLowerCase()===val.toLowerCase();})){ftToast('⚠️ Horário já existe.','warn');return;}
+  FT_HORARIOS.push(val);
+  ftSalvarHorarios();
+  if(inp)inp.value='';
+  ftGerRenderHorarios();
+  ftToast('✅ Horário "'+val+'" adicionado!','success');
 };
 window.ftGerRemoverHorario=function(idx){
   var item=FT_HORARIOS[idx];
