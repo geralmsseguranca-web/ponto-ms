@@ -1460,6 +1460,11 @@ footer {
 .ft-obs-save{margin-top:5px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);color:var(--accent);border-radius:7px;padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer}
 .ft-obs-save:hover{background:rgba(0,212,255,.2)}
 .ft-btn-del{background:rgba(255,50,50,.08);border:1px solid rgba(255,50,50,.2);color:var(--red);border-radius:10px;padding:8px 12px;font-size:.8rem;cursor:pointer}
+.ftv-card-btns{display:flex;gap:8px;margin-top:10px}
+.ftv-btn-edit{flex:1;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);color:var(--accent);border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
+.ftv-btn-edit:hover{background:rgba(0,212,255,.18)}
+.ftv-btn-del{background:rgba(255,50,50,.08);border:1px solid rgba(255,50,50,.22);color:var(--red);border-radius:10px;padding:8px 14px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
+.ftv-btn-del:hover{background:rgba(255,50,50,.18)}
 .ft-btn-edit-motivo{flex:1;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);color:#c084fc;border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
 .ft-btn-edit-motivo:hover{background:rgba(124,58,237,.2)}
 .ft-btn-edit-horario{flex:1;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);color:var(--accent);border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
@@ -1993,6 +1998,7 @@ footer {
       <button class="tab-btn" onclick="showTab('historico',this)">📋 Histórico</button>
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft" onclick="showTab('ft-auto',this)" style="display:none">📋 FT Automática</button>
+      <button class="tab-btn admin-tab" id="tab-btn-ft-validadas" onclick="showTab('ft-validadas',this)" style="display:none">✅ FTs Validadas</button>
 
     </nav>
   </div>
@@ -2354,6 +2360,40 @@ footer {
     </div>
   </section>
 
+  <!-- ─── ABA: FTs VALIDADAS ─── -->
+  <section id="tab-ft-validadas" class="tab-content">
+    <div class="ft-auto-wrap">
+      <div class="ft-auto-header">
+        <div class="ft-auto-title">✅ FTs Validadas</div>
+        <div class="ft-auto-sub">Consolidação das FTs já validadas pelo ADM ou pela inteligência</div>
+      </div>
+      <div class="ft-stats-row">
+        <div class="ft-stat-card ft-stat-green"><div class="ft-stat-num" id="ftv-stat-total">0</div><div class="ft-stat-label">Validadas</div></div>
+        <div class="ft-stat-card"><div class="ft-stat-num" id="ftv-stat-adm">0</div><div class="ft-stat-label">Validadas pelo ADM</div></div>
+        <div class="ft-stat-card ft-stat-blue"><div class="ft-stat-num" id="ftv-stat-ia">0</div><div class="ft-stat-label">Validadas pela inteligência</div></div>
+      </div>
+      <div class="ft-filter-row">
+        <select id="ftv-filter-origem" onchange="renderFTValidadas()">
+          <option value="">Todas as validações</option>
+          <option value="adm">🛡️ Apenas ADM</option>
+          <option value="inteligencia">🤖 Apenas Inteligência</option>
+        </select>
+        <select id="ftv-filter-colab" onchange="renderFTValidadas()"><option value="">Todos os colaboradores</option></select>
+        <input type="date" id="ftv-filter-data-ini" onchange="renderFTValidadas()" title="Data inicial"/>
+        <input type="date" id="ftv-filter-data-fim" onchange="renderFTValidadas()" title="Data final"/>
+        <button class="ft-btn-sync" onclick="renderFTValidadas()">🔄 Atualizar visão</button>
+      </div>
+      <div id="ftv-lista-wrap">
+        <div class="ft-empty" id="ftv-empty-msg">
+          <span style="font-size:2.5rem">✅</span>
+          <div>Nenhuma FT validada encontrada.</div>
+          <div style="font-size:.8rem;color:var(--muted);margin-top:4px">As FTs enviadas/validadas aparecerão aqui automaticamente.</div>
+        </div>
+        <div id="ftv-lista"></div>
+      </div>
+    </div>
+  </section>
+
   <!-- MODAL COMPLETAR FT -->
   <div id="ft-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:900;align-items:center;justify-content:center;padding:16px;">
     <div class="ft-modal-box">
@@ -2378,6 +2418,32 @@ footer {
       <div class="ft-modal-btns">
         <button class="ft-btn-cancel" onclick="ftModalFechar()">Cancelar</button>
         <button class="ft-btn-salvar" onclick="ftModalSalvar()">💾 Salvar e Enviar FT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR FT VALIDADA -->
+  <div id="ftv-edit-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:910;align-items:center;justify-content:center;padding:16px;">
+    <div class="ft-modal-box">
+      <div class="ft-modal-title">✏️ Editar FT Validada</div>
+      <div class="ft-modal-sub" id="ftv-edit-sub" style="color:var(--accent);margin-bottom:10px"></div>
+      <input type="hidden" id="ftv-edit-id">
+      <div style="background:rgba(255,200,0,.08);border:1px solid rgba(255,200,0,.25);border-radius:10px;padding:10px 12px;font-size:.8rem;color:var(--gold);margin-bottom:14px">
+        ⚠️ Você está editando uma FT já validada. As alterações serão salvas no Firebase.
+      </div>
+      <div class="ft-field"><label>📍 Posto <span class="ft-req">*</span></label>
+        <select id="ftv-edit-posto"><option value="">-- Selecione --</option></select></div>
+      <div class="ft-field"><label>💬 Motivo <span class="ft-req">*</span></label>
+        <select id="ftv-edit-motivo"><option value="">-- Selecione --</option></select></div>
+      <div class="ft-field"><label>🕐 Horário <span class="ft-req">*</span></label>
+        <select id="ftv-edit-horario"><option value="">-- Selecione --</option></select></div>
+      <div class="ft-field"><label>💰 Valor (R$)</label>
+        <input type="number" id="ftv-edit-valor" min="0" step="0.01" placeholder="0,00"></div>
+      <div class="ft-field"><label>📝 Observação</label>
+        <input type="text" id="ftv-edit-obs" placeholder="Informações adicionais..." maxlength="200"></div>
+      <div class="ft-modal-btns">
+        <button class="ft-btn-cancel" onclick="ftvEditarFechar()">Cancelar</button>
+        <button class="ft-btn-salvar" onclick="ftvEditarSalvar()">💾 Salvar Alterações</button>
       </div>
     </div>
   </div>
@@ -2843,6 +2909,7 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-colaboradores').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-dashboard').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft').style.display = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-ft-validadas').style.display = isAdmin ? '' : 'none';
 
   // Reseta seleção ao entrar
   selectedColab = null;
@@ -3127,6 +3194,7 @@ function showTab(id, btn) {
   document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
   if (id === 'ft-auto' && typeof window.ftRenderLista === 'function') setTimeout(window.ftRenderLista, 80);
+  if (id === 'ft-validadas' && typeof window.renderFTValidadas === 'function') setTimeout(window.renderFTValidadas, 80);
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
   if (id==='historico')  { updatePostoFilter(); renderHistorico(); }
@@ -3849,11 +3917,44 @@ var FT_HORARIOS=JSON.parse(localStorage.getItem(LS_HORARIOS)||'null')||FT_HORARI
 function ftSalvarMotivos(){localStorage.setItem(LS_MOTIVOS,JSON.stringify(FT_MOTIVOS));}
 function ftSalvarHorarios(){localStorage.setItem(LS_HORARIOS,JSON.stringify(FT_HORARIOS));}
 
+// ══ CORTE DE CONTABILIZAÇÃO FT ═══════════════════════════════════════
+// Mantém configurações (motivos, horários, padrões, postos, colaboradores e histórico)
+// e considera apenas lançamentos FT a partir de 16/05/2026.
+var FT_DATA_INICIAL_CONTAGEM='2026-05-16';
+function ftDataISO(valor){
+  return String(valor||'').slice(0,10);
+}
+function ftDataDoRegistro(reg){
+  if(reg&&reg.timestamp)return ftLocalISO(reg.timestamp).slice(0,10);
+  return ftDataISO(reg&&reg.dataHora);
+}
+function ftDentroPeriodoFT(dataISO){
+  return !dataISO||dataISO>=FT_DATA_INICIAL_CONTAGEM;
+}
+function ftFTDentroPeriodo(ft){
+  return ftDentroPeriodoFT(ftDataDoRegistro(ft));
+}
+function ftAplicarDataInicialNosFiltros(){
+  ['ft-filter-data-ini','ftv-filter-data-ini'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    if(!el.value)el.value=FT_DATA_INICIAL_CONTAGEM;
+    el.min=FT_DATA_INICIAL_CONTAGEM;
+  });
+}
+function ftLimparLancamentosAntigosLocal(){
+  var antes=ftS.ftsLocal.length;
+  ftS.ftsLocal=ftS.ftsLocal.filter(ftFTDentroPeriodo);
+  if(ftS.ftsLocal.length!==antes)ftSalvarLocal();
+}
+
 function ftInit(){
   ftS.ftsLocal=JSON.parse(localStorage.getItem(LS_LOCAL)||'[]');
   ftS.padroes=JSON.parse(localStorage.getItem(LS_PAD)||'[]');
+  ftLimparLancamentosAntigosLocal();
   ftGerRenderMotivos();
   ftGerRenderHorarios();
+  ftAplicarDataInicialNosFiltros();
   ftConectar();
 }
 
@@ -3871,7 +3972,7 @@ function ftConectar(){
       var data=snap.val();
       ftS.ftFirestore=data?Object.values(data):[];
       ftAprenderComHistorico(ftS.ftFirestore);
-      ftRenderLista();ftUpdateStats();
+      ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
       console.log('[FT] Conectado ao Realtime Database. Registros:',ftS.ftFirestore.length);
     },function(e){console.warn('[FT] onValue err',e);});
   }
@@ -3879,9 +3980,16 @@ function ftConectar(){
 }
 
 function detectarTurno(ts){
-  var h=new Date(ts).getHours(),melhor=null,dist=999;
-  TURNOS.forEach(function(t){var d=Math.abs(t.i-h);if(d>12)d=24-d;if(d<dist){dist=d;melhor=t;}});
-  return dist<=2?melhor:null;
+  var h=new Date(ts).getHours(),m=new Date(ts).getMinutes();
+  var hf=h+m/60; // hora fracionada para melhor precisão
+  var melhor=null,dist=999;
+  TURNOS.forEach(function(t){
+    var d=Math.abs(t.i-hf);
+    if(d>12)d=24-d;
+    if(d<dist){dist=d;melhor=t;}
+  });
+  // Tolerância ampliada para 3h — cobre chegadas adiantadas/atrasadas
+  return dist<=3?melhor:null;
 }
 
 function ftAprenderComHistorico(fts){
@@ -3895,7 +4003,12 @@ function ftAprenderComHistorico(fts){
     if(ft.motivo)map[k].motivo=ft.motivo;
   });
   ftS.padroes=Object.values(map).map(function(p){
-    var conf=Math.min(100,Math.round((p.ocorrencias/3)*100));
+    // Escala mais conservadora: 5 ocorrências para 83%, 10 para 100%
+    // Assim 3 ocorrências = 50% (não dispara auto-validação)
+    var confBase=Math.min(100,Math.round((p.ocorrencias/10)*100));
+    // Bônus por completude do padrão (cada campo preenchido = +5 pontos, máx +15)
+    var bonus=(p.posto?5:0)+(p.motivo?5:0)+(p.valores.length>0?5:0);
+    var conf=Math.min(100,confBase+bonus);
     var vm=p.valores.length?p.valores.reduce(function(a,b){return a+b;},0)/p.valores.length:0;
     return Object.assign({},p,{confianca:conf,valorMedio:parseFloat(vm.toFixed(2))});
   }).sort(function(a,b){return b.ocorrencias-a.ocorrencias;});
@@ -3907,20 +4020,34 @@ function ftBuscarPadrao(reg){
   var turno=detectarTurno(reg.timestamp);
   var nome=(reg.colaboradorNome||'').trim().toLowerCase();
   var posto=(reg.posto||'').trim();
+
+  // 1º — match exato: nome + posto + turno
   var match=ftS.padroes.find(function(p){
     return (p.colabNome||'').trim().toLowerCase()===nome&&
            (!p.posto||!posto||p.posto===posto)&&
            (turno?p.horario===turno.t:true);
   });
-  if(!match){
-    match=ftS.padroes.find(function(p){return (p.colabNome||'').trim().toLowerCase()===nome;});
-    if(match)match=Object.assign({},match,{confianca:Math.floor(match.confianca*0.6)});
-  }
-  return{padrao:match||null,turnoDetectado:turno};
+  if(match)return{padrao:match,turnoDetectado:turno};
+
+  // 2º — match nome + posto (sem turno): penalidade leve -15%
+  var m2=ftS.padroes.find(function(p){
+    return (p.colabNome||'').trim().toLowerCase()===nome&&
+           (!p.posto||!posto||p.posto===posto);
+  });
+  if(m2)return{padrao:Object.assign({},m2,{confianca:Math.floor(m2.confianca*0.85)}),turnoDetectado:turno};
+
+  // 3º — match só nome: penalidade maior -40%
+  var m3=ftS.padroes.find(function(p){
+    return (p.colabNome||'').trim().toLowerCase()===nome;
+  });
+  if(m3)return{padrao:Object.assign({},m3,{confianca:Math.floor(m3.confianca*0.60)}),turnoDetectado:turno};
+
+  return{padrao:null,turnoDetectado:turno};
 }
 
 window.ftGerarDePonto=function(reg){
   if(reg.tipo!=='entrada')return;
+  if(!ftDentroPeriodoFT(ftDataDoRegistro(reg)))return;
   if(ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;}))return;
   var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
   var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',colaboradorNome:reg.colaboradorNome||'',
@@ -3945,13 +4072,19 @@ function ftEnviarParaFirestore(ftId){
   if(!ft.colaboradorNome)faltando.push('Colaborador');
   if(faltando.length){ftToast('⚠️ Preencha: '+faltando.join(', '),'error');ftModalAbrir(ftId);return;}
   if(!window._firebaseReady||!window._db){ftToast('⚠️ Firebase não disponível. Salvo localmente.','warn');return;}
+  // Validação pela inteligência: TODOS os campos principais preenchidos automaticamente
+  // e confiança ≥ 80 (que agora exige ≥ 8–10 ocorrências históricas)
+  var todosCamposAuto = ft.autoPosto && ft.autoHorario && ft.autoMotivo && ft.autoValor;
+  var origemValidacao = (ft.confianca >= 80 && todosCamposAuto) ? 'inteligencia' : 'adm';
   var payload={id:ftUid(),posto:ft.posto,motivo:ft.motivo,horario:ft.horario,substituto:ft.colaboradorNome,
     quemFaltou:null,observacao:ft.observacao||null,valor:parseFloat(ft.valor)||0,
-    dataHora:ft.dataHora,criadoEm:new Date().toISOString(),_origem:'ponto-automatico',_pontoId:ft.pontoId||ft.id};
+    dataHora:ft.dataHora,criadoEm:new Date().toISOString(),status:'enviada',enviadoEm:new Date().toISOString(),
+    confianca:ft.confianca||0,autoNome:!!ft.autoNome,autoPosto:!!ft.autoPosto,autoHorario:!!ft.autoHorario,autoMotivo:!!ft.autoMotivo,autoValor:!!ft.autoValor,
+    validadoPor:origemValidacao,validadoEm:new Date().toISOString(),_origem:'ponto-automatico',_pontoId:ft.pontoId||ft.id};
   window._fbSet(window._fbRef(window._db,'ft_registros/'+payload.id),payload)
     .then(function(){
-      ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===ftId?Object.assign({},f,{status:'enviada',enviadoEm:new Date().toISOString(),_fbId:payload.id}):f;});
-      ftSalvarLocal();ftRenderLista();ftUpdateStats();ftToast('✅ FT enviada!','success');
+      ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===ftId?Object.assign({},f,{status:'enviada',enviadoEm:new Date().toISOString(),_fbId:payload.id,validadoPor:origemValidacao,validadoEm:new Date().toISOString()}):f;});
+      ftSalvarLocal();ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();ftToast('✅ FT enviada!','success');
     }).catch(function(e){console.error(e);ftToast('❌ Erro ao enviar FT: '+e.message,'error');});
 }
 
@@ -3966,7 +4099,7 @@ window.ftSyncFirestore=function(){
       var data=snap.val();
       ftS.ftFirestore=data?Object.values(data):[];
       ftAprenderComHistorico(ftS.ftFirestore);
-      ftRenderLista();ftUpdateStats();
+      ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
       ftToast('🔄 '+ftS.padroes.length+' padrões aprendidos','success');
     })
     .catch(function(e){ftToast('❌ Erro na sincronização: '+e.message,'error');})
@@ -3984,13 +4117,12 @@ window.ftRenderLista=function(){
   if(selC){var ns=[...new Set(ftS.ftsLocal.map(function(f){return f.colaboradorNome;}))].sort(),cv=selC.value;
     selC.innerHTML='<option value="">Todos os colaboradores</option>'+ns.map(function(n){return '<option value="'+esc(n)+'"'+(n===cv?' selected':'')+'>'+esc(n)+'</option>';}).join('');}
   var lf=ftS.ftsLocal.filter(function(f){
+    var d=ftDataDoRegistro(f);
+    if(!ftDentroPeriodoFT(d))return false;
     if(fStatus&&f.status!==fStatus)return false;
     if(fColab&&f.colaboradorNome!==fColab)return false;
-    if(fDtIni||fDtFim){
-      var d=(f.dataHora||'').slice(0,10);
-      if(fDtIni&&d<fDtIni)return false;
-      if(fDtFim&&d>fDtFim)return false;
-    }
+    if(fDtIni&&d<fDtIni)return false;
+    if(fDtFim&&d>fDtFim)return false;
     return true;
   });
   lf.sort(function(a,b){return(b.criadoEm||b.dataHora||'').localeCompare(a.criadoEm||a.dataHora||'');});
@@ -4039,9 +4171,79 @@ window.ftRenderLista=function(){
   }).join('');
 };
 
+window.renderFTValidadas=function(){
+  var lista=document.getElementById('ftv-lista'),emEl=document.getElementById('ftv-empty-msg');
+  if(!lista)return;
+  var fOrigem=(document.getElementById('ftv-filter-origem')||{}).value||'';
+  var fColab=(document.getElementById('ftv-filter-colab')||{}).value||'';
+  var fDtIni=(document.getElementById('ftv-filter-data-ini')||{}).value||'';
+  var fDtFim=(document.getElementById('ftv-filter-data-fim')||{}).value||'';
+  var base=(ftS.ftFirestore&&ftS.ftFirestore.length?ftS.ftFirestore:ftS.ftsLocal).filter(function(f){
+    return (f.status||'enviada')==='enviada'&&ftFTDentroPeriodo(f);
+  });
+  var selC=document.getElementById('ftv-filter-colab');
+  if(selC){
+    var ns=[...new Set(base.map(function(f){return f.substituto||f.colaboradorNome||'';}).filter(Boolean))].sort(),cv=selC.value;
+    selC.innerHTML='<option value="">Todos os colaboradores</option>'+ns.map(function(n){return '<option value="'+esc(n)+'"'+(n===cv?' selected':'')+'>'+esc(n)+'</option>';}).join('');
+  }
+  var lf=base.filter(function(ft){
+    var nome=ft.substituto||ft.colaboradorNome||'';
+    var origem=ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm');
+    var d=((ft.validadoEm||ft.enviadoEm||ft.criadoEm||ft.dataHora)||'').slice(0,10);
+    if(fOrigem&&origem!==fOrigem)return false;
+    if(fColab&&nome!==fColab)return false;
+    if(fDtIni&&d<fDtIni)return false;
+    if(fDtFim&&d>fDtFim)return false;
+    return true;
+  }).sort(function(a,b){return(b.validadoEm||b.enviadoEm||b.criadoEm||b.dataHora||'').localeCompare(a.validadoEm||a.enviadoEm||a.criadoEm||a.dataHora||'');});
+
+  var total=lf.length;
+  var adm=lf.filter(function(ft){return (ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm'))==='adm';}).length;
+  var ia=lf.filter(function(ft){return (ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm'))==='inteligencia';}).length;
+  var elTotal=document.getElementById('ftv-stat-total'),elAdm=document.getElementById('ftv-stat-adm'),elIa=document.getElementById('ftv-stat-ia');
+  if(elTotal)elTotal.textContent=total;
+  if(elAdm)elAdm.textContent=adm;
+  if(elIa)elIa.textContent=ia;
+
+  if(!lf.length){if(emEl)emEl.style.display='flex';lista.innerHTML='';return;}
+  if(emEl)emEl.style.display='none';
+
+  lista.innerHTML=lf.map(function(ft){
+    var nome=ft.substituto||ft.colaboradorNome||'Sem colaborador';
+    var origemVal=(ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm'));
+    var origem=origemVal==='inteligencia' ? '🤖 Inteligência' : '🛡️ ADM';
+    var dataRef=ft.validadoEm||ft.enviadoEm||ft.criadoEm||ft.dataHora||'';
+    var dt=dataRef?new Date(dataRef).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+    var conf=ft.confianca||0;
+    var cc=conf>=80?'#00ff88':conf>=50?'#ffc800':'#ef4444';
+    var chips=[];
+    chips.push('<span class="ft-chip auto">👤 '+esc(nome)+'</span>');
+    chips.push(ft.posto?'<span class="ft-chip '+(ft.autoPosto?'auto':'')+'">📍 '+esc(ft.posto)+'</span>':'<span class="ft-chip warn">📍 Sem posto</span>');
+    chips.push(ft.horario?'<span class="ft-chip '+(ft.autoHorario?'auto':'')+'">🕐 '+esc(ft.horario)+'</span>':'<span class="ft-chip warn">🕐 Sem horário</span>');
+    chips.push(ft.motivo?'<span class="ft-chip '+(ft.autoMotivo?'auto':'')+'">💬 '+esc(ft.motivo)+'</span>':'<span class="ft-chip warn">💬 Sem motivo</span>');
+    chips.push('<span class="ft-chip ok">'+origem+'</span>');
+    if(ft.valor||ft.valor===0)chips.push('<span class="ft-chip ok">💰 R$ '+parseFloat(ft.valor||0).toFixed(2).replace('.',',')+'</span>');
+    // Barra de confiança só aparece em FTs validadas pela inteligência
+    var confBar = origemVal==='inteligencia'
+      ? '<div class="ft-conf-bar" style="margin-top:8px" title="Confiança IA: '+conf+'%"><div class="ft-conf-fill" style="width:'+conf+'%;background:'+cc+'"></div></div>'
+        +'<div style="font-size:10px;color:'+cc+';font-family:var(--font-mono);margin-top:2px">🤖 '+conf+'% confiança histórica</div>'
+      : '';
+    var ftId=ft.id||ft._fbId||'';
+    return '<div class="ft-card enviada"><div class="ft-card-top"><div><div class="ft-card-nome">'+esc(nome)+'</div><div class="ft-card-ts">'+dt+'</div></div><span class="ft-card-badge enviada">✅ Validada</span></div>'
+      +'<div class="ft-card-chips" style="margin-top:10px">'+chips.join('')+'</div>'
+      +confBar
+      +(ft.observacao?'<div class="ft-obs-wrap" style="margin-top:10px"><div class="ft-obs-textarea" style="min-height:auto">📝 '+esc(ft.observacao)+'</div></div>':'')
+      +'<div class="ftv-card-btns">'
+        +'<button class="ftv-btn-edit" onclick="ftvEditarAbrir(\''+ftId+'\')">✏️ Editar FT</button>'
+        +'<button class="ftv-btn-del" onclick="ftvDeletar(\''+ftId+'\')">🗑️ Excluir</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+};
+
 function ftUpdateStats(){
-  var p=ftS.ftsLocal.filter(function(f){return f.status==='pendente';}).length;
-  var e=ftS.ftsLocal.filter(function(f){return f.status==='enviada';}).length;
+  var p=ftS.ftsLocal.filter(function(f){return f.status==='pendente'&&ftFTDentroPeriodo(f);}).length;
+  var e=ftS.ftsLocal.filter(function(f){return f.status==='enviada'&&ftFTDentroPeriodo(f);}).length;
   var el1=document.getElementById('ft-stat-pendentes'),el2=document.getElementById('ft-stat-enviadas'),el3=document.getElementById('ft-stat-padroes');
   if(el1)el1.textContent=p;if(el2)el2.textContent=e;if(el3)el3.textContent=ftS.padroes.length;
 }
@@ -4072,12 +4274,103 @@ window.ftModalSalvar=function(){
   var obs=document.getElementById('ft-modal-obs').value;
   if(!posto||!motivo||!horario){ftToast('⚠️ Posto, motivo e horário são obrigatórios.','error');return;}
   ftS.ftsLocal=ftS.ftsLocal.map(function(f){
-    return f.id!==id?f:Object.assign({},f,{posto:posto,motivo:motivo,horario:horario,valor:parseFloat(valor)||0,observacao:obs,autoPosto:true,autoMotivo:true,autoHorario:true});
+    if(f.id!==id)return f;
+    // Preserva flags originais: só marca auto=true se o campo JÁ era auto antes
+    // Se o ADM mudou o valor, o campo passa a ser manual (auto=false)
+    return Object.assign({},f,{
+      posto:posto,    autoPosto:   (f.autoPosto   && posto   === f.posto),
+      motivo:motivo,  autoMotivo:  (f.autoMotivo  && motivo  === f.motivo),
+      horario:horario,autoHorario: (f.autoHorario && horario === f.horario),
+      valor:parseFloat(valor)||0,observacao:obs
+    });
   });
   ftSalvarLocal();ftModalFechar();ftRenderLista();ftUpdateStats();
   ftEnviarParaFirestore(id);
 };
 window.ftDeletar=function(id){ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id;});ftSalvarLocal();ftRenderLista();ftUpdateStats();};
+
+// ── EDITAR / EXCLUIR FT VALIDADA ──────────────────────────────────────────────
+window.ftvEditarAbrir=function(ftId){
+  // Busca primeiro no ftFirestore (fonte principal das validadas), depois no ftsLocal
+  var ft=(ftS.ftFirestore&&ftS.ftFirestore.length?ftS.ftFirestore:ftS.ftsLocal)
+    .find(function(f){return (f.id===ftId||f._fbId===ftId);});
+  if(!ft){ftToast('⚠️ FT não encontrada.','error');return;}
+  document.getElementById('ftv-edit-id').value=ftId;
+  document.getElementById('ftv-edit-sub').textContent='Colaborador: '+(ft.substituto||ft.colaboradorNome||'—');
+  // Posto
+  var selP=document.getElementById('ftv-edit-posto');
+  var allP=listaPostosLimpa();
+  selP.innerHTML='<option value="">-- Selecione --</option>'+allP.map(function(p){return '<option value="'+esc(p)+'"'+(ft.posto===p?' selected':'')+'>'+esc(p)+'</option>';}).join('');
+  // Motivo
+  var selM=document.getElementById('ftv-edit-motivo');
+  selM.innerHTML='<option value="">-- Selecione --</option>'+FT_MOTIVOS.map(function(m){return '<option value="'+esc(m)+'"'+(ft.motivo===m?' selected':'')+'>'+esc(m)+'</option>';}).join('');
+  // Horário
+  var selH=document.getElementById('ftv-edit-horario');
+  selH.innerHTML='<option value="">-- Selecione --</option>'+FT_HORARIOS.map(function(h){return '<option value="'+esc(h)+'"'+(ft.horario===h?' selected':'')+'>'+esc(h)+'</option>';}).join('');
+  document.getElementById('ftv-edit-valor').value=ft.valor||'';
+  document.getElementById('ftv-edit-obs').value=ft.observacao||'';
+  document.getElementById('ftv-edit-overlay').style.display='flex';
+};
+window.ftvEditarFechar=function(){document.getElementById('ftv-edit-overlay').style.display='none';};
+window.ftvEditarSalvar=function(){
+  var ftId=document.getElementById('ftv-edit-id').value;
+  var posto=document.getElementById('ftv-edit-posto').value;
+  var motivo=document.getElementById('ftv-edit-motivo').value;
+  var horario=document.getElementById('ftv-edit-horario').value;
+  var valor=document.getElementById('ftv-edit-valor').value;
+  var obs=document.getElementById('ftv-edit-obs').value.trim();
+  if(!posto||!motivo||!horario){ftToast('⚠️ Posto, motivo e horário são obrigatórios.','error');return;}
+  // Atualiza ftsLocal
+  var updated=false;
+  ftS.ftsLocal=ftS.ftsLocal.map(function(f){
+    if(f.id!==ftId&&f._fbId!==ftId)return f;
+    updated=true;
+    return Object.assign({},f,{posto:posto,motivo:motivo,horario:horario,
+      valor:parseFloat(valor)||0,observacao:obs,
+      autoPosto:false,autoMotivo:false,autoHorario:false,
+      validadoPor:'adm',editadoEm:new Date().toISOString()});
+  });
+  // Atualiza também em ftFirestore (memória)
+  ftS.ftFirestore=ftS.ftFirestore.map(function(f){
+    if(f.id!==ftId&&f._fbId!==ftId)return f;
+    updated=true;
+    return Object.assign({},f,{posto:posto,motivo:motivo,horario:horario,
+      valor:parseFloat(valor)||0,observacao:obs,
+      autoPosto:false,autoMotivo:false,autoHorario:false,
+      validadoPor:'adm',editadoEm:new Date().toISOString()});
+  });
+  ftSalvarLocal();
+  // Persiste no Firebase
+  if(window._firebaseReady&&window._db){
+    var updates={posto:posto,motivo:motivo,horario:horario,
+      valor:parseFloat(valor)||0,observacao:obs||null,
+      autoPosto:false,autoMotivo:false,autoHorario:false,
+      validadoPor:'adm',editadoEm:new Date().toISOString()};
+    window._fbUpdate(window._fbRef(window._db,'ft_registros/'+ftId),updates)
+      .then(function(){ftToast('✅ FT atualizada no Firebase!','success');})
+      .catch(function(e){ftToast('⚠️ Salvo localmente. Erro Firebase: '+e.message,'warn');});
+  } else {
+    ftToast('✅ FT atualizada localmente.','success');
+  }
+  ftvEditarFechar();
+  ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
+};
+window.ftvDeletar=function(ftId){
+  if(!confirm('Excluir esta FT validada? Esta ação não pode ser desfeita.')){return;}
+  // Remove de ftsLocal e ftFirestore (memória)
+  ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==ftId&&f._fbId!==ftId;});
+  ftS.ftFirestore=ftS.ftFirestore.filter(function(f){return f.id!==ftId&&f._fbId!==ftId;});
+  ftSalvarLocal();
+  // Remove do Firebase
+  if(window._firebaseReady&&window._db){
+    window._fbRemove(window._fbRef(window._db,'ft_registros/'+ftId))
+      .then(function(){ftToast('🗑️ FT excluída do Firebase.','success');})
+      .catch(function(e){ftToast('⚠️ Removido localmente. Erro Firebase: '+e.message,'warn');});
+  } else {
+    ftToast('🗑️ FT removida localmente.','success');
+  }
+  ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
+};
 
 window.ftSalvarObs=function(ftId){
   var el=document.getElementById('ft-obs-'+ftId);
@@ -4117,8 +4410,9 @@ window.ftQuickEditSalvar=function(ftId){
     if(f.id!==ftId)return f;
     var update={};
     update[campo]=val;
-    if(campo==='motivo')update.autoMotivo=true;
-    if(campo==='horario')update.autoHorario=true;
+    // Quick edit é sempre intervenção do ADM → campo NÃO é automático
+    if(campo==='motivo') update.autoMotivo=false;
+    if(campo==='horario')update.autoHorario=false;
     return Object.assign({},f,update);
   });
   ftSalvarLocal();ftQuickEditFechar(ftId);ftRenderLista();ftUpdateStats();
@@ -4134,9 +4428,12 @@ function ftGetFiltrados(){
   var fDtIni=(document.getElementById('ft-filter-data-ini')||{}).value||'';
   var fDtFim=(document.getElementById('ft-filter-data-fim')||{}).value||'';
   return ftS.ftsLocal.filter(function(f){
+    var d=ftDataDoRegistro(f);
+    if(!ftDentroPeriodoFT(d))return false;
     if(fStatus&&f.status!==fStatus)return false;
     if(fColab&&f.colaboradorNome!==fColab)return false;
-    if(fDtIni||fDtFim){var d=(f.dataHora||'').slice(0,10);if(fDtIni&&d<fDtIni)return false;if(fDtFim&&d>fDtFim)return false;}
+    if(fDtIni&&d<fDtIni)return false;
+    if(fDtFim&&d>fDtFim)return false;
     return true;
   }).sort(function(a,b){return(b.criadoEm||b.dataHora||'').localeCompare(a.criadoEm||a.dataHora||'');});
 }
@@ -4294,9 +4591,9 @@ window.ftRecuperarDoHistorico=function(){
   if(!regs.length){
     ftToast('⚠️ Nenhum registro de ponto encontrado.','warn');return;
   }
-  // Filtra apenas entradas sem FT gerada
+  // Filtra apenas entradas a partir da data inicial e sem FT gerada
   var pendentes=regs.filter(function(r){
-    return r.tipo==='entrada'&&!ftS.ftsLocal.some(function(f){return f.pontoId===r.id;});
+    return r.tipo==='entrada'&&ftDentroPeriodoFT(ftDataDoRegistro(r))&&!ftS.ftsLocal.some(function(f){return f.pontoId===r.id;});
   });
   if(!pendentes.length){
     ftToast('✅ Todos os registros já possuem FT gerada.','success');return;
@@ -5906,5 +6203,7 @@ mostrarSetupSeNecessario();
   setTimeout(iniciar, 4000);
 })();
 </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
