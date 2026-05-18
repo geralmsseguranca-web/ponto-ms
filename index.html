@@ -4065,29 +4065,64 @@ window.ftGerarDePonto=function(reg){
 };
 
 function ftEnviarParaFirestore(ftId){
+  // Busca a FT mais atualizada da memória
   var ft=ftS.ftsLocal.find(function(f){return f.id===ftId;});
-  if(!ft)return;
+  if(!ft){ftToast('⚠️ FT não encontrada.','error');return;}
+
+  // Validação de campos obrigatórios
   var faltando=[];
   if(!ft.posto)faltando.push('Posto');
   if(!ft.horario)faltando.push('Horário');
   if(!ft.motivo)faltando.push('Motivo');
   if(!ft.colaboradorNome)faltando.push('Colaborador');
-  if(faltando.length){ftToast('⚠️ Preencha: '+faltando.join(', '),'error');ftModalAbrir(ftId);return;}
-  if(!window._firebaseReady||!window._db){ftToast('⚠️ Firebase não disponível. Salvo localmente.','warn');return;}
-  // Validação pela inteligência: TODOS os campos principais preenchidos automaticamente
-  // e confiança ≥ 80 (que agora exige ≥ 8–10 ocorrências históricas)
-  var todosCamposAuto = ft.autoPosto && ft.autoHorario && ft.autoMotivo && ft.autoValor;
-  var origemValidacao = (ft.confianca >= 80 && todosCamposAuto) ? 'inteligencia' : 'adm';
-  var payload={id:ftUid(),posto:ft.posto,motivo:ft.motivo,horario:ft.horario,substituto:ft.colaboradorNome,
-    quemFaltou:null,observacao:ft.observacao||null,valor:parseFloat(ft.valor)||0,
-    dataHora:ft.dataHora,criadoEm:new Date().toISOString(),status:'enviada',enviadoEm:new Date().toISOString(),
-    confianca:ft.confianca||0,autoNome:!!ft.autoNome,autoPosto:!!ft.autoPosto,autoHorario:!!ft.autoHorario,autoMotivo:!!ft.autoMotivo,autoValor:!!ft.autoValor,
-    validadoPor:origemValidacao,validadoEm:new Date().toISOString(),_origem:'ponto-automatico',_pontoId:ft.pontoId||ft.id};
-  window._fbSet(window._fbRef(window._db,'ft_registros/'+payload.id),payload)
+  if(faltando.length){
+    ftToast('⚠️ Preencha: '+faltando.join(', '),'error');
+    setTimeout(function(){ftModalAbrir(ftId);},300);
+    return;
+  }
+
+  var todosCamposAuto=ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor;
+  var origemValidacao=(ft.confianca>=80&&todosCamposAuto)?'inteligencia':'adm';
+  var fbId=ftUid();
+  var agora=new Date().toISOString();
+  var payload={
+    id:fbId,
+    posto:ft.posto,motivo:ft.motivo,horario:ft.horario,
+    substituto:ft.colaboradorNome,quemFaltou:null,
+    observacao:ft.observacao||null,
+    valor:parseFloat(ft.valor)||0,
+    dataHora:ft.dataHora,
+    criadoEm:agora,status:'enviada',enviadoEm:agora,
+    confianca:ft.confianca||0,
+    autoNome:!!ft.autoNome,autoPosto:!!ft.autoPosto,
+    autoHorario:!!ft.autoHorario,autoMotivo:!!ft.autoMotivo,autoValor:!!ft.autoValor,
+    validadoPor:origemValidacao,validadoEm:agora,
+    _origem:'ponto-automatico',_pontoId:ft.pontoId||ft.id
+  };
+
+  // Marca como enviada localmente imediatamente (optimistic update)
+  ftS.ftsLocal=ftS.ftsLocal.map(function(f){
+    if(f.id!==ftId)return f;
+    return Object.assign({},f,{status:'enviada',enviadoEm:agora,_fbId:fbId,validadoPor:origemValidacao,validadoEm:agora});
+  });
+  ftSalvarLocal();
+  ftRenderLista();
+  if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();
+  ftUpdateStats();
+
+  // Envia ao Firebase (sem bloquear a UI)
+  if(!window._firebaseReady||!window._db){
+    ftToast('✅ FT validada localmente! (Firebase offline — sincronize depois)','warn');
+    return;
+  }
+  window._fbSet(window._fbRef(window._db,'ft_registros/'+fbId),payload)
     .then(function(){
-      ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===ftId?Object.assign({},f,{status:'enviada',enviadoEm:new Date().toISOString(),_fbId:payload.id,validadoPor:origemValidacao,validadoEm:new Date().toISOString()}):f;});
-      ftSalvarLocal();ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();ftToast('✅ FT enviada!','success');
-    }).catch(function(e){console.error(e);ftToast('❌ Erro ao enviar FT: '+e.message,'error');});
+      ftToast('✅ FT enviada e salva no Firebase!','success');
+    })
+    .catch(function(e){
+      console.error('[FT] Erro ao gravar no Firebase:',e);
+      ftToast('⚠️ FT validada localmente mas erro no Firebase: '+e.message,'warn');
+    });
 }
 
 window.ftSyncFirestore=function(){
@@ -4146,7 +4181,7 @@ window.ftRenderLista=function(){
       btns+='<button class="ft-btn-edit-motivo" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'motivo\')">💬 Motivo</button>';
       btns+='<button class="ft-btn-edit-horario" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'horario\')">🕐 Horário</button>';
       btns+='<button class="ft-btn-completar" onclick="ftModalAbrir(\''+ft.id+'\')">✏️ Completar</button>';
-      btns+='<button class="ft-btn-enviar'+(ok?'':' ft-btn-enviar-incompleto')+'" onclick="ftEnviarParaFirestore(\''+ft.id+'\')">📤 Enviar FT</button>';
+      btns+='<button class="ft-btn-enviar" onclick="ftModalAbrir(\''+ft.id+'\')">✅ Validar e Enviar FT</button>';
     }else{btns+='<span class="ft-chip ok" style="padding:8px 14px">✅ Enviada '+(ft.enviadoEm?new Date(ft.enviadoEm).toLocaleDateString('pt-BR'):'')+'</span>';}
     btns+='<button class="ft-btn-del" onclick="ftDeletar(\''+ft.id+'\')" title="Remover">🗑</button>';
     var dt=ft.dataHora?new Date(ft.dataHora).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
@@ -4293,7 +4328,9 @@ window.ftModalSalvar=function(){
       valor:parseFloat(valor)||0,observacao:obs
     });
   });
-  ftSalvarLocal();ftModalFechar();ftRenderLista();ftUpdateStats();
+  ftSalvarLocal();
+  ftModalFechar();
+  // ftEnviarParaFirestore cuida de renderizar, atualizar stats e enviar ao Firebase
   ftEnviarParaFirestore(id);
 };
 window.ftDeletar=function(id){ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id;});ftSalvarLocal();ftRenderLista();ftUpdateStats();};
