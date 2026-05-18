@@ -1417,6 +1417,73 @@ footer {
   border-radius: 10px; padding: 12px 16px; margin-top: 14px;
   font-size: 13px; color: #fcd34d; line-height: 1.6;
 }
+
+/* ════ FT AUTOMÁTICA ════ */
+.ft-auto-wrap{padding:0 0 40px}.ft-auto-header{margin-bottom:18px}.ft-auto-title{font-size:1.15rem;font-weight:700;color:var(--text)}.ft-auto-sub{font-size:.8rem;color:var(--muted);margin-top:3px}
+.ft-stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.ft-stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 10px;text-align:center}
+.ft-stat-card.ft-stat-green{border-color:#00ff8844}.ft-stat-card.ft-stat-blue{border-color:#00c8f844}
+.ft-stat-num{font-size:1.6rem;font-weight:800;color:var(--text)}.ft-stat-green .ft-stat-num{color:var(--green)}.ft-stat-blue .ft-stat-num{color:var(--accent)}
+.ft-stat-label{font-size:.68rem;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+.ft-filter-row{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.ft-filter-row select{flex:1;min-width:140px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:9px 12px;font-size:.82rem}
+.ft-btn-sync{background:var(--surface);border:1px solid var(--border);color:var(--accent);border-radius:10px;padding:9px 14px;font-size:.82rem;cursor:pointer;font-weight:600;white-space:nowrap;transition:background .2s}
+.ft-btn-sync:hover{background:rgba(0,200,248,.08)}.ft-btn-sync.syncing{opacity:.6;pointer-events:none}
+.ft-empty{text-align:center;padding:48px 20px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:8px}
+.ft-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px}
+.ft-card.pendente{border-left:3px solid var(--gold)}.ft-card.enviada{border-left:3px solid var(--green)}
+.ft-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px}
+.ft-card-nome{font-weight:700;font-size:.95rem;color:var(--text)}.ft-card-ts{font-size:.72rem;color:var(--muted);margin-top:2px}
+.ft-card-badge{font-size:.68rem;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap}
+.ft-card-badge.pendente{background:rgba(255,200,0,.12);color:var(--gold);border:1px solid rgba(255,200,0,.25)}
+.ft-card-badge.enviada{background:rgba(0,255,136,.10);color:var(--green);border:1px solid rgba(0,255,136,.25)}
+.ft-card-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.ft-chip{font-size:.72rem;padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border)}
+.ft-chip.auto{color:var(--accent);border-color:rgba(0,200,248,.3);background:rgba(0,200,248,.07)}
+.ft-chip.warn{color:var(--gold);border-color:rgba(255,200,0,.3);background:rgba(255,200,0,.07)}
+.ft-chip.ok{color:var(--green);border-color:rgba(0,255,136,.3);background:rgba(0,255,136,.07)}
+.ft-card-btns{display:flex;gap:8px}
+.ft-btn-completar{flex:1;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.3);color:var(--gold);border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer}
+.ft-btn-enviar{flex:1;background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--green);border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer}
+.ft-btn-del{background:rgba(255,50,50,.08);border:1px solid rgba(255,50,50,.2);color:var(--red);border-radius:10px;padding:8px 12px;font-size:.8rem;cursor:pointer}
+.ft-btn-edit-motivo{flex:1;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);color:#c084fc;border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
+.ft-btn-edit-motivo:hover{background:rgba(124,58,237,.2)}
+.ft-btn-edit-horario{flex:1;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);color:var(--accent);border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
+.ft-btn-edit-horario:hover{background:rgba(0,212,255,.15)}
+.ft-quick-edit{display:none;margin-top:10px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;animation:fadeUp .2s ease}
+.ft-quick-edit.open{display:block}
+.ft-quick-edit-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ft-quick-edit select{flex:1;min-width:140px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:.82rem}
+.ft-quick-edit-btns{display:flex;gap:6px;margin-top:10px}
+.ft-qe-ok{flex:1;background:var(--green);border:none;color:#000;border-radius:8px;padding:8px;font-size:.8rem;font-weight:700;cursor:pointer}
+.ft-qe-cancel{background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 12px;font-size:.8rem;cursor:pointer}
+.ft-gerenciar{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:18px}
+.ft-gerenciar-titulo{font-size:.8rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.ft-ger-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:520px){.ft-ger-cols{grid-template-columns:1fr}}
+.ft-ger-bloco{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px}
+.ft-ger-bloco-titulo{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.ft-ger-lista{list-style:none;display:flex;flex-direction:column;gap:5px;max-height:180px;overflow-y:auto;margin-bottom:10px}
+.ft-ger-item{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:.8rem;gap:6px}
+.ft-ger-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ft-ger-del{background:rgba(255,50,50,.1);border:1px solid rgba(255,50,50,.2);color:var(--red);border-radius:6px;padding:2px 8px;font-size:.75rem;cursor:pointer;flex-shrink:0}
+.ft-ger-del:hover{background:rgba(255,50,50,.2)}
+.ft-ger-add{display:flex;gap:6px}
+.ft-ger-add input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 10px;font-size:.8rem}
+.ft-ger-add input:focus{outline:none;border-color:var(--accent)}
+.ft-ger-btn-add{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--accent);border-radius:8px;padding:7px 12px;font-size:.8rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.ft-ger-btn-add:hover{background:rgba(0,212,255,.2)}
+.ft-conf-bar{height:4px;border-radius:4px;background:var(--border);margin-top:8px;overflow:hidden}
+.ft-conf-fill{height:100%;border-radius:4px;transition:width .5s}
+.ft-modal-box{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px 20px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;box-shadow:0 0 60px rgba(0,200,248,.15),0 16px 48px rgba(0,0,0,.7)}
+.ft-modal-title{font-size:1.1rem;font-weight:800;color:var(--text);margin-bottom:4px}
+.ft-modal-sub{font-size:.8rem;color:var(--muted);margin-bottom:16px}
+.ft-modal-info{background:rgba(0,200,248,.07);border:1px solid rgba(0,200,248,.2);border-radius:10px;padding:10px 12px;font-size:.8rem;color:var(--accent);margin-bottom:16px;line-height:1.6}
+.ft-field{margin-bottom:14px}.ft-field label{display:block;font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.ft-field select,.ft-field input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 12px;font-size:.9rem;box-sizing:border-box}
+.ft-req{color:var(--red)}.ft-modal-btns{display:flex;gap:10px;margin-top:20px}
+.ft-btn-cancel{flex:1;background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:11px;font-size:.85rem;cursor:pointer}
+.ft-btn-salvar{flex:2;background:var(--green);border:none;color:#000;border-radius:10px;padding:11px;font-size:.85rem;font-weight:700;cursor:pointer}
 </style>
 </head>
 <body>
@@ -1911,6 +1978,7 @@ footer {
       <button class="tab-btn admin-tab" id="tab-btn-dashboard" onclick="showTab('dashboard',this)" style="display:none">📊 Dashboard</button>
       <button class="tab-btn" onclick="showTab('historico',this)">📋 Histórico</button>
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
+      <button class="tab-btn admin-tab" id="tab-btn-ft" onclick="showTab('ft-auto',this)" style="display:none">📋 FT Automática</button>
 
     </nav>
   </div>
@@ -2205,6 +2273,94 @@ footer {
   </section>
 
   <!-- Aba Usuários removida — gestão de acesso agora está dentro do cadastro do colaborador -->
+
+  <!-- ─── ABA: FT AUTOMÁTICA ─── -->
+  <section id="tab-ft-auto" class="tab-content">
+    <div class="ft-auto-wrap">
+      <div class="ft-auto-header">
+        <div class="ft-auto-title">📋 FT Automática</div>
+        <div class="ft-auto-sub">Lançamentos gerados automaticamente a partir dos registros de ponto</div>
+      </div>
+      <div class="ft-stats-row">
+        <div class="ft-stat-card"><div class="ft-stat-num" id="ft-stat-pendentes">0</div><div class="ft-stat-label">Pendentes</div></div>
+        <div class="ft-stat-card ft-stat-green"><div class="ft-stat-num" id="ft-stat-enviadas">0</div><div class="ft-stat-label">Enviadas</div></div>
+        <div class="ft-stat-card ft-stat-blue"><div class="ft-stat-num" id="ft-stat-padroes">0</div><div class="ft-stat-label">Padrões aprendidos</div></div>
+      </div>
+      <div class="ft-filter-row">
+        <select id="ft-filter-status" onchange="ftRenderLista()">
+          <option value="">Todos os status</option>
+          <option value="pendente">⏳ Pendentes</option>
+          <option value="enviada">✅ Enviadas</option>
+        </select>
+        <select id="ft-filter-colab" onchange="ftRenderLista()"><option value="">Todos os colaboradores</option></select>
+        <button class="ft-btn-sync" onclick="ftSyncFirestore()" id="ft-btn-sync">🔄 Sincronizar FT</button>
+        <button class="ft-btn-sync" onclick="ftRecuperarDoHistorico()" id="ft-btn-recuperar" title="Varre o histórico de ponto e gera FTs para registros que ainda não possuem lançamento">🔍 Recuperar FTs do histórico</button>
+      </div>
+      <div id="ft-lista-wrap">
+        <div class="ft-empty" id="ft-empty-msg">
+          <span style="font-size:2.5rem">📭</span>
+          <div>Nenhum lançamento ainda.</div>
+          <div style="font-size:.8rem;color:var(--muted);margin-top:4px">Os FTs aparecerão aqui conforme os colaboradores baterem ponto.</div>
+        </div>
+        <div id="ft-lista"></div>
+      </div>
+
+      <!-- GERENCIAR MOTIVOS E HORÁRIOS -->
+      <div class="ft-gerenciar" style="margin-top:18px">
+        <div class="ft-gerenciar-titulo">⚙️ Gerenciar opções de Motivo e Horário</div>
+        <div class="ft-ger-cols">
+          <!-- MOTIVOS -->
+          <div class="ft-ger-bloco">
+            <div class="ft-ger-bloco-titulo" style="color:#c084fc">💬 Motivos</div>
+            <ul class="ft-ger-lista" id="ft-ger-motivos-lista"></ul>
+            <div class="ft-ger-add">
+              <input type="text" id="ft-ger-motivo-input" placeholder="Novo motivo..." maxlength="60"
+                onkeydown="if(event.key==='Enter')ftGerAdicionarMotivo()"/>
+              <button class="ft-ger-btn-add" onclick="ftGerAdicionarMotivo()">+ Adicionar</button>
+            </div>
+          </div>
+          <!-- HORÁRIOS -->
+          <div class="ft-ger-bloco">
+            <div class="ft-ger-bloco-titulo" style="color:var(--accent)">🕐 Horários</div>
+            <ul class="ft-ger-lista" id="ft-ger-horarios-lista"></ul>
+            <div class="ft-ger-add">
+              <input type="text" id="ft-ger-horario-input" placeholder="Ex: 08:00 – 17:00" maxlength="30"
+                onkeydown="if(event.key==='Enter')ftGerAdicionarHorario()"/>
+              <button class="ft-ger-btn-add" onclick="ftGerAdicionarHorario()">+ Adicionar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODAL COMPLETAR FT -->
+  <div id="ft-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:900;align-items:center;justify-content:center;padding:16px;">
+    <div class="ft-modal-box">
+      <div class="ft-modal-title">✏️ Completar FT</div>
+      <div class="ft-modal-sub" id="ft-modal-sub"></div>
+      <input type="hidden" id="ft-modal-id">
+      <div class="ft-modal-info" id="ft-modal-info"></div>
+      <div class="ft-field"><label>📍 Posto <span class="ft-req">*</span></label>
+        <select id="ft-modal-posto"><option value="">-- Selecione --</option></select></div>
+      <div class="ft-field"><label>💬 Motivo <span class="ft-req">*</span></label>
+        <select id="ft-modal-motivo">
+          <option value="">-- Selecione --</option>
+        </select></div>
+      <div class="ft-field"><label>🕐 Horário <span class="ft-req">*</span></label>
+        <select id="ft-modal-horario">
+          <option value="">-- Selecione --</option>
+        </select></div>
+      <div class="ft-field"><label>💰 Valor (R$) <span class="ft-req">*</span></label>
+        <input type="number" id="ft-modal-valor" min="0" step="0.01" placeholder="0,00"></div>
+      <div class="ft-field"><label>📝 Observação</label>
+        <input type="text" id="ft-modal-obs" placeholder="Informações adicionais..." maxlength="200"></div>
+      <div class="ft-modal-btns">
+        <button class="ft-btn-cancel" onclick="ftModalFechar()">Cancelar</button>
+        <button class="ft-btn-salvar" onclick="ftModalSalvar()">💾 Salvar e Enviar FT</button>
+      </div>
+    </div>
+  </div>
 
 </main>
 
@@ -2666,6 +2822,7 @@ function entrarSistema(usuario) {
   const isAdmin = usuario.role === 'admin';
   document.getElementById('tab-btn-colaboradores').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-dashboard').style.display = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-ft').style.display = isAdmin ? '' : 'none';
 
   // Reseta seleção ao entrar
   selectedColab = null;
@@ -2949,6 +3106,7 @@ setInterval(tickClock,1000); tickClock();
 function showTab(id, btn) {
   document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  if (id === 'ft-auto' && typeof window.ftRenderLista === 'function') setTimeout(window.ftRenderLista, 80);
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
   if (id==='historico')  { updatePostoFilter(); renderHistorico(); }
@@ -3230,6 +3388,7 @@ function registrarPonto() {
   registros.unshift(reg);
   saveUmRegistro(reg); // salva somente este registro — não sobrescreve os demais
   showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao);
+  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
   selectedColab = null;
   pendingTipo = null;
   pendingLocalizacao = null;
@@ -3633,14 +3792,378 @@ function exportarHistoricoPDF() {
   <tbody>${linhas}</tbody>
 </table>
 <div class="rodape">Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico &nbsp;·&nbsp; ${agora}</div>
-</body></html>`;
 
+</body></html>`;
   const win = window.open('', '_blank');
   win.document.write(html);
   win.document.close();
   setTimeout(() => { win.focus(); win.print(); }, 400);
 }
 
+
+/* ══ MÓDULO FT AUTOMÁTICA ══ */
+(function(){
+'use strict';
+var FT_FIREBASE_CONFIG={apiKey:"AIzaSyA6OzNUzlHVJaG3CsnQ3m-cfcuOkf6Ve-Q",authDomain:"nova-folga-trabalhada.firebaseapp.com",projectId:"nova-folga-trabalhada",storageBucket:"nova-folga-trabalhada.firebasestorage.app",messagingSenderId:"187145497152",appId:"1:187145497152:web:8f943193dffdadd2340da5"};
+var FT_COLLECTION='folga_trabalhada',FT_DOC_ID='dados';
+var ftS={ftsLocal:[],padroes:[],ftFirestore:[],dbFT:null,sync:false};
+var LS_LOCAL='ft_auto_local',LS_PAD='ft_auto_padroes',LS_MOTIVOS='ft_motivos_lista',LS_HORARIOS='ft_horarios_lista';
+var TURNOS=[{t:'06:00 – 18:00',i:6,f:18},{t:'18:00 – 06:00',i:18,f:6},{t:'07:00 – 17:00',i:7,f:17},{t:'07:00 – 16:00',i:7,f:16},{t:'18:00 – 07:00',i:18,f:7},{t:'18:00 – 08:30',i:18,f:8},{t:'17:00 – 07:00',i:17,f:7},{t:'22:00 – 07:20',i:22,f:7}];
+
+var FT_MOTIVOS_DEFAULT=['Afastamento','Atestado','Cobertura de Férias','Extra','Falta de Efetivo','Folga do Vigia','Remanejamento Interno','Suspensão','Treinamento','Folga Trabalhada'];
+var FT_HORARIOS_DEFAULT=['06:00 – 18:00','18:00 – 06:00','07:00 – 17:00','07:00 – 16:00','18:00 – 07:00','18:00 – 08:30','17:00 – 07:00','22:00 – 07:20'];
+var FT_MOTIVOS=JSON.parse(localStorage.getItem(LS_MOTIVOS)||'null')||FT_MOTIVOS_DEFAULT.slice();
+var FT_HORARIOS=JSON.parse(localStorage.getItem(LS_HORARIOS)||'null')||FT_HORARIOS_DEFAULT.slice();
+function ftSalvarMotivos(){localStorage.setItem(LS_MOTIVOS,JSON.stringify(FT_MOTIVOS));}
+function ftSalvarHorarios(){localStorage.setItem(LS_HORARIOS,JSON.stringify(FT_HORARIOS));}
+
+function ftInit(){
+  ftS.ftsLocal=JSON.parse(localStorage.getItem(LS_LOCAL)||'[]');
+  ftS.padroes=JSON.parse(localStorage.getItem(LS_PAD)||'[]');
+  ftGerRenderMotivos();
+  ftGerRenderHorarios();
+  ftConectar();
+}
+
+function ftConectar(){
+  // Usa o Realtime Database já inicializado pelo módulo principal (window._db)
+  function conectarComDB(){
+    if(!window._firebaseReady||!window._db){
+      // Firebase ainda não pronto — aguarda evento ou tenta novamente
+      window.addEventListener('firebaseReady',function(){conectarComDB();},{once:true});
+      return;
+    }
+    ftS.dbFT=true; // sinaliza que a conexão está OK
+    // Escuta mudanças na coleção FT em tempo real
+    window._fbOnValue(window._fbRef(window._db,'ft_registros'),function(snap){
+      var data=snap.val();
+      ftS.ftFirestore=data?Object.values(data):[];
+      ftAprenderComHistorico(ftS.ftFirestore);
+      ftRenderLista();ftUpdateStats();
+      console.log('[FT] Conectado ao Realtime Database. Registros:',ftS.ftFirestore.length);
+    },function(e){console.warn('[FT] onValue err',e);});
+  }
+  conectarComDB();
+}
+
+function detectarTurno(ts){
+  var h=new Date(ts).getHours(),melhor=null,dist=999;
+  TURNOS.forEach(function(t){var d=Math.abs(t.i-h);if(d>12)d=24-d;if(d<dist){dist=d;melhor=t;}});
+  return dist<=2?melhor:null;
+}
+
+function ftAprenderComHistorico(fts){
+  var map={};
+  fts.forEach(function(ft){
+    if(!ft.substituto||!ft.horario)return;
+    var k=(ft.substituto||'').trim().toLowerCase()+'||'+(ft.posto||'').trim()+'||'+(ft.horario||'').trim();
+    if(!map[k])map[k]={colabNome:ft.substituto,posto:ft.posto||'',horario:ft.horario||'',motivo:ft.motivo||'',ocorrencias:0,valores:[]};
+    map[k].ocorrencias++;
+    if(ft.valor)map[k].valores.push(parseFloat(ft.valor));
+    if(ft.motivo)map[k].motivo=ft.motivo;
+  });
+  ftS.padroes=Object.values(map).map(function(p){
+    var conf=Math.min(100,Math.round((p.ocorrencias/3)*100));
+    var vm=p.valores.length?p.valores.reduce(function(a,b){return a+b;},0)/p.valores.length:0;
+    return Object.assign({},p,{confianca:conf,valorMedio:parseFloat(vm.toFixed(2))});
+  }).sort(function(a,b){return b.ocorrencias-a.ocorrencias;});
+  localStorage.setItem(LS_PAD,JSON.stringify(ftS.padroes));
+  ftUpdateStats();
+}
+
+function ftBuscarPadrao(reg){
+  var turno=detectarTurno(reg.timestamp);
+  var nome=(reg.colaboradorNome||'').trim().toLowerCase();
+  var posto=(reg.posto||'').trim();
+  var match=ftS.padroes.find(function(p){
+    return (p.colabNome||'').trim().toLowerCase()===nome&&
+           (!p.posto||!posto||p.posto===posto)&&
+           (turno?p.horario===turno.t:true);
+  });
+  if(!match){
+    match=ftS.padroes.find(function(p){return (p.colabNome||'').trim().toLowerCase()===nome;});
+    if(match)match=Object.assign({},match,{confianca:Math.floor(match.confianca*0.6)});
+  }
+  return{padrao:match||null,turnoDetectado:turno};
+}
+
+window.ftGerarDePonto=function(reg){
+  if(reg.tipo!=='entrada')return;
+  if(ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;}))return;
+  var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
+  var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',colaboradorNome:reg.colaboradorNome||'',
+    posto:(pad&&pad.posto)||reg.posto||'',horario:(pad&&pad.horario)||(turno?turno.t:''),
+    motivo:(pad&&pad.motivo)||'',valor:(pad&&pad.valorMedio)||0,observacao:'',
+    dataHora:new Date(reg.timestamp).toISOString().slice(0,16),confianca:pad?pad.confianca:0,
+    status:'pendente',criadoEm:new Date().toISOString(),
+    autoNome:!!reg.colaboradorNome,autoPosto:!!(pad&&pad.posto),
+    autoHorario:!!(pad&&pad.horario)||!!turno,autoMotivo:!!(pad&&pad.motivo),autoValor:!!(pad&&pad.valorMedio)};
+  ftS.ftsLocal.unshift(ft);ftSalvarLocal();ftRenderLista();ftUpdateStats();
+  var ok=ft.posto&&ft.horario&&ft.motivo&&ft.valor;
+  ftToast(ft.confianca>=80&&ok?'🤖 FT gerada: '+ft.colaboradorNome:'📋 FT pendente: '+ft.colaboradorNome,ft.confianca>=80&&ok?'success':'warn');
+};
+
+function ftEnviarParaFirestore(ftId){
+  var ft=ftS.ftsLocal.find(function(f){return f.id===ftId;});
+  if(!ft)return;
+  if(!ft.posto||!ft.horario||!ft.motivo||!ft.colaboradorNome){ftModalAbrir(ftId);return;}
+  if(!window._firebaseReady||!window._db){ftToast('⚠️ Firebase não disponível. Salvo localmente.','warn');return;}
+  var payload={id:ftUid(),posto:ft.posto,motivo:ft.motivo,horario:ft.horario,substituto:ft.colaboradorNome,
+    quemFaltou:null,observacao:ft.observacao||null,valor:parseFloat(ft.valor)||0,
+    dataHora:ft.dataHora,criadoEm:new Date().toISOString(),_origem:'ponto-automatico',_pontoId:ft.pontoId||ft.id};
+  // Salva em ft_registros/<id> no Realtime Database
+  window._fbSet(window._fbRef(window._db,'ft_registros/'+payload.id),payload)
+    .then(function(){
+      ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===ftId?Object.assign({},f,{status:'enviada',enviadoEm:new Date().toISOString(),_fbId:payload.id}):f;});
+      ftSalvarLocal();ftRenderLista();ftUpdateStats();ftToast('✅ FT enviada!','success');
+    }).catch(function(e){console.error(e);ftToast('❌ Erro ao enviar FT: '+e.message,'error');});
+}
+
+window.ftSyncFirestore=function(){
+  if(ftS.sync)return;
+  if(!window._firebaseReady||!window._db){ftToast('⚠️ Firebase não disponível.','warn');return;}
+  ftS.sync=true;
+  var btn=document.getElementById('ft-btn-sync');
+  if(btn){btn.textContent='⏳ Sincronizando...';btn.classList.add('syncing');}
+  window._fbGet(window._fbRef(window._db,'ft_registros'))
+    .then(function(snap){
+      var data=snap.val();
+      ftS.ftFirestore=data?Object.values(data):[];
+      ftAprenderComHistorico(ftS.ftFirestore);
+      ftRenderLista();ftUpdateStats();
+      ftToast('🔄 '+ftS.padroes.length+' padrões aprendidos','success');
+    })
+    .catch(function(e){ftToast('❌ Erro na sincronização: '+e.message,'error');})
+    .finally(function(){ftS.sync=false;if(btn){btn.textContent='🔄 Sincronizar FT';btn.classList.remove('syncing');}});
+};
+
+window.ftRenderLista=function(){
+  var lista=document.getElementById('ft-lista'),emEl=document.getElementById('ft-empty-msg');
+  if(!lista)return;
+  var fStatus=(document.getElementById('ft-filter-status')||{}).value||'';
+  var fColab=(document.getElementById('ft-filter-colab')||{}).value||'';
+  var selC=document.getElementById('ft-filter-colab');
+  if(selC){var ns=[...new Set(ftS.ftsLocal.map(function(f){return f.colaboradorNome;}))].sort(),cv=selC.value;
+    selC.innerHTML='<option value="">Todos os colaboradores</option>'+ns.map(function(n){return '<option value="'+esc(n)+'"'+(n===cv?' selected':'')+'>'+esc(n)+'</option>';}).join('');}
+  var lf=ftS.ftsLocal.filter(function(f){return(!fStatus||f.status===fStatus)&&(!fColab||f.colaboradorNome===fColab);});
+  if(!lf.length){if(emEl)emEl.style.display='flex';lista.innerHTML='';return;}
+  if(emEl)emEl.style.display='none';
+  lista.innerHTML=lf.map(function(ft){
+    var conf=ft.confianca||0,cc=conf>=80?'#00ff88':conf>=50?'#ffc800':'#ef4444';
+    var chips=[];
+    if(ft.autoNome)chips.push('<span class="ft-chip auto">👤 '+esc(ft.colaboradorNome)+'</span>');
+    chips.push(ft.autoPosto&&ft.posto?'<span class="ft-chip auto">📍 '+esc(ft.posto)+'</span>':ft.posto?'<span class="ft-chip warn">📍 '+esc(ft.posto)+'</span>':'<span class="ft-chip warn">📍 Posto pendente</span>');
+    chips.push(ft.autoHorario&&ft.horario?'<span class="ft-chip auto">🕐 '+esc(ft.horario)+'</span>':ft.horario?'<span class="ft-chip warn">🕐 '+esc(ft.horario)+'</span>':'<span class="ft-chip warn">🕐 Horário pendente</span>');
+    chips.push(ft.autoMotivo&&ft.motivo?'<span class="ft-chip auto">💬 '+esc(ft.motivo)+'</span>':ft.motivo?'<span class="ft-chip">💬 '+esc(ft.motivo)+'</span>':'<span class="ft-chip warn">💬 Motivo pendente</span>');
+    chips.push(ft.valor?'<span class="ft-chip ok">💰 R$ '+parseFloat(ft.valor).toFixed(2).replace('.',',')+'</span>':'<span class="ft-chip warn">💰 Valor pendente</span>');
+    var ok=ft.posto&&ft.horario&&ft.motivo&&ft.valor,btns='';
+    if(ft.status==='pendente'){
+      btns+='<button class="ft-btn-edit-motivo" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'motivo\')">💬 Motivo</button>';
+      btns+='<button class="ft-btn-edit-horario" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'horario\')">🕐 Horário</button>';
+      btns+='<button class="ft-btn-completar" onclick="ftModalAbrir(\''+ft.id+'\')">✏️ Completar</button>';
+      if(ok)btns+='<button class="ft-btn-enviar" onclick="ftEnviarParaFirestore(\''+ft.id+'\')">📤 Enviar FT</button>';
+    }else{btns+='<span class="ft-chip ok" style="padding:8px 14px">✅ Enviada '+(ft.enviadoEm?new Date(ft.enviadoEm).toLocaleDateString('pt-BR'):'')+'</span>';}
+    btns+='<button class="ft-btn-del" onclick="ftDeletar(\''+ft.id+'\')" title="Remover">🗑</button>';
+    var dt=ft.dataHora?new Date(ft.dataHora).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+    var motivoOpts=FT_MOTIVOS.map(function(m){return '<option value="'+esc(m)+'"'+(ft.motivo===m?' selected':'')+'>'+esc(m)+'</option>';}).join('');
+    var horarioOpts=FT_HORARIOS.map(function(h){return '<option value="'+esc(h)+'"'+(ft.horario===h?' selected':'')+'>'+esc(h)+'</option>';}).join('');
+    var quickEdit='<div class="ft-quick-edit" id="ft-qe-'+ft.id+'">'
+      +'<div class="ft-quick-edit-row" id="ft-qe-motivo-row-'+ft.id+'" style="display:none">'
+      +'<select id="ft-qe-sel-motivo-'+ft.id+'"><option value="">-- Motivo --</option>'+motivoOpts+'</select>'
+      +'</div>'
+      +'<div class="ft-quick-edit-row" id="ft-qe-horario-row-'+ft.id+'" style="display:none">'
+      +'<select id="ft-qe-sel-horario-'+ft.id+'"><option value="">-- Horário --</option>'+horarioOpts+'</select>'
+      +'</div>'
+      +'<div class="ft-quick-edit-btns">'
+      +'<button class="ft-qe-ok" onclick="ftQuickEditSalvar(\''+ft.id+'\')">✅ Salvar</button>'
+      +'<button class="ft-qe-cancel" onclick="ftQuickEditFechar(\''+ft.id+'\')">Cancelar</button>'
+      +'</div></div>';
+    return '<div class="ft-card '+ft.status+'"><div class="ft-card-top"><div><div class="ft-card-nome">'+esc(ft.colaboradorNome)+'</div><div class="ft-card-ts">'+dt+' &nbsp;·&nbsp; 🤖 '+conf+'%</div></div><span class="ft-card-badge '+ft.status+'">'+(ft.status==='pendente'?'⏳ Pendente':'✅ Enviada')+'</span></div>'
+      +'<div class="ft-conf-bar"><div class="ft-conf-fill" style="width:'+conf+'%;background:'+cc+'"></div></div>'
+      +'<div class="ft-card-chips" style="margin-top:10px">'+chips.join('')+'</div>'
+      +'<div class="ft-card-btns">'+btns+'</div>'
+      +quickEdit+'</div>';
+  }).join('');
+};
+
+function ftUpdateStats(){
+  var p=ftS.ftsLocal.filter(function(f){return f.status==='pendente';}).length;
+  var e=ftS.ftsLocal.filter(function(f){return f.status==='enviada';}).length;
+  var el1=document.getElementById('ft-stat-pendentes'),el2=document.getElementById('ft-stat-enviadas'),el3=document.getElementById('ft-stat-padroes');
+  if(el1)el1.textContent=p;if(el2)el2.textContent=e;if(el3)el3.textContent=ftS.padroes.length;
+}
+
+window.ftModalAbrir=function(ftId){
+  var ft=ftS.ftsLocal.find(function(f){return f.id===ftId;});if(!ft)return;
+  document.getElementById('ft-modal-id').value=ftId;
+  document.getElementById('ft-modal-sub').textContent='Colaborador: '+ft.colaboradorNome;
+  document.getElementById('ft-modal-info').innerHTML='📅 '+( ft.dataHora?new Date(ft.dataHora).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—')+'<br>🤖 Confiança da IA: <b>'+ft.confianca+'%</b>';
+  var selP=document.getElementById('ft-modal-posto');
+  var allP=[...new Set([...(typeof postos!=='undefined'?postos:[]).map(function(p){return typeof p==='object'?p.nome:p;}),(typeof colaboradores!=='undefined'?colaboradores:[]).map(function(c){return c.posto;}).filter(Boolean)])].sort();
+  selP.innerHTML='<option value="">-- Selecione --</option>'+allP.map(function(p){return '<option value="'+esc(p)+'"'+(ft.posto===p?' selected':'')+'>'+esc(p)+'</option>';}).join('');
+  var selM=document.getElementById('ft-modal-motivo');
+  selM.innerHTML='<option value="">-- Selecione --</option>'+FT_MOTIVOS.map(function(m){return '<option value="'+esc(m)+'"'+(ft.motivo===m?' selected':'')+'>'+esc(m)+'</option>';}).join('');
+  var selH=document.getElementById('ft-modal-horario');
+  selH.innerHTML='<option value="">-- Selecione --</option>'+FT_HORARIOS.map(function(h){return '<option value="'+esc(h)+'"'+(ft.horario===h?' selected':'')+'>'+esc(h)+'</option>';}).join('');
+  document.getElementById('ft-modal-valor').value=ft.valor||'';
+  document.getElementById('ft-modal-obs').value=ft.observacao||'';
+  document.getElementById('ft-modal-overlay').style.display='flex';
+};
+window.ftModalFechar=function(){document.getElementById('ft-modal-overlay').style.display='none';};
+window.ftModalSalvar=function(){
+  var id=document.getElementById('ft-modal-id').value;
+  var posto=document.getElementById('ft-modal-posto').value;
+  var motivo=document.getElementById('ft-modal-motivo').value;
+  var horario=document.getElementById('ft-modal-horario').value;
+  var valor=document.getElementById('ft-modal-valor').value;
+  var obs=document.getElementById('ft-modal-obs').value;
+  if(!posto||!motivo||!horario){ftToast('⚠️ Posto, motivo e horário são obrigatórios.','error');return;}
+  ftS.ftsLocal=ftS.ftsLocal.map(function(f){
+    return f.id!==id?f:Object.assign({},f,{posto:posto,motivo:motivo,horario:horario,valor:parseFloat(valor)||0,observacao:obs,autoPosto:true,autoMotivo:true,autoHorario:true});
+  });
+  ftSalvarLocal();ftModalFechar();ftRenderLista();ftUpdateStats();
+  ftEnviarParaFirestore(id);
+};
+window.ftDeletar=function(id){ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id;});ftSalvarLocal();ftRenderLista();ftUpdateStats();};
+
+window.ftQuickEditAbrir=function(ftId,campo){
+  var qe=document.getElementById('ft-qe-'+ftId);
+  if(!qe)return;
+  var motivoRow=document.getElementById('ft-qe-motivo-row-'+ftId);
+  var horarioRow=document.getElementById('ft-qe-horario-row-'+ftId);
+  // Fechar todos os outros quick-edits abertos
+  document.querySelectorAll('.ft-quick-edit.open').forEach(function(el){
+    if(el.id!=='ft-qe-'+ftId){el.classList.remove('open');}
+  });
+  // Mostrar o painel correto
+  if(motivoRow) motivoRow.style.display = campo==='motivo' ? 'flex' : 'none';
+  if(horarioRow) horarioRow.style.display = campo==='horario' ? 'flex' : 'none';
+  qe.dataset.campo = campo;
+  qe.classList.add('open');
+};
+window.ftQuickEditFechar=function(ftId){
+  var qe=document.getElementById('ft-qe-'+ftId);
+  if(qe)qe.classList.remove('open');
+};
+window.ftQuickEditSalvar=function(ftId){
+  var qe=document.getElementById('ft-qe-'+ftId);
+  if(!qe)return;
+  var campo=qe.dataset.campo;
+  var sel=document.getElementById('ft-qe-sel-'+campo+'-'+ftId);
+  var val=sel?sel.value:'';
+  if(!val){ftToast('⚠️ Selecione uma opção.','warn');return;}
+  ftS.ftsLocal=ftS.ftsLocal.map(function(f){
+    if(f.id!==ftId)return f;
+    var update={};
+    update[campo]=val;
+    if(campo==='motivo')update.autoMotivo=true;
+    if(campo==='horario')update.autoHorario=true;
+    return Object.assign({},f,update);
+  });
+  ftSalvarLocal();ftQuickEditFechar(ftId);ftRenderLista();ftUpdateStats();
+  ftToast('✅ '+( campo==='motivo'?'Motivo':'Horário')+' atualizado!','success');
+};
+
+function ftSalvarLocal(){localStorage.setItem(LS_LOCAL,JSON.stringify(ftS.ftsLocal));}
+
+// ── GERENCIAR MOTIVOS E HORÁRIOS ──────────────────────────────────
+function ftGerRenderMotivos(){
+  var ul=document.getElementById('ft-ger-motivos-lista');if(!ul)return;
+  ul.innerHTML=FT_MOTIVOS.map(function(m,i){
+    return '<li class="ft-ger-item"><span title="'+esc(m)+'">'+esc(m)+'</span>'
+      +'<button class="ft-ger-del" onclick="ftGerRemoverMotivo('+i+')" title="Remover">✕</button></li>';
+  }).join('');
+}
+function ftGerRenderHorarios(){
+  var ul=document.getElementById('ft-ger-horarios-lista');if(!ul)return;
+  ul.innerHTML=FT_HORARIOS.map(function(h,i){
+    return '<li class="ft-ger-item"><span title="'+esc(h)+'">'+esc(h)+'</span>'
+      +'<button class="ft-ger-del" onclick="ftGerRemoverHorario('+i+')" title="Remover">✕</button></li>';
+  }).join('');
+}
+window.ftGerAdicionarMotivo=function(){
+  var inp=document.getElementById('ft-ger-motivo-input');
+  var val=(inp.value||'').trim();
+  if(!val){ftToast('⚠️ Digite o motivo.','warn');return;}
+  if(FT_MOTIVOS.some(function(m){return m.toLowerCase()===val.toLowerCase();})){ftToast('⚠️ Motivo já existe.','warn');return;}
+  FT_MOTIVOS.push(val);ftSalvarMotivos();inp.value='';ftGerRenderMotivos();ftToast('✅ Motivo adicionado!','success');
+};
+window.ftGerRemoverMotivo=function(idx){
+  var item=FT_MOTIVOS[idx];
+  if(!item)return;
+  if(!confirm('Remover o motivo "'+item+'"?'))return;
+  FT_MOTIVOS.splice(idx,1);ftSalvarMotivos();ftGerRenderMotivos();ftToast('🗑 Motivo removido.','warn');
+};
+window.ftGerAdicionarHorario=function(){
+  var inp=document.getElementById('ft-ger-horario-input');
+  var val=(inp.value||'').trim();
+  if(!val){ftToast('⚠️ Digite o horário.','warn');return;}
+  if(FT_HORARIOS.some(function(h){return h.toLowerCase()===val.toLowerCase();})){ftToast('⚠️ Horário já existe.','warn');return;}
+  FT_HORARIOS.push(val);ftSalvarHorarios();inp.value='';ftGerRenderHorarios();ftToast('✅ Horário adicionado!','success');
+};
+window.ftGerRemoverHorario=function(idx){
+  var item=FT_HORARIOS[idx];
+  if(!item)return;
+  if(!confirm('Remover o horário "'+item+'"?'))return;
+  FT_HORARIOS.splice(idx,1);ftSalvarHorarios();ftGerRenderHorarios();ftToast('🗑 Horário removido.','warn');
+};
+function ftToast(msg,tipo){
+  var el=document.createElement('div');
+  var bg=tipo==='success'?'rgba(0,255,136,.12)':tipo==='error'?'rgba(239,68,68,.12)':'rgba(255,200,0,.12)';
+  var bc=tipo==='success'?'#00ff88':tipo==='error'?'#ef4444':'#ffc800';
+  el.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:'+bg+';border:1px solid '+bc+';color:var(--text);border-radius:12px;padding:12px 20px;font-size:.85rem;font-weight:600;z-index:9999;white-space:nowrap;box-shadow:0 4px 24px rgba(0,0,0,.4);animation:fadeUp .25s ease;max-width:90vw;text-align:center;';
+  el.textContent=msg;document.body.appendChild(el);setTimeout(function(){el.remove();},3500);
+}
+function ftUid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,6);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+window.ftRecuperarDoHistorico=function(){
+  var btn=document.getElementById('ft-btn-recuperar');
+  // Tenta usar a variável global 'registros' (já carregada pelo módulo principal)
+  // Se estiver vazia, lê do localStorage como fallback
+  var regs=(typeof registros!=='undefined'&&registros.length>0)
+    ? registros
+    : JSON.parse(localStorage.getItem('ms_registros')||'[]');
+
+  if(!regs.length){
+    ftToast('⚠️ Nenhum registro de ponto encontrado.','warn');return;
+  }
+  // Filtra apenas entradas sem FT gerada
+  var pendentes=regs.filter(function(r){
+    return r.tipo==='entrada'&&!ftS.ftsLocal.some(function(f){return f.pontoId===r.id;});
+  });
+  if(!pendentes.length){
+    ftToast('✅ Todos os registros já possuem FT gerada.','success');return;
+  }
+  if(btn){btn.textContent='⏳ Recuperando...';btn.disabled=true;}
+  pendentes.forEach(function(reg){
+    var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
+    var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',
+      colaboradorNome:reg.colaboradorNome||'',
+      posto:(pad&&pad.posto)||reg.posto||'',
+      horario:(pad&&pad.horario)||(turno?turno.t:''),
+      motivo:(pad&&pad.motivo)||'',
+      valor:(pad&&pad.valorMedio)||0,observacao:'',
+      dataHora:new Date(reg.timestamp).toISOString().slice(0,16),
+      confianca:pad?pad.confianca:0,status:'pendente',
+      criadoEm:new Date().toISOString(),
+      autoNome:!!reg.colaboradorNome,
+      autoPosto:!!(pad&&pad.posto),
+      autoHorario:!!(pad&&pad.horario)||!!turno,
+      autoMotivo:!!(pad&&pad.motivo),
+      autoValor:!!(pad&&pad.valorMedio),
+      _recuperada:true};
+    ftS.ftsLocal.unshift(ft);
+  });
+  ftS.ftsLocal.sort(function(a,b){return new Date(b.dataHora)-new Date(a.dataHora);});
+  ftSalvarLocal();ftRenderLista();ftUpdateStats();
+  if(btn){btn.textContent='🔍 Recuperar FTs do histórico';btn.disabled=false;}
+  ftToast('📋 '+pendentes.length+' FT(s) recuperada(s) do histórico.',pendentes.length>0?'success':'warn');
+};
+
+document.readyState==='loading'?document.addEventListener('DOMContentLoaded',ftInit):ftInit();
+window.addEventListener('firebaseReady',function(){if(ftS.dbFT)ftSyncFirestore();});
+})();
 // ─── EXPORTAR HISTÓRICO EXCEL (CSV) ───────────────────────────────────────────
 function exportarHistoricoExcel() {
   const dados = _filtrados;
