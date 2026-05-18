@@ -4143,7 +4143,7 @@ window.ftRenderLista=function(){
     var ok=ft.posto&&ft.horario&&ft.motivo,btns='';
     if(ft.status==='pendente'){
       btns+='<button class="ft-btn-edit-data" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'data\')">📅 Data</button>';
-      BTNS+='<BUTTON CLASS="FT-BTN-EDIT-MOTIVO" ONCLICK="FTQUICKEDITABRIR(\''+ft.id+'\',\'motivo\')">💬 Motivo</button>';
+      btns+='<button class="ft-btn-edit-motivo" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'motivo\')">💬 Motivo</button>';
       btns+='<button class="ft-btn-edit-horario" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'horario\')">🕐 Horário</button>';
       btns+='<button class="ft-btn-completar" onclick="ftModalAbrir(\''+ft.id+'\')">✏️ Completar</button>';
       btns+='<button class="ft-btn-enviar'+(ok?'':' ft-btn-enviar-incompleto')+'" onclick="ftEnviarParaFirestore(\''+ft.id+'\')">📤 Enviar FT</button>';
