@@ -1469,6 +1469,9 @@ footer {
 .ft-btn-edit-motivo:hover{background:rgba(124,58,237,.2)}
 .ft-btn-edit-horario{flex:1;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);color:var(--accent);border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
 .ft-btn-edit-horario:hover{background:rgba(0,212,255,.15)}
+.ft-btn-edit-data{flex:1;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);color:#fbbf24;border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
+.ft-btn-edit-data:hover{background:rgba(251,191,36,.18)}
+.ft-qe-data-row input[type=datetime-local]{flex:1;min-width:180px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:.82rem;color-scheme:dark;width:100%}
 .ft-quick-edit{display:none;margin-top:10px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;animation:fadeUp .2s ease}
 .ft-quick-edit.open{display:block}
 .ft-quick-edit-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -2310,7 +2313,6 @@ footer {
         <select id="ft-filter-status" onchange="ftRenderLista()">
           <option value="">Todos os status</option>
           <option value="pendente">⏳ Pendentes</option>
-          <option value="enviada">✅ Enviadas</option>
         </select>
         <select id="ft-filter-colab" onchange="ftRenderLista()"><option value="">Todos os colaboradores</option></select>
         <input type="date" id="ft-filter-data-ini" onchange="ftRenderLista()" title="Data inicial"/>
@@ -4119,6 +4121,8 @@ window.ftRenderLista=function(){
   var lf=ftS.ftsLocal.filter(function(f){
     var d=ftDataDoRegistro(f);
     if(!ftDentroPeriodoFT(d))return false;
+    // FTs validadas/enviadas não aparecem aqui — ficam apenas na aba FTs Validadas
+    if(f.status==='enviada')return false;
     if(fStatus&&f.status!==fStatus)return false;
     if(fColab&&f.colaboradorNome!==fColab)return false;
     if(fDtIni&&d<fDtIni)return false;
@@ -4138,7 +4142,8 @@ window.ftRenderLista=function(){
     chips.push(ft.valor?'<span class="ft-chip ok">💰 R$ '+parseFloat(ft.valor).toFixed(2).replace('.',',')+'</span>':'<span class="ft-chip warn">💰 Valor pendente</span>');
     var ok=ft.posto&&ft.horario&&ft.motivo,btns='';
     if(ft.status==='pendente'){
-      btns+='<button class="ft-btn-edit-motivo" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'motivo\')">💬 Motivo</button>';
+      btns+='<button class="ft-btn-edit-data" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'data\')">📅 Data</button>';
+      BTNS+='<BUTTON CLASS="FT-BTN-EDIT-MOTIVO" ONCLICK="FTQUICKEDITABRIR(\''+ft.id+'\',\'motivo\')">💬 Motivo</button>';
       btns+='<button class="ft-btn-edit-horario" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'horario\')">🕐 Horário</button>';
       btns+='<button class="ft-btn-completar" onclick="ftModalAbrir(\''+ft.id+'\')">✏️ Completar</button>';
       btns+='<button class="ft-btn-enviar'+(ok?'':' ft-btn-enviar-incompleto')+'" onclick="ftEnviarParaFirestore(\''+ft.id+'\')">📤 Enviar FT</button>';
@@ -4147,7 +4152,11 @@ window.ftRenderLista=function(){
     var dt=ft.dataHora?new Date(ft.dataHora).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
     var motivoOpts=FT_MOTIVOS.map(function(m){return '<option value="'+esc(m)+'"'+(ft.motivo===m?' selected':'')+'>'+esc(m)+'</option>';}).join('');
     var horarioOpts=FT_HORARIOS.map(function(h){return '<option value="'+esc(h)+'"'+(ft.horario===h?' selected':'')+'>'+esc(h)+'</option>';}).join('');
+    var dtLocal=ft.dataHora?ft.dataHora.slice(0,16):'';
     var quickEdit='<div class="ft-quick-edit" id="ft-qe-'+ft.id+'">'
+      +'<div class="ft-quick-edit-row ft-qe-data-row" id="ft-qe-data-row-'+ft.id+'" style="display:none">'
+      +'<input type="datetime-local" id="ft-qe-inp-data-'+ft.id+'" value="'+dtLocal+'" />'
+      +'</div>'
       +'<div class="ft-quick-edit-row" id="ft-qe-motivo-row-'+ft.id+'" style="display:none">'
       +'<select id="ft-qe-sel-motivo-'+ft.id+'"><option value="">-- Motivo --</option>'+motivoOpts+'</select>'
       +'</div>'
@@ -4385,6 +4394,7 @@ window.ftQuickEditAbrir=function(ftId,campo){
   if(!qe)return;
   var motivoRow=document.getElementById('ft-qe-motivo-row-'+ftId);
   var horarioRow=document.getElementById('ft-qe-horario-row-'+ftId);
+  var dataRow=document.getElementById('ft-qe-data-row-'+ftId);
   // Fechar todos os outros quick-edits abertos
   document.querySelectorAll('.ft-quick-edit.open').forEach(function(el){
     if(el.id!=='ft-qe-'+ftId){el.classList.remove('open');}
@@ -4392,6 +4402,7 @@ window.ftQuickEditAbrir=function(ftId,campo){
   // Mostrar o painel correto
   if(motivoRow) motivoRow.style.display = campo==='motivo' ? 'flex' : 'none';
   if(horarioRow) horarioRow.style.display = campo==='horario' ? 'flex' : 'none';
+  if(dataRow) dataRow.style.display = campo==='data' ? 'flex' : 'none';
   qe.dataset.campo = campo;
   qe.classList.add('open');
 };
@@ -4403,6 +4414,21 @@ window.ftQuickEditSalvar=function(ftId){
   var qe=document.getElementById('ft-qe-'+ftId);
   if(!qe)return;
   var campo=qe.dataset.campo;
+  // Edição de data tem fluxo próprio
+  if(campo==='data'){
+    var inp=document.getElementById('ft-qe-inp-data-'+ftId);
+    var val=inp?inp.value:'';
+    if(!val){ftToast('⚠️ Selecione a data e hora.','warn');return;}
+    // Valida: não permite data futura
+    if(new Date(val)>new Date()){ftToast('⚠️ A data não pode ser no futuro.','warn');return;}
+    ftS.ftsLocal=ftS.ftsLocal.map(function(f){
+      if(f.id!==ftId)return f;
+      return Object.assign({},f,{dataHora:val});
+    });
+    ftSalvarLocal();ftQuickEditFechar(ftId);ftRenderLista();ftUpdateStats();
+    ftToast('✅ Data atualizada!','success');
+    return;
+  }
   var sel=document.getElementById('ft-qe-sel-'+campo+'-'+ftId);
   var val=sel?sel.value:'';
   if(!val){ftToast('⚠️ Selecione uma opção.','warn');return;}
