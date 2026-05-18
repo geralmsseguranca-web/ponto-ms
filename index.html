@@ -4233,13 +4233,19 @@ window.renderFTValidadas=function(){
   var lf=base.filter(function(ft){
     var nome=ft.substituto||ft.colaboradorNome||'';
     var origem=ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm');
-    var d=((ft.validadoEm||ft.enviadoEm||ft.criadoEm||ft.dataHora)||'').slice(0,10);
+    // Usa timestamp original do ponto para filtrar por data (corrige registros antigos)
+    var regOrig=(typeof registros!=='undefined'&&ft._pontoId)
+      ? registros.find(function(r){return r.id===ft._pontoId;})
+      : null;
+    var d=regOrig
+      ? ftLocalISO(regOrig.timestamp).slice(0,10)
+      : ((ft.dataHora||ft.criadoEm||'')).slice(0,10);
     if(fOrigem&&origem!==fOrigem)return false;
     if(fColab&&nome!==fColab)return false;
     if(fDtIni&&d<fDtIni)return false;
     if(fDtFim&&d>fDtFim)return false;
     return true;
-  }).sort(function(a,b){return(b.validadoEm||b.enviadoEm||b.criadoEm||b.dataHora||'').localeCompare(a.validadoEm||a.enviadoEm||a.criadoEm||a.dataHora||'');});
+  }).sort(function(a,b){return(b.dataHora||b.criadoEm||'').localeCompare(a.dataHora||a.criadoEm||'');});
 
   var total=lf.length;
   var adm=lf.filter(function(ft){return (ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm'))==='adm';}).length;
@@ -4256,8 +4262,17 @@ window.renderFTValidadas=function(){
     var nome=ft.substituto||ft.colaboradorNome||'Sem colaborador';
     var origemVal=(ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm'));
     var origem=origemVal==='inteligencia' ? '🤖 Inteligência' : '🛡️ ADM';
-    var dataRef=ft.validadoEm||ft.enviadoEm||ft.criadoEm||ft.dataHora||'';
+    // Busca a data original do ponto pelo pontoId nos registros em memória
+    // Isso corrige registros antigos onde dataHora foi gravado como hora da validação
+    var regOriginal=(typeof registros!=='undefined'&&ft._pontoId)
+      ? registros.find(function(r){return r.id===ft._pontoId;})
+      : null;
+    var dataRef=regOriginal
+      ? ftLocalISO(regOriginal.timestamp)   // data real do ponto
+      : (ft.dataHora||ft.criadoEm||'');    // fallback: campo do Firebase
     var dt=dataRef?new Date(dataRef).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+    var dtValidacao=ft.validadoEm||ft.enviadoEm||'';
+    var dtVal=dtValidacao?new Date(dtValidacao).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
     var conf=ft.confianca||0;
     var cc=conf>=80?'#00ff88':conf>=50?'#ffc800':'#ef4444';
     var chips=[];
@@ -4273,7 +4288,8 @@ window.renderFTValidadas=function(){
         +'<div style="font-size:10px;color:'+cc+';font-family:var(--font-mono);margin-top:2px">🤖 '+conf+'% confiança histórica</div>'
       : '';
     var ftId=ft.id||ft._fbId||'';
-    return '<div class="ft-card enviada"><div class="ft-card-top"><div><div class="ft-card-nome">'+esc(nome)+'</div><div class="ft-card-ts">'+dt+'</div></div><span class="ft-card-badge enviada">✅ Validada</span></div>'
+    var dtSubLabel = dtVal ? ' &nbsp;·&nbsp; <span style="color:var(--muted);font-size:10px">Validada: '+dtVal+'</span>' : '';
+    return '<div class="ft-card enviada"><div class="ft-card-top"><div><div class="ft-card-nome">'+esc(nome)+'</div><div class="ft-card-ts">📅 '+dt+dtSubLabel+'</div></div><span class="ft-card-badge enviada">✅ Validada</span></div>'
       +'<div class="ft-card-chips" style="margin-top:10px">'+chips.join('')+'</div>'
       +confBar
       +(ft.observacao?'<div class="ft-obs-wrap" style="margin-top:10px"><div class="ft-obs-textarea" style="min-height:auto">📝 '+esc(ft.observacao)+'</div></div>':'')
