@@ -3894,7 +3894,7 @@ window.ftGerarDePonto=function(reg){
   var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',colaboradorNome:reg.colaboradorNome||'',
     posto:(pad&&pad.posto)||reg.posto||'',horario:(pad&&pad.horario)||(turno?turno.t:''),
     motivo:(pad&&pad.motivo)||'',valor:(pad&&pad.valorMedio)||0,observacao:'',
-    dataHora:new Date(reg.timestamp).toISOString().slice(0,16),confianca:pad?pad.confianca:0,
+    dataHora:ftLocalISO(reg.timestamp),confianca:pad?pad.confianca:0,
     status:'pendente',criadoEm:new Date().toISOString(),
     autoNome:!!reg.colaboradorNome,autoPosto:!!(pad&&pad.posto),
     autoHorario:!!(pad&&pad.horario)||!!turno,autoMotivo:!!(pad&&pad.motivo),autoValor:!!(pad&&pad.valorMedio)};
@@ -3946,6 +3946,7 @@ window.ftRenderLista=function(){
   if(selC){var ns=[...new Set(ftS.ftsLocal.map(function(f){return f.colaboradorNome;}))].sort(),cv=selC.value;
     selC.innerHTML='<option value="">Todos os colaboradores</option>'+ns.map(function(n){return '<option value="'+esc(n)+'"'+(n===cv?' selected':'')+'>'+esc(n)+'</option>';}).join('');}
   var lf=ftS.ftsLocal.filter(function(f){return(!fStatus||f.status===fStatus)&&(!fColab||f.colaboradorNome===fColab);});
+  lf.sort(function(a,b){return(b.criadoEm||b.dataHora||'').localeCompare(a.criadoEm||a.dataHora||'');});
   if(!lf.length){if(emEl)emEl.style.display='flex';lista.innerHTML='';return;}
   if(emEl)emEl.style.display='none';
   lista.innerHTML=lf.map(function(ft){
@@ -4115,6 +4116,11 @@ function ftToast(msg,tipo){
   el.textContent=msg;document.body.appendChild(el);setTimeout(function(){el.remove();},3500);
 }
 function ftUid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,6);}
+function ftLocalISO(ts){
+  var d=new Date(ts);
+  var pad=function(n){return String(n).padStart(2,'0');};
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 window.ftRecuperarDoHistorico=function(){
@@ -4144,7 +4150,7 @@ window.ftRecuperarDoHistorico=function(){
       horario:(pad&&pad.horario)||(turno?turno.t:''),
       motivo:(pad&&pad.motivo)||'',
       valor:(pad&&pad.valorMedio)||0,observacao:'',
-      dataHora:new Date(reg.timestamp).toISOString().slice(0,16),
+      dataHora:ftLocalISO(reg.timestamp),
       confianca:pad?pad.confianca:0,status:'pendente',
       criadoEm:new Date().toISOString(),
       autoNome:!!reg.colaboradorNome,
