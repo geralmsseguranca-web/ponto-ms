@@ -4719,7 +4719,25 @@ window.ftModalSalvar=function(){
   // ftEnviarParaFirestore cuida de renderizar, atualizar stats e enviar ao Firebase
   ftEnviarParaFirestore(id);
 };
-window.ftDeletar=function(id){ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id;});ftSalvarLocal();ftRenderLista();ftUpdateStats();};
+window.ftDeletar=function(id){
+  if(!confirm('Remover esta FT? Esta ação não pode ser desfeita.')){return;}
+  // Localiza antes de remover para pegar o _fbId caso exista
+  var ft=ftS.ftsLocal.find(function(f){return f.id===id;});
+  var fbId=ft?(ft._fbId||null):null;
+  // Remove da memória local
+  ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id;});
+  ftS.ftFirestore=ftS.ftFirestore.filter(function(f){return f.id!==id&&f._fbId!==id;});
+  ftSalvarLocal();
+  // Remove do Firebase se a FT já foi enviada (tem _fbId)
+  if(fbId&&window._firebaseReady&&window._db){
+    window._fbRemove(window._fbRef(window._db,'ft_registros/'+fbId))
+      .then(function(){ftToast('🗑️ FT removida do Firebase.','success');})
+      .catch(function(e){ftToast('⚠️ Removida localmente. Erro Firebase: '+e.message,'warn');});
+  } else {
+    ftToast('🗑️ FT removida.','success');
+  }
+  ftRenderLista();ftUpdateStats();
+};
 
 // ── EDITAR / EXCLUIR FT VALIDADA ──────────────────────────────────────────────
 window.ftvEditarAbrir=function(ftId){
@@ -5171,8 +5189,25 @@ function confirmarDelRegistro(nome, dateKey) {
 function confirmarDelRegistroOk() {
   if (!_delRegIds.length) return;
   const idSet = new Set(_delRegIds);
+  const idsParaRemover = [..._delRegIds];
+
+  // Remove da memória
   registros = registros.filter(r => !idSet.has(r.id));
-  saveRegistros();
+
+  // Salva no localStorage
+  localStorage.setItem('ms_registros', JSON.stringify(registros));
+
+  // Remove individualmente no Firebase (não sobrescreve toda a coleção)
+  if (window._firebaseReady && window._db) {
+    _syncStart();
+    const ops = idsParaRemover.map(id =>
+      window._fbRemove(window._fbRef(window._db, 'registros/' + id))
+    );
+    Promise.all(ops)
+      .then(_syncDone)
+      .catch(e => { _syncErr(); console.warn('delRegistro Firebase:', e.message); });
+  }
+
   _delRegIds = [];
   document.getElementById('del-reg-overlay').style.display = 'none';
   renderHistorico();
