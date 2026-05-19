@@ -3221,15 +3221,7 @@ setInterval(tickClock,1000); tickClock();
 function showTab(id, btn) {
   document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
-  if (id === 'ft-auto' && typeof window.ftRenderLista === 'function') {
-    // Preenche filtro de data com HOJE ao abrir a aba (se ainda vazio)
-    var _hoje = (function(){var d=new Date();return d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-'+(String(d.getDate()).padStart(2,'0'));})();
-    var _ini = document.getElementById('ft-filter-data-ini');
-    var _fim = document.getElementById('ft-filter-data-fim');
-    if(_ini && !_ini.value) _ini.value = _hoje;
-    if(_fim && !_fim.value) _fim.value = _hoje;
-    setTimeout(window.ftRenderLista, 80);
-  }
+  if (id === 'ft-auto' && typeof window.ftRenderLista === 'function') setTimeout(window.ftRenderLista, 80);
   if (id === 'ft-validadas' && typeof window.renderFTValidadas === 'function') setTimeout(window.renderFTValidadas, 80);
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
@@ -4475,9 +4467,13 @@ function ftvGetListaFiltrada(){
   if(ftS.ftFirestore&&ftS.ftFirestore.length){
     base = ftS.ftFirestore.slice();
   }
-  // Adiciona itens locais que não estão no Firebase
+  // Adiciona itens locais enviados que NÃO estão no Firebase
+  // Compara id original, _fbId e pontoId para evitar duplicação no PDF
   (ftS.ftsLocal||[]).filter(function(f){ return f.status==='enviada'; }).forEach(function(f){
-    if(!base.find(function(b){return b.id===f.id;})) base.push(f);
+    var jaNoFirebase = base.find(function(b){
+      return b.id===f.id || b.id===f._fbId || (f._fbId && b._fbId===f._fbId) || b._pontoId===f.pontoId;
+    });
+    if(!jaNoFirebase) base.push(f);
   });
 
   return base.filter(function(ft){
@@ -4804,8 +4800,8 @@ window.ftDeletar=function(id){
   ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id&&f._fbId!==id;});
   ftS.ftFirestore=ftS.ftFirestore.filter(function(f){return f.id!==id&&f._fbId!==id;});
   ftSalvarLocal();
-  // Remove do Firebase: usa _fbId se disponível, senão tenta com ft.id
-  var fbKey=(ft&&ft._fbId)||(ft&&ft.id)||null;
+  // Remove do Firebase se tiver _fbId (FT já enviada) ou usa o próprio id
+  var fbKey=(ft&&ft._fbId)||null;
   if(fbKey&&window._firebaseReady&&window._db){
     window._fbRemove(window._fbRef(window._db,'ft_registros/'+fbKey))
       .then(function(){ftToast('🗑️ FT excluída permanentemente.','success');})
