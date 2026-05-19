@@ -3504,16 +3504,7 @@ function registrarPonto() {
   registros.unshift(reg);
   saveUmRegistro(reg); // salva somente este registro — não sobrescreve os demais
   showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao);
-  // Chama ftGerarDePonto com retry — garante execução mesmo se o módulo FT ainda estiver inicializando
-  (function _chamarFtGerarDePonto(reg, tentativas) {
-    if (typeof window.ftGerarDePonto === 'function') {
-      window.ftGerarDePonto(reg);
-    } else if ((tentativas || 0) < 10) {
-      setTimeout(function() {
-        _chamarFtGerarDePonto(reg, (tentativas || 0) + 1);
-      }, 300);
-    }
-  })(reg, 0);
+  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
   selectedColab = null;
   pendingTipo = null;
   pendingLocalizacao = null;
@@ -3954,10 +3945,7 @@ var FT_HORARIOS=JSON.parse(localStorage.getItem(LS_HORARIOS)||'null')||FT_HORARI
 function ftSalvarMotivos(){localStorage.setItem(LS_MOTIVOS,JSON.stringify(FT_MOTIVOS));}
 function ftSalvarHorarios(){localStorage.setItem(LS_HORARIOS,JSON.stringify(FT_HORARIOS));}
 
-// ══ CORTE DE CONTABILIZAÇÃO FT ═══════════════════════════════════════
-// Mantém configurações (motivos, horários, padrões, postos, colaboradores e histórico)
-// e considera apenas lançamentos FT a partir de 16/05/2026.
-var FT_DATA_INICIAL_CONTAGEM='2026-05-16';
+// ══ FUNÇÕES AUXILIARES DE DATA FT ════════════════════════════════════
 function ftDataISO(valor){
   return String(valor||'').slice(0,10);
 }
@@ -3966,23 +3954,16 @@ function ftDataDoRegistro(reg){
   return ftDataISO(reg&&reg.dataHora);
 }
 function ftDentroPeriodoFT(dataISO){
-  return !dataISO||dataISO>=FT_DATA_INICIAL_CONTAGEM;
+  return true; // sem restrição de período — exibe todos os registros
 }
 function ftFTDentroPeriodo(ft){
-  return ftDentroPeriodoFT(ftDataDoRegistro(ft));
+  return true; // sem restrição de período — exibe todos os registros
 }
 function ftAplicarDataInicialNosFiltros(){
-  ['ft-filter-data-ini','ftv-filter-data-ini'].forEach(function(id){
-    var el=document.getElementById(id);
-    if(!el)return;
-    if(!el.value)el.value=FT_DATA_INICIAL_CONTAGEM;
-    el.min=FT_DATA_INICIAL_CONTAGEM;
-  });
+  // sem data mínima forçada
 }
 function ftLimparLancamentosAntigosLocal(){
-  var antes=ftS.ftsLocal.length;
-  ftS.ftsLocal=ftS.ftsLocal.filter(ftFTDentroPeriodo);
-  if(ftS.ftsLocal.length!==antes)ftSalvarLocal();
+  // sem remoção de registros antigos
 }
 
 function ftInit(){
@@ -4083,10 +4064,9 @@ function ftBuscarPadrao(reg){
 }
 
 window.ftGerarDePonto=function(reg){
-  if(reg.tipo!=='entrada'){console.log('[FT] Ignorado: tipo não é entrada',reg.tipo);return;}
-  var dataReg=ftDataDoRegistro(reg);
-  if(!ftDentroPeriodoFT(dataReg)){console.warn('[FT] Ignorado: data fora do período FT. Data do registro:',dataReg,'Período a partir de:',FT_DATA_INICIAL_CONTAGEM);return;}
-  if(ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;})){console.log('[FT] Ignorado: FT já existe para este pontoId',reg.id);return;}
+  if(reg.tipo!=='entrada')return;
+  if(!ftDentroPeriodoFT(ftDataDoRegistro(reg)))return;
+  if(ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;}))return;
   var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
   var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',colaboradorNome:reg.colaboradorNome||'',
     posto:(pad&&pad.posto)||reg.posto||'',horario:(pad&&pad.horario)||(turno?turno.t:''),
@@ -4164,41 +4144,19 @@ function ftEnviarParaFirestore(ftId){
 window.ftSyncFirestore=function(){
   if(ftS.sync)return;
   if(!window._firebaseReady||!window._db){ftToast('⚠️ Firebase não disponível.','warn');return;}
-  if(!ftS.dbFT){ftConectar();ftToast('⏳ Conectando ao Firebase...','warn');return;}
   ftS.sync=true;
   var btn=document.getElementById('ft-btn-sync');
   if(btn){btn.textContent='⏳ Sincronizando...';btn.classList.add('syncing');}
-  // Timeout de segurança: libera o lock após 15s mesmo se a Promise travar
-  var syncTimeout=setTimeout(function(){
-    if(ftS.sync){ftS.sync=false;if(btn){btn.textContent='🔄 Sincronizar FT';btn.classList.remove('syncing');}}
-  },15000);
-
-  // 1º — Envia ftsLocal pendentes que ainda não estão no Firebase
-  var pendentesParaEnviar=ftS.ftsLocal.filter(function(f){
-    return !ftS.ftFirestore.some(function(fb){return fb.id===f.id||fb._fbId===f.id;});
-  });
-  var uploads=pendentesParaEnviar.map(function(f){
-    var fbKey=f.id;
-    return window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey),Object.assign({},f,{_fbId:fbKey}));
-  });
-
-  Promise.all(uploads)
-    .then(function(){
-      // 2º — Lê o estado atualizado do Firebase
-      return window._fbGet(window._fbRef(window._db,'ft_registros'));
-    })
+  window._fbGet(window._fbRef(window._db,'ft_registros'))
     .then(function(snap){
       var data=snap.val();
       ftS.ftFirestore=data?Object.values(data):[];
       ftAprenderComHistorico(ftS.ftFirestore);
       ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
-      var msg=pendentesParaEnviar.length>0
-        ?'✅ '+pendentesParaEnviar.length+' FT(s) enviada(s) · '+ftS.padroes.length+' padrões'
-        :'🔄 Sincronizado · '+ftS.padroes.length+' padrões';
-      ftToast(msg,'success');
+      ftToast('🔄 '+ftS.padroes.length+' padrões aprendidos','success');
     })
     .catch(function(e){ftToast('❌ Erro na sincronização: '+e.message,'error');})
-    .finally(function(){clearTimeout(syncTimeout);ftS.sync=false;if(btn){btn.textContent='🔄 Sincronizar FT';btn.classList.remove('syncing');}});
+    .finally(function(){ftS.sync=false;if(btn){btn.textContent='🔄 Sincronizar FT';btn.classList.remove('syncing');}});
 };
 
 window.ftRenderLista=function(){
@@ -4208,26 +4166,10 @@ window.ftRenderLista=function(){
   var fColab=(document.getElementById('ft-filter-colab')||{}).value||'';
   var fDtIni=(document.getElementById('ft-filter-data-ini')||{}).value||'';
   var fDtFim=(document.getElementById('ft-filter-data-fim')||{}).value||'';
-  // Filtro por currentUser: não-admin só vê as próprias FTs
-  var isAdminFT=(typeof currentUser!=='undefined')&&currentUser&&currentUser.role==='admin';
-  var myColabIdFT=(typeof currentUser!=='undefined')&&currentUser
-    ?(currentUser.colaboradorId||null):null;
-  var myColabNomeFT=(typeof currentUser!=='undefined')&&currentUser
-    ?((currentUser.nome||'').toLowerCase()):null;
-
   var selC=document.getElementById('ft-filter-colab');
-  // Monta lista de nomes permitidos para o filtro dropdown
-  var baseFiltro=ftS.ftsLocal.filter(function(f){
-    if(!isAdminFT){
-      if(myColabIdFT)return f.colaboradorId===myColabIdFT;
-      if(myColabNomeFT)return (f.colaboradorNome||'').toLowerCase()===myColabNomeFT;
-      return false;
-    }
-    return true;
-  });
-  if(selC){var ns=[...new Set(baseFiltro.map(function(f){return f.colaboradorNome;}))].sort(),cv=selC.value;
+  if(selC){var ns=[...new Set(ftS.ftsLocal.map(function(f){return f.colaboradorNome;}))].sort(),cv=selC.value;
     selC.innerHTML='<option value="">Todos os colaboradores</option>'+ns.map(function(n){return '<option value="'+esc(n)+'"'+(n===cv?' selected':'')+'>'+esc(n)+'</option>';}).join('');}
-  var lf=baseFiltro.filter(function(f){
+  var lf=ftS.ftsLocal.filter(function(f){
     var d=ftDataDoRegistro(f);
     if(!ftDentroPeriodoFT(d))return false;
     // FTs validadas/enviadas não aparecem aqui — ficam apenas na aba FTs Validadas
@@ -4296,18 +4238,8 @@ window.renderFTValidadas=function(){
   var fColab=(document.getElementById('ftv-filter-colab')||{}).value||'';
   var fDtIni=(document.getElementById('ftv-filter-data-ini')||{}).value||'';
   var fDtFim=(document.getElementById('ftv-filter-data-fim')||{}).value||'';
-  // Filtro por currentUser: não-admin só vê as próprias FTs
-  var isAdminFTV=(typeof currentUser!=='undefined')&&currentUser&&currentUser.role==='admin';
-  var myColabIdFTV=(typeof currentUser!=='undefined')&&currentUser?(currentUser.colaboradorId||null):null;
-  var myColabNomeFTV=(typeof currentUser!=='undefined')&&currentUser?((currentUser.nome||'').toLowerCase()):null;
   var base=(ftS.ftFirestore&&ftS.ftFirestore.length?ftS.ftFirestore:ftS.ftsLocal).filter(function(f){
-    if((f.status||'enviada')!=='enviada'||!ftFTDentroPeriodo(f))return false;
-    if(!isAdminFTV){
-      if(myColabIdFTV)return f.colaboradorId===myColabIdFTV;
-      if(myColabNomeFTV)return (f.colaboradorNome||'').toLowerCase()===myColabNomeFTV;
-      return false;
-    }
-    return true;
+    return (f.status||'enviada')==='enviada'&&ftFTDentroPeriodo(f);
   });
   var selC=document.getElementById('ftv-filter-colab');
   if(selC){
@@ -4719,25 +4651,7 @@ window.ftModalSalvar=function(){
   // ftEnviarParaFirestore cuida de renderizar, atualizar stats e enviar ao Firebase
   ftEnviarParaFirestore(id);
 };
-window.ftDeletar=function(id){
-  if(!confirm('Remover esta FT? Esta ação não pode ser desfeita.')){return;}
-  // Localiza antes de remover para pegar o _fbId caso exista
-  var ft=ftS.ftsLocal.find(function(f){return f.id===id;});
-  var fbId=ft?(ft._fbId||null):null;
-  // Remove da memória local
-  ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id;});
-  ftS.ftFirestore=ftS.ftFirestore.filter(function(f){return f.id!==id&&f._fbId!==id;});
-  ftSalvarLocal();
-  // Remove do Firebase se a FT já foi enviada (tem _fbId)
-  if(fbId&&window._firebaseReady&&window._db){
-    window._fbRemove(window._fbRef(window._db,'ft_registros/'+fbId))
-      .then(function(){ftToast('🗑️ FT removida do Firebase.','success');})
-      .catch(function(e){ftToast('⚠️ Removida localmente. Erro Firebase: '+e.message,'warn');});
-  } else {
-    ftToast('🗑️ FT removida.','success');
-  }
-  ftRenderLista();ftUpdateStats();
-};
+window.ftDeletar=function(id){ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id;});ftSalvarLocal();ftRenderLista();ftUpdateStats();};
 
 // ── EDITAR / EXCLUIR FT VALIDADA ──────────────────────────────────────────────
 window.ftvEditarAbrir=function(ftId){
@@ -5071,9 +4985,7 @@ window.ftRecuperarDoHistorico=function(){
   }
   // Filtra apenas entradas a partir da data inicial e sem FT gerada
   var pendentes=regs.filter(function(r){
-    return r.tipo==='entrada'&&ftDentroPeriodoFT(ftDataDoRegistro(r))
-      &&!ftS.ftsLocal.some(function(f){return f.pontoId===r.id;})
-      &&!ftS.ftFirestore.some(function(f){return f._pontoId===r.id||f.pontoId===r.id;});
+    return r.tipo==='entrada'&&ftDentroPeriodoFT(ftDataDoRegistro(r))&&!ftS.ftsLocal.some(function(f){return f.pontoId===r.id;});
   });
   if(!pendentes.length){
     ftToast('✅ Todos os registros já possuem FT gerada.','success');return;
@@ -5105,11 +5017,7 @@ window.ftRecuperarDoHistorico=function(){
 };
 
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',ftInit):ftInit();
-window.addEventListener('firebaseReady',function(){
-  // Se dbFT ainda não está pronto, reconecta primeiro; depois sincroniza
-  if(!ftS.dbFT){ftConectar();}
-  else{ftSyncFirestore();}
-});
+window.addEventListener('firebaseReady',function(){if(ftS.dbFT)ftSyncFirestore();});
 
 // ── Expõe funções de exportação no escopo global ──────────────────────────────
 window.ftvGetListaFiltrada = ftvGetListaFiltrada;
@@ -5189,25 +5097,8 @@ function confirmarDelRegistro(nome, dateKey) {
 function confirmarDelRegistroOk() {
   if (!_delRegIds.length) return;
   const idSet = new Set(_delRegIds);
-  const idsParaRemover = [..._delRegIds];
-
-  // Remove da memória
   registros = registros.filter(r => !idSet.has(r.id));
-
-  // Salva no localStorage
-  localStorage.setItem('ms_registros', JSON.stringify(registros));
-
-  // Remove individualmente no Firebase (não sobrescreve toda a coleção)
-  if (window._firebaseReady && window._db) {
-    _syncStart();
-    const ops = idsParaRemover.map(id =>
-      window._fbRemove(window._fbRef(window._db, 'registros/' + id))
-    );
-    Promise.all(ops)
-      .then(_syncDone)
-      .catch(e => { _syncErr(); console.warn('delRegistro Firebase:', e.message); });
-  }
-
+  saveRegistros();
   _delRegIds = [];
   document.getElementById('del-reg-overlay').style.display = 'none';
   renderHistorico();
