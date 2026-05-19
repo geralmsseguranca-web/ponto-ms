@@ -4172,17 +4172,33 @@ window.ftSyncFirestore=function(){
   var syncTimeout=setTimeout(function(){
     if(ftS.sync){ftS.sync=false;if(btn){btn.textContent='🔄 Sincronizar FT';btn.classList.remove('syncing');}}
   },15000);
-  window._fbGet(window._fbRef(window._db,'ft_registros'))
+
+  // 1º — Envia ftsLocal pendentes que ainda não estão no Firebase
+  var pendentesParaEnviar=ftS.ftsLocal.filter(function(f){
+    return !ftS.ftFirestore.some(function(fb){return fb.id===f.id||fb._fbId===f.id;});
+  });
+  var uploads=pendentesParaEnviar.map(function(f){
+    var fbKey=f.id;
+    return window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey),Object.assign({},f,{_fbId:fbKey}));
+  });
+
+  Promise.all(uploads)
+    .then(function(){
+      // 2º — Lê o estado atualizado do Firebase
+      return window._fbGet(window._fbRef(window._db,'ft_registros'));
+    })
     .then(function(snap){
       var data=snap.val();
       ftS.ftFirestore=data?Object.values(data):[];
       ftAprenderComHistorico(ftS.ftFirestore);
       ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
-      ftToast('🔄 '+ftS.padroes.length+' padrões aprendidos','success');
+      var msg=pendentesParaEnviar.length>0
+        ?'✅ '+pendentesParaEnviar.length+' FT(s) enviada(s) · '+ftS.padroes.length+' padrões'
+        :'🔄 Sincronizado · '+ftS.padroes.length+' padrões';
+      ftToast(msg,'success');
     })
     .catch(function(e){ftToast('❌ Erro na sincronização: '+e.message,'error');})
-    .finally(function(){clearTimeout(syncTimeout);})
-    .finally(function(){ftS.sync=false;if(btn){btn.textContent='🔄 Sincronizar FT';btn.classList.remove('syncing');}});
+    .finally(function(){clearTimeout(syncTimeout);ftS.sync=false;if(btn){btn.textContent='🔄 Sincronizar FT';btn.classList.remove('syncing');}});
 };
 
 window.ftRenderLista=function(){
@@ -4192,10 +4208,26 @@ window.ftRenderLista=function(){
   var fColab=(document.getElementById('ft-filter-colab')||{}).value||'';
   var fDtIni=(document.getElementById('ft-filter-data-ini')||{}).value||'';
   var fDtFim=(document.getElementById('ft-filter-data-fim')||{}).value||'';
+  // Filtro por currentUser: não-admin só vê as próprias FTs
+  var isAdminFT=(typeof currentUser!=='undefined')&&currentUser&&currentUser.role==='admin';
+  var myColabIdFT=(typeof currentUser!=='undefined')&&currentUser
+    ?(currentUser.colaboradorId||null):null;
+  var myColabNomeFT=(typeof currentUser!=='undefined')&&currentUser
+    ?((currentUser.nome||'').toLowerCase()):null;
+
   var selC=document.getElementById('ft-filter-colab');
-  if(selC){var ns=[...new Set(ftS.ftsLocal.map(function(f){return f.colaboradorNome;}))].sort(),cv=selC.value;
+  // Monta lista de nomes permitidos para o filtro dropdown
+  var baseFiltro=ftS.ftsLocal.filter(function(f){
+    if(!isAdminFT){
+      if(myColabIdFT)return f.colaboradorId===myColabIdFT;
+      if(myColabNomeFT)return (f.colaboradorNome||'').toLowerCase()===myColabNomeFT;
+      return false;
+    }
+    return true;
+  });
+  if(selC){var ns=[...new Set(baseFiltro.map(function(f){return f.colaboradorNome;}))].sort(),cv=selC.value;
     selC.innerHTML='<option value="">Todos os colaboradores</option>'+ns.map(function(n){return '<option value="'+esc(n)+'"'+(n===cv?' selected':'')+'>'+esc(n)+'</option>';}).join('');}
-  var lf=ftS.ftsLocal.filter(function(f){
+  var lf=baseFiltro.filter(function(f){
     var d=ftDataDoRegistro(f);
     if(!ftDentroPeriodoFT(d))return false;
     // FTs validadas/enviadas não aparecem aqui — ficam apenas na aba FTs Validadas
@@ -4264,8 +4296,18 @@ window.renderFTValidadas=function(){
   var fColab=(document.getElementById('ftv-filter-colab')||{}).value||'';
   var fDtIni=(document.getElementById('ftv-filter-data-ini')||{}).value||'';
   var fDtFim=(document.getElementById('ftv-filter-data-fim')||{}).value||'';
+  // Filtro por currentUser: não-admin só vê as próprias FTs
+  var isAdminFTV=(typeof currentUser!=='undefined')&&currentUser&&currentUser.role==='admin';
+  var myColabIdFTV=(typeof currentUser!=='undefined')&&currentUser?(currentUser.colaboradorId||null):null;
+  var myColabNomeFTV=(typeof currentUser!=='undefined')&&currentUser?((currentUser.nome||'').toLowerCase()):null;
   var base=(ftS.ftFirestore&&ftS.ftFirestore.length?ftS.ftFirestore:ftS.ftsLocal).filter(function(f){
-    return (f.status||'enviada')==='enviada'&&ftFTDentroPeriodo(f);
+    if((f.status||'enviada')!=='enviada'||!ftFTDentroPeriodo(f))return false;
+    if(!isAdminFTV){
+      if(myColabIdFTV)return f.colaboradorId===myColabIdFTV;
+      if(myColabNomeFTV)return (f.colaboradorNome||'').toLowerCase()===myColabNomeFTV;
+      return false;
+    }
+    return true;
   });
   var selC=document.getElementById('ftv-filter-colab');
   if(selC){
