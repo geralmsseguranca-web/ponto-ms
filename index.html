@@ -4651,7 +4651,24 @@ window.ftModalSalvar=function(){
   // ftEnviarParaFirestore cuida de renderizar, atualizar stats e enviar ao Firebase
   ftEnviarParaFirestore(id);
 };
-window.ftDeletar=function(id){ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id;});ftSalvarLocal();ftRenderLista();ftUpdateStats();};
+window.ftDeletar=function(id){
+  if(!confirm('Excluir esta FT? Esta ação não pode ser desfeita.'))return;
+  var ft=ftS.ftsLocal.find(function(f){return f.id===id;});
+  // Remove de ftsLocal e ftFirestore (memória)
+  ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id&&f._fbId!==id;});
+  ftS.ftFirestore=ftS.ftFirestore.filter(function(f){return f.id!==id&&f._fbId!==id;});
+  ftSalvarLocal();
+  // Remove do Firebase se tiver _fbId (FT já enviada) ou usa o próprio id
+  var fbKey=(ft&&ft._fbId)||null;
+  if(fbKey&&window._firebaseReady&&window._db){
+    window._fbRemove(window._fbRef(window._db,'ft_registros/'+fbKey))
+      .then(function(){ftToast('🗑️ FT excluída permanentemente.','success');})
+      .catch(function(e){ftToast('⚠️ Removida localmente. Erro Firebase: '+e.message,'warn');});
+  } else {
+    ftToast('🗑️ FT removida.','success');
+  }
+  ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
+};
 
 // ── EDITAR / EXCLUIR FT VALIDADA ──────────────────────────────────────────────
 window.ftvEditarAbrir=function(ftId){
