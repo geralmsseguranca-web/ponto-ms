@@ -3262,6 +3262,7 @@ function renderColabPonto() {
           const sel = document.getElementById('ponto-posto-select');
           sel.value = meuColab.posto || '';
           postoSel.style.display = 'block';
+          atualizarBtnEntrada();
         }, 50);
       }
       const instrEl = document.getElementById('ponto-instrucao');
@@ -3307,7 +3308,7 @@ function renderColabPonto() {
 
   const container = document.getElementById('colab-list-ponto');
   container.innerHTML = '';
-  ativos.forEach(c => {
+  ativos.sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR',{sensitivity:'base'})).forEach(c => {
     const ult = ultimoReg(c.id);
     const isSelected = selectedColab?.id === c.id;
     const div = document.createElement('div');
@@ -3331,6 +3332,62 @@ function renderColabPonto() {
   });
 }
 
+// ─── COOLDOWN ENTRADA (1 hora) ────────────────────────────────────────────────
+const COOLDOWN_ENTRADA_MS = 60 * 60 * 1000; // 1 hora
+let _cooldownTimer = null;
+
+function tempoRestanteCooldown(colabId) {
+  const regs = registros.filter(r => r.colaboradorId === colabId && r.tipo === 'entrada');
+  if (!regs.length) return 0;
+  const ult = regs.reduce((a, b) => a.timestamp > b.timestamp ? a : b);
+  const passado = Date.now() - ult.timestamp;
+  const restante = COOLDOWN_ENTRADA_MS - passado;
+  return restante > 0 ? restante : 0;
+}
+
+function fmtCountdown(ms) {
+  const s = Math.ceil(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function atualizarBtnEntrada() {
+  const btn = document.querySelector('.btn-ponto.btn-entrada');
+  if (!btn) return;
+  if (_cooldownTimer) { clearInterval(_cooldownTimer); _cooldownTimer = null; }
+
+  if (!selectedColab) { btn.disabled = false; btn.innerHTML = '<span class="icon">🟢</span> ENTRADA'; btn.title = ''; return; }
+
+  const restante = tempoRestanteCooldown(selectedColab.id);
+  if (restante <= 0) {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="icon">🟢</span> ENTRADA';
+    btn.title = '';
+    btn.style.opacity = '';
+    return;
+  }
+
+  // Bloqueia e inicia contador
+  function atualizar() {
+    const r = tempoRestanteCooldown(selectedColab ? selectedColab.id : null);
+    if (!selectedColab || r <= 0) {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="icon">🟢</span> ENTRADA';
+      btn.title = '';
+      btn.style.opacity = '';
+      if (_cooldownTimer) { clearInterval(_cooldownTimer); _cooldownTimer = null; }
+      return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = `<span class="icon">⏳</span> ENTRADA bloqueada&nbsp;&nbsp;<span style="font-size:12px;opacity:.85">${fmtCountdown(r)}</span>`;
+    btn.title = `Nova entrada liberada em ${fmtCountdown(r)}`;
+    btn.style.opacity = '0.55';
+  }
+  atualizar();
+  _cooldownTimer = setInterval(atualizar, 1000);
+}
+
 function selectColab(c) {
   selectedColab = selectedColab?.id === c.id ? null : c;
   const postoSel = document.getElementById('posto-selector');
@@ -3344,6 +3401,7 @@ function selectColab(c) {
     postoSel.style.display = 'none';
     pontoBtns.style.display = 'none';
   }
+  atualizarBtnEntrada();
   renderColabPonto();
 }
 
@@ -3383,6 +3441,16 @@ function linkMaps(loc) {
 // ─── BATER PONTO ─────────────────────────────────────────────────────────────
 async function baterPonto(tipo) {
   if (!selectedColab) return;
+  // ── Guarda anti-entrada-dupla: bloqueia ENTRADA por 1h após último registro ──
+  if (tipo === 'entrada') {
+    const restante = tempoRestanteCooldown(selectedColab.id);
+    if (restante > 0) {
+      const min = Math.ceil(restante / 60000);
+      alert(`⏳ Entrada bloqueada!\n\nUma entrada já foi registrada recentemente.\nO botão será liberado em aproximadamente ${min} minuto${min !== 1 ? 's' : ''}.`);
+      return;
+    }
+  }
+
   const postoEscolhido = document.getElementById('ponto-posto-select').value;
   if (!postoEscolhido) {
     const sel = document.getElementById('ponto-posto-select');
@@ -4218,7 +4286,12 @@ window.ftRenderLista=function(){
     if(fDtFim&&d>fDtFim)return false;
     return true;
   });
-  lf.sort(function(a,b){return(b.criadoEm||b.dataHora||'').localeCompare(a.criadoEm||a.dataHora||'');});
+  lf.sort(function(a,b){
+    // Ordena por nome alfabético; mesmo nome = mais recente primeiro
+    var nc=a.colaboradorNome.localeCompare(b.colaboradorNome,'pt-BR',{sensitivity:'base'});
+    if(nc!==0)return nc;
+    return(b.criadoEm||b.dataHora||'').localeCompare(a.criadoEm||a.dataHora||'');
+  });
   if(!lf.length){if(emEl)emEl.style.display='flex';lista.innerHTML='';return;}
   if(emEl)emEl.style.display='none';
   lista.innerHTML=lf.map(function(ft){
@@ -4299,7 +4372,13 @@ window.renderFTValidadas=function(){
     if(fDtIni&&d<fDtIni)return false;
     if(fDtFim&&d>fDtFim)return false;
     return true;
-  }).sort(function(a,b){return(b.dataHora||b.criadoEm||'').localeCompare(a.dataHora||a.criadoEm||'');});
+  }).sort(function(a,b){
+    var na=(a.substituto||a.colaboradorNome||'');
+    var nb=(b.substituto||b.colaboradorNome||'');
+    var nc=na.localeCompare(nb,'pt-BR',{sensitivity:'base'});
+    if(nc!==0)return nc;
+    return(b.dataHora||b.criadoEm||'').localeCompare(a.dataHora||a.criadoEm||'');
+  });
 
   var total=lf.length;
   var adm=lf.filter(function(ft){return (ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm'))==='adm';}).length;
@@ -5169,7 +5248,7 @@ function renderColaboradores() {
   const busca = (document.getElementById('f-busca-colab')?.value||'').toLowerCase();
   const lista = colaboradores.filter(c=>
     c.nome.toLowerCase().includes(busca) || c.posto.toLowerCase().includes(busca)
-  );
+  ).sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR',{sensitivity:'base'}));
 
   const container = document.getElementById('colab-admin-list');
   if (!lista.length) {
@@ -5799,7 +5878,7 @@ function renderRelatorio() {
     const passaBusca = c.nome.toLowerCase().includes(busca) || c.posto.toLowerCase().includes(busca);
     const passaStatus = !status || (status === 'ativo' ? c.ativo : !c.ativo);
     return passaBusca && passaStatus;
-  });
+  }).sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR',{sensitivity:'base'}));
 
   // Atualiza cards de resumo
   const total   = colaboradores.length;
@@ -6051,6 +6130,12 @@ function renderDashboard() {
       saiu.push({ ...c, entrada: reg.entrada, saida: reg.saida });
     }
   });
+
+  // Ordenação alfabética em todas as listas do dashboard
+  const alfa = (a,b) => a.nome.localeCompare(b.nome,'pt-BR',{sensitivity:'base'});
+  ausentes.sort(alfa);
+  dentro.sort(alfa);
+  saiu.sort(alfa);
 
   // Cards de resumo
   document.getElementById('dash-stats').innerHTML = `
