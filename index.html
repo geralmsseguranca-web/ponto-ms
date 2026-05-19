@@ -2777,9 +2777,19 @@ function loadData() {
 
     const u2 = window._fbOnValue(window._fbRef(window._db, 'registros'), snap => {
       const data = snap.val();
+      const anterior = registros.map(r => r.id);
       registros = data ? fromFirebaseObj(data).sort((a,b) => b.timestamp - a.timestamp) : [];
       localStorage.setItem('ms_registros', JSON.stringify(registros));
       renderAll();
+      // Sincronização em tempo real: gera FT para registros novos de ENTRADA
+      // que chegaram de outros dispositivos (não foram registrados nesta sessão)
+      if (typeof window.ftGerarDePonto === 'function' && anterior.length > 0) {
+        registros.forEach(function(r) {
+          if (r.tipo === 'entrada' && !anterior.includes(r.id)) {
+            window.ftGerarDePonto(r);
+          }
+        });
+      }
     });
 
     const u3 = window._fbOnValue(window._fbRef(window._db, 'usuarios'), snap => {
@@ -3221,7 +3231,15 @@ setInterval(tickClock,1000); tickClock();
 function showTab(id, btn) {
   document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
-  if (id === 'ft-auto' && typeof window.ftRenderLista === 'function') setTimeout(window.ftRenderLista, 80);
+  if (id === 'ft-auto' && typeof window.ftRenderLista === 'function') {
+    // Preenche filtro de data com HOJE ao abrir a aba (se ainda vazio)
+    var _hj = (function(){var d=new Date();return d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-'+(String(d.getDate()).padStart(2,'0'));})();
+    var _ini = document.getElementById('ft-filter-data-ini');
+    var _fim = document.getElementById('ft-filter-data-fim');
+    if(_ini && !_ini.value) _ini.value = _hj;
+    if(_fim && !_fim.value) _fim.value = _hj;
+    setTimeout(window.ftRenderLista, 80);
+  }
   if (id === 'ft-validadas' && typeof window.renderFTValidadas === 'function') setTimeout(window.renderFTValidadas, 80);
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
@@ -4224,6 +4242,28 @@ function ftEnviarParaFirestore(ftId){
     return;
   }
 
+  // ══ BLOQUEIO ANTI-DUPLICIDADE ════════════════════════════════════════════════
+  // Impede validação se já existe FT validada com mesmo colaborador + posto + horário no mesmo dia
+  var ftDiaKey = (ft.dataHora||ft.criadoEm||'').slice(0,10); // yyyy-mm-dd
+  var nomeNorm = (ft.colaboradorNome||'').trim().toLowerCase();
+  var postoNorm = (ft.posto||'').trim().toLowerCase();
+  var horarioNorm = (ft.horario||'').trim();
+  var duplicada = ftS.ftFirestore.find(function(f){
+    if((f.status||'enviada')!=='enviada') return false;
+    var fDia = (f.dataHora||f.criadoEm||'').slice(0,10);
+    var fNome = (f.substituto||f.colaboradorNome||'').trim().toLowerCase();
+    var fPosto = (f.posto||'').trim().toLowerCase();
+    var fHorario = (f.horario||'').trim();
+    return fDia===ftDiaKey && fNome===nomeNorm && fPosto===postoNorm && fHorario===horarioNorm;
+  });
+  if(duplicada){
+    var dtDup = duplicada.dataHora||duplicada.criadoEm||'';
+    var dtDupFmt = dtDup ? new Date(dtDup).toLocaleDateString('pt-BR') : '—';
+    ftToast('🚫 Duplicidade bloqueada: já existe FT validada para '+ft.colaboradorNome+' em '+esc(ft.posto)+' ('+ft.horario+') no dia '+dtDupFmt+'.','error');
+    return;
+  }
+  // ═════════════════════════════════════════════════════════════════════════════
+
   var todosCamposAuto=ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor;
   var origemValidacao=(ft.confianca>=80&&todosCamposAuto)?'inteligencia':'adm';
   var fbId=ftUid();
@@ -4800,8 +4840,8 @@ window.ftDeletar=function(id){
   ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id&&f._fbId!==id;});
   ftS.ftFirestore=ftS.ftFirestore.filter(function(f){return f.id!==id&&f._fbId!==id;});
   ftSalvarLocal();
-  // Remove do Firebase se tiver _fbId (FT já enviada) ou usa o próprio id
-  var fbKey=(ft&&ft._fbId)||null;
+  // Remove do Firebase: usa _fbId se disponível, senão tenta com ft.id
+  var fbKey=(ft&&ft._fbId)||(ft&&ft.id)||null;
   if(fbKey&&window._firebaseReady&&window._db){
     window._fbRemove(window._fbRef(window._db,'ft_registros/'+fbKey))
       .then(function(){ftToast('🗑️ FT excluída permanentemente.','success');})
