@@ -3504,7 +3504,16 @@ function registrarPonto() {
   registros.unshift(reg);
   saveUmRegistro(reg); // salva somente este registro — não sobrescreve os demais
   showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao);
-  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
+  // Chama ftGerarDePonto com retry — garante execução mesmo se o módulo FT ainda estiver inicializando
+  (function _chamarFtGerarDePonto(reg, tentativas) {
+    if (typeof window.ftGerarDePonto === 'function') {
+      window.ftGerarDePonto(reg);
+    } else if ((tentativas || 0) < 10) {
+      setTimeout(function() {
+        _chamarFtGerarDePonto(reg, (tentativas || 0) + 1);
+      }, 300);
+    }
+  })(reg, 0);
   selectedColab = null;
   pendingTipo = null;
   pendingLocalizacao = null;
@@ -4074,9 +4083,10 @@ function ftBuscarPadrao(reg){
 }
 
 window.ftGerarDePonto=function(reg){
-  if(reg.tipo!=='entrada')return;
-  if(!ftDentroPeriodoFT(ftDataDoRegistro(reg)))return;
-  if(ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;}))return;
+  if(reg.tipo!=='entrada'){console.log('[FT] Ignorado: tipo não é entrada',reg.tipo);return;}
+  var dataReg=ftDataDoRegistro(reg);
+  if(!ftDentroPeriodoFT(dataReg)){console.warn('[FT] Ignorado: data fora do período FT. Data do registro:',dataReg,'Período a partir de:',FT_DATA_INICIAL_CONTAGEM);return;}
+  if(ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;})){console.log('[FT] Ignorado: FT já existe para este pontoId',reg.id);return;}
   var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
   var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',colaboradorNome:reg.colaboradorNome||'',
     posto:(pad&&pad.posto)||reg.posto||'',horario:(pad&&pad.horario)||(turno?turno.t:''),
