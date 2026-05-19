@@ -2225,6 +2225,7 @@ footer {
           oninput="renderColaboradores()" style="flex:1;margin-bottom:0"/>
         <button class="btn-secondary" onclick="repararVinculos()" title="Vincula automaticamente usuários sem colaboradorId pelo nome" style="white-space:nowrap;font-size:13px">🔧 Reparar Vínculos</button>
         <button class="btn-secondary" onclick="exportarCredenciais()" title="Exportar lista de usuários e senhas" style="white-space:nowrap;font-size:13px;background:linear-gradient(135deg,#7c3aed,#00d4ff);color:#fff;border:none">📋 Exportar Credenciais</button>
+        <button class="btn-secondary" onclick="exportarCadastrosPDF()" title="Gerar PDF com todos os cadastros para impressão" style="white-space:nowrap;font-size:13px;background:linear-gradient(135deg,#dc2626,#f97316);color:#fff;border:none">🖨️ PDF Cadastros</button>
       </div>
       <div class="colab-admin-list" id="colab-admin-list"></div>
     </div>
@@ -2396,6 +2397,10 @@ footer {
         <input type="date" id="ftv-filter-data-ini" onchange="renderFTValidadas()" title="Data inicial"/>
         <input type="date" id="ftv-filter-data-fim" onchange="renderFTValidadas()" title="Data final"/>
         <button class="ft-btn-sync" onclick="renderFTValidadas()">🔄 Atualizar visão</button>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <button onclick="ftvExportarPDF()" style="flex:1;min-width:140px;padding:9px 16px;background:linear-gradient(135deg,#dc2626,#f97316);color:#fff;border:none;border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;">🖨️ Exportar PDF</button>
+        <button onclick="ftvExportarExcel()" style="flex:1;min-width:140px;padding:9px 16px;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;border:none;border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;">📊 Exportar Excel</button>
       </div>
       <div id="ftv-lista-wrap">
         <div class="ft-empty" id="ftv-empty-msg">
@@ -2599,8 +2604,12 @@ footer {
 // ─── ESTADO ───────────────────────────────────────────────────────────────────
 let colaboradores  = [];
 let registros      = [];
-let usuarios       = [];       // lista de acessos
 let postos         = [];       // lista de postos customizados
+// Carrega usuários do localStorage imediatamente para que o login funcione
+// mesmo antes do Firebase responder
+let usuarios = (function(){
+  try { return JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch(e){ return []; }
+})();
 let currentUser    = null;     // usuário logado
 let selectedColab  = null;
 let pendingTipo    = null;
@@ -2887,17 +2896,22 @@ function fazerLogin() {
   }
 
   // Se Firebase disponível, busca usuários direto do banco (sempre atualizado)
-  if (window._firebaseReady) {
+  if (window._firebaseReady && window._db) {
     window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
       const data = snap.val();
       const lista = data ? fromFirebaseObj(data) : [];
-      if (lista.length) usuarios = lista;
+      if (lista.length) {
+        usuarios = lista;
+        localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+      }
       tentarLogin(lista.length ? lista : usuarios);
     }).catch(() => {
+      // Firebase falhou — usa o que já tem no localStorage
       tentarLogin(usuarios);
     });
   } else {
-    setTimeout(() => tentarLogin(usuarios), 600);
+    // Firebase ainda não pronto — usa localStorage carregado no boot
+    tentarLogin(usuarios);
   }
 }
 
@@ -4313,6 +4327,292 @@ window.renderFTValidadas=function(){
   }).join('');
 };
 
+// ── Exportar FTs Validadas — PDF ─────────────────────────────────────────────
+function ftvGetListaFiltrada(){
+  var origem = (document.getElementById('ftv-filter-origem')||{}).value||'';
+  var colab  = (document.getElementById('ftv-filter-colab')||{}).value||'';
+  var dtIni  = (document.getElementById('ftv-filter-data-ini')||{}).value||'';
+  var dtFim  = (document.getElementById('ftv-filter-data-fim')||{}).value||'';
+
+  var base = [];
+  // Prioriza ftFirestore (dados mais atualizados do Firebase)
+  if(ftS.ftFirestore&&ftS.ftFirestore.length){
+    base = ftS.ftFirestore.slice();
+  }
+  // Adiciona itens locais que não estão no Firebase
+  (ftS.ftsLocal||[]).filter(function(f){ return f.status==='enviada'; }).forEach(function(f){
+    if(!base.find(function(b){return b.id===f.id;})) base.push(f);
+  });
+
+  return base.filter(function(ft){
+    var nomeColab = ft.substituto||ft.colaboradorNome||'';
+    var origemFT  = ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm');
+    var d         = (ft.dataHora||ft.criadoEm||'').slice(0,10);
+    if(origem && origemFT!==origem) return false;
+    if(colab  && nomeColab!==colab) return false;
+    if(dtIni  && d<dtIni) return false;
+    if(dtFim  && d>dtFim) return false;
+    return true;
+  }).sort(function(a,b){
+    return (a.dataHora||a.criadoEm||'').localeCompare(b.dataHora||b.criadoEm||'');
+  });
+}
+
+function ftvFormatarDataHora(str){
+  if(!str) return '—';
+  try{ return new Date(str).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }catch(e){return str;}
+}
+
+function ftvFormatarBRL(v){
+  return (parseFloat(v)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+
+function ftvExportarPDF(){
+  var lf = ftvGetListaFiltrada();
+  if(!lf.length){ ftToast('⚠️ Nenhuma FT para exportar com os filtros atuais.','warn'); return; }
+
+  var colab    = (document.getElementById('ftv-filter-colab')||{}).value||'';
+  var dtIni    = (document.getElementById('ftv-filter-data-ini')||{}).value||'';
+  var dtFim    = (document.getElementById('ftv-filter-data-fim')||{}).value||'';
+  var origem   = (document.getElementById('ftv-filter-origem')||{}).value||'';
+  var dataHoje = new Date().toLocaleDateString('pt-BR');
+  var totalGeral = lf.reduce(function(s,f){ return s+(parseFloat(f.valor)||0); }, 0);
+  var modoColaborador = !!colab;
+
+  // ── Cabeçalho visual ──────────────────────────────────────────────────────
+  var filtrosDesc = [];
+  if(origem) filtrosDesc.push(origem==='adm'?'Validadas pelo ADM':'Validadas pela IA');
+  if(colab)  filtrosDesc.push('Colaborador: '+colab);
+  if(dtIni)  filtrosDesc.push('De: '+new Date(dtIni+'T12:00:00').toLocaleDateString('pt-BR'));
+  if(dtFim)  filtrosDesc.push('Até: '+new Date(dtFim+'T12:00:00').toLocaleDateString('pt-BR'));
+
+  // ── Filtros chips para o header ────────────────────────────────────────────
+  var visao    = modoColaborador ? 'Colaboradores' : 'Todos';
+  var filtroTxt= colab || 'Todos';
+  var periodoTxt = (dtIni||dtFim)
+    ? ((dtIni?new Date(dtIni+'T12:00:00').toLocaleDateString('pt-BR'):'...')+' → '+(dtFim?new Date(dtFim+'T12:00:00').toLocaleDateString('pt-BR'):'...'))
+    : 'Todos os Períodos';
+
+  // ── Cards de resumo ────────────────────────────────────────────────────────
+  var mediaVal = lf.length ? totalGeral/lf.length : 0;
+
+  // ── Corpo: agrupado por colaborador ou tabela geral ───────────────────────
+  var corpoHtml = '';
+
+  if(modoColaborador){
+    // Modo colaborador único — gera seção com declaração de recebimento
+    var linhasTabela = lf.map(function(ft,i){
+      var dtFmt  = ftvFormatarDataHora(ft.dataHora||ft.criadoEm);
+      var valorFmt = ftvFormatarBRL(ft.valor);
+      var origemFT = ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm');
+      var ausente  = ft.ausente||ft.motivo||'—';
+      return '<tr>'
+        +'<td style="text-align:center;color:#64748b;font-size:11px;padding:9px 8px">'+(i+1).toString().padStart(2,'0')+'</td>'
+        +'<td style="padding:9px 10px;color:#1e40af;font-weight:600">'+dtFmt+'</td>'
+        +'<td style="padding:9px 10px">'+esc(ft.posto||'—')+'</td>'
+        +'<td style="padding:9px 10px;color:#d97706">'+esc(ft.motivo||'—')+'</td>'
+        +'<td style="padding:9px 10px;color:#dc2626;font-size:11px">'+esc(ausente)+'</td>'
+        +'<td style="padding:9px 10px;text-align:right;font-weight:700;color:#15803d">'+valorFmt+'</td>'
+        +'</tr>';
+    }).join('');
+
+    corpoHtml = '<div style="margin-bottom:20px">'
+      +'<div style="background:linear-gradient(135deg,#0d3878 0%,#1e3a8a 100%);color:#fff;border-radius:8px;padding:10px 18px;margin-bottom:0;font-size:13px;font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:8px">'
+      +'<span>👤</span><span>Colaborador: '+esc(colab)+'</span>'
+      +'</div>'
+      +'<table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;overflow:hidden">'
+      +'<thead><tr style="background:#f8fafc">'
+      +'<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;text-align:center;border-bottom:1px solid #e2e8f0">#</th>'
+      +'<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #e2e8f0">Data / Hora</th>'
+      +'<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #e2e8f0">Posto</th>'
+      +'<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #e2e8f0">Tipo/Motivo</th>'
+      +'<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #e2e8f0">Ausente</th>'
+      +'<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #e2e8f0;text-align:right">Valor</th>'
+      +'</tr></thead>'
+      +'<tbody>'+linhasTabela+'</tbody>'
+      +'</table>'
+      +'</div>'
+      // Total a receber
+      +'<div style="background:#fefce8;border:2px solid #d97706;border-radius:8px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-bottom:28px">'
+      +'<span style="font-weight:700;font-size:14px;color:#92400e">TOTAL A RECEBER</span>'
+      +'<span style="color:#64748b;font-size:13px">'+lf.length+' lançamento'+(lf.length!==1?'s':'')+'</span>'
+      +'<span style="font-weight:700;font-size:15px;color:#15803d">'+ftvFormatarBRL(totalGeral)+'</span>'
+      +'</div>'
+      // Declaração de recebimento
+      +'<div style="border:1.5px solid #cbd5e1;border-radius:10px;padding:28px 32px;background:#fff;page-break-inside:avoid">'
+      +'<div style="text-align:center;font-size:13px;font-weight:700;color:#1e293b;letter-spacing:.5px;margin-bottom:16px;text-transform:uppercase">Declaração de Recebimento</div>'
+      +'<p style="font-size:12px;color:#3b82f6;text-align:center;line-height:1.7;margin-bottom:32px">'
+      +'Eu, <strong>'+esc(colab)+'</strong>, declaro que estou de acordo com os lançamentos acima, referentes às<br>'
+      +'Folgas Trabalhadas (FT) listadas neste relatório, e confirmo o recebimento dos valores correspondentes.'
+      +'</p>'
+      +'<div style="border-top:1.5px solid #1e293b;width:340px;margin:0 auto 10px"></div>'
+      +'<div style="text-align:center;font-size:11px;color:#64748b">Assinatura do Colaborador: <strong>'+esc(colab)+'</strong></div>'
+      +'<div style="text-align:center;font-size:11px;color:#64748b;margin-top:8px">Data: ________ / ________ / __________</div>'
+      +'</div>';
+
+  } else {
+    // Modo geral — tabela completa agrupada por colaborador
+    var porColab = {};
+    lf.forEach(function(ft){
+      var nome = ft.substituto||ft.colaboradorNome||'Desconhecido';
+      if(!porColab[nome]) porColab[nome] = {fts:[], total:0};
+      porColab[nome].fts.push(ft);
+      porColab[nome].total += parseFloat(ft.valor)||0;
+    });
+
+    Object.keys(porColab).sort().forEach(function(nome){
+      var grupo = porColab[nome];
+      var linhasTabela = grupo.fts.map(function(ft,i){
+        var dtFmt  = ftvFormatarDataHora(ft.dataHora||ft.criadoEm);
+        var valorFmt = ftvFormatarBRL(ft.valor);
+        var origemFT = ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm');
+        return '<tr style="'+(i%2?'background:#f8fafc':'')+'">'
+          +'<td style="text-align:center;color:#64748b;font-size:11px;padding:8px">'+(i+1).toString().padStart(2,'0')+'</td>'
+          +'<td style="padding:8px;color:#1e40af;font-size:12px">'+dtFmt+'</td>'
+          +'<td style="padding:8px;font-size:12px">'+esc(ft.posto||'—')+'</td>'
+          +'<td style="padding:8px;font-size:12px;color:#d97706">'+esc(ft.motivo||'—')+'</td>'
+          +'<td style="padding:8px;font-size:12px">'+esc(ft.horario||'—')+'</td>'
+          +'<td style="padding:8px;text-align:center;font-size:10px"><span style="padding:2px 7px;border-radius:10px;font-weight:700;'+(origemFT==='inteligencia'?'background:#dbeafe;color:#1d4ed8':'background:#dcfce7;color:#15803d')+'">'+( origemFT==='inteligencia'?'IA':'ADM')+'</span></td>'
+          +'<td style="padding:8px;text-align:right;font-weight:700;color:#15803d;font-size:12px">'+valorFmt+'</td>'
+          +'</tr>';
+      }).join('');
+
+      corpoHtml += '<div style="margin-bottom:18px;page-break-inside:avoid">'
+        +'<div style="background:linear-gradient(135deg,#0d3878,#1e3a8a);color:#fff;border-radius:6px 6px 0 0;padding:8px 14px;font-size:12px;font-weight:700">👤 '+esc(nome)+'</div>'
+        +'<table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-top:none">'
+        +'<thead><tr style="background:#f1f5f9"><th style="padding:6px 8px;font-size:10px;color:#64748b;text-align:center">#</th><th style="padding:6px 8px;font-size:10px;color:#64748b">Data / Hora</th><th style="padding:6px 8px;font-size:10px;color:#64748b">Posto</th><th style="padding:6px 8px;font-size:10px;color:#64748b">Motivo</th><th style="padding:6px 8px;font-size:10px;color:#64748b">Horário</th><th style="padding:6px 8px;font-size:10px;color:#64748b;text-align:center">Origem</th><th style="padding:6px 8px;font-size:10px;color:#64748b;text-align:right">Valor</th></tr></thead>'
+        +'<tbody>'+linhasTabela
+        +'<tr style="background:#f0fdf4;font-weight:700"><td colspan="6" style="padding:8px;text-align:right;color:#64748b;font-size:12px">Subtotal ('+grupo.fts.length+' FT'+(grupo.fts.length!==1?'s':'')+')</td><td style="padding:8px;text-align:right;color:#15803d;font-size:13px">'+ftvFormatarBRL(grupo.total)+'</td></tr>'
+        +'</tbody></table>'
+        // Área de assinatura por colaborador
+        +'<div style="border:1px solid #e2e8f0;border-top:none;border-radius:0 0 6px 6px;padding:14px 18px;background:#fafafa;display:flex;align-items:flex-end;gap:24px">'
+        +'<div style="flex:1"><div style="border-top:1.5px solid #334155;margin-bottom:5px"></div><div style="font-size:10px;color:#64748b">Assinatura: '+esc(nome)+'</div></div>'
+        +'<div style="font-size:10px;color:#64748b">Data: _______ / _______ / _________</div>'
+        +'</div>'
+        +'</div>';
+    });
+
+    // Totalizador geral
+    corpoHtml += '<div style="background:#f0fdf4;border:2px solid #15803d;border-radius:8px;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;margin-top:8px">'
+      +'<span style="font-weight:700;font-size:14px;color:#14532d">TOTAL GERAL</span>'
+      +'<span style="color:#64748b">'+lf.length+' lançamentos</span>'
+      +'<span style="font-weight:700;font-size:16px;color:#15803d">'+ftvFormatarBRL(totalGeral)+'</span>'
+      +'</div>';
+  }
+
+  var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">'
+    +'<title>Relatório de Lançamentos — Grupo M.S — '+dataHoje+'</title>'
+    +'<style>'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:"Segoe UI",Arial,sans-serif;background:#f1f5f9;color:#1e293b;padding:28px 32px;font-size:13px}'
+    +'.no-print{} @media print{.no-print{display:none!important}body{padding:12px 16px;background:#fff}}'
+    +'</style></head><body>'
+
+    // Botão imprimir
+    +'<div class="no-print" style="margin-bottom:18px"><button onclick="window.print()" style="padding:10px 24px;background:#0f172a;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">🖨️ Imprimir / Salvar como PDF</button></div>'
+
+    // Header azul escuro com logo e título
+    +'<div style="background:linear-gradient(135deg,#0a1628 0%,#0d3878 60%,#1e40af 100%);border-radius:12px;padding:22px 28px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center">'
+    +'<div style="display:flex;align-items:center;gap:18px">'
+    // Logo hexagonal SVG
+    +'<svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:56px;height:62px;filter:drop-shadow(0 0 8px rgba(0,200,248,.5))">'
+    +'<defs><linearGradient id="hG" x1="0" y1="0" x2="100" y2="110" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#0d3878"/><stop offset="100%" stop-color="#051225"/></linearGradient>'
+    +'<linearGradient id="hS" x1="0" y1="0" x2="100" y2="110" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#00eaff"/><stop offset="50%" stop-color="#0088cc"/><stop offset="100%" stop-color="#00c8f8"/></linearGradient></defs>'
+    +'<polygon points="50,4 96,28 96,82 50,106 4,82 4,28" fill="url(#hG)" stroke="url(#hS)" stroke-width="2.5"/>'
+    +'<text x="50" y="67" text-anchor="middle" font-family="Arial" font-weight="900" font-size="26" fill="#eef4ff" letter-spacing="-1">P<tspan fill="#00eaff">J</tspan></text>'
+    +'</svg>'
+    +'<div>'
+    +'<div style="color:#00eaff;font-size:18px;font-weight:700;letter-spacing:1px">PJ &nbsp;TECNOLOGIA</div>'
+    +'<div style="color:#7dd3fc;font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-top:2px">E SISTEMAS</div>'
+    +'<div style="border-top:1.5px solid #00c8f8;margin:6px 0 5px;width:120px"></div>'
+    +'<div style="color:#94a3b8;font-size:10px;font-style:italic">Inovação que conecta. Tecnologia que transforma.</div>'
+    +'</div>'
+    +'</div>'
+    +'<div style="text-align:right">'
+    +'<div style="color:#f59e0b;font-size:20px;font-weight:700">Relatório de Lançamentos</div>'
+    +'<div style="color:#94a3b8;font-size:11px;margin-top:4px">PJ Tecnologia e Sistemas &nbsp;|&nbsp; Gerado em: '+dataHoje+'</div>'
+    +'</div>'
+    +'</div>'
+
+    // Chips de filtros
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">'
+    +['<div style="background:#0f172a;border:1.5px solid #00c8f844;border-radius:8px;padding:8px 14px;text-align:center"><div style="color:#94a3b8;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px">FONTE</div><div style="color:#f59e0b;font-size:13px;font-weight:700">Todos</div></div>',
+      '<div style="background:#0f172a;border:1.5px solid #00c8f844;border-radius:8px;padding:8px 14px;text-align:center"><div style="color:#94a3b8;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px">VISÃO</div><div style="color:#f59e0b;font-size:13px;font-weight:700">'+esc(visao)+'</div></div>',
+      '<div style="background:#0f172a;border:1.5px solid #00c8f844;border-radius:8px;padding:8px 14px;text-align:center"><div style="color:#94a3b8;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px">FILTRO</div><div style="color:#f59e0b;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(filtroTxt)+'</div></div>',
+      '<div style="background:#0f172a;border:1.5px solid #00c8f844;border-radius:8px;padding:8px 14px;text-align:center"><div style="color:#94a3b8;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px">PERÍODO</div><div style="color:#f59e0b;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(periodoTxt)+'</div></div>'
+    ].join('')
+    +'</div>'
+
+    // Cards de resumo
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px">'
+    +'<div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:18px 16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.05)">'
+    +'<div style="font-size:28px;font-weight:700;color:#1e40af">'+lf.length+'</div>'
+    +'<div style="font-size:10px;color:#64748b;letter-spacing:1.5px;text-transform:uppercase;margin-top:4px">TOTAL DE FTs</div>'
+    +'</div>'
+    +'<div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:18px 16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.05)">'
+    +'<div style="font-size:26px;font-weight:700;color:#f59e0b">'+ftvFormatarBRL(totalGeral)+'</div>'
+    +'<div style="font-size:10px;color:#64748b;letter-spacing:1.5px;text-transform:uppercase;margin-top:4px">VALOR TOTAL</div>'
+    +'</div>'
+    +'<div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:18px 16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.05)">'
+    +'<div style="font-size:26px;font-weight:700;color:#1e40af">'+ftvFormatarBRL(mediaVal)+'</div>'
+    +'<div style="font-size:10px;color:#64748b;letter-spacing:1.5px;text-transform:uppercase;margin-top:4px">MÉDIA POR FT</div>'
+    +'</div>'
+    +'</div>'
+
+    // Corpo principal
+    + corpoHtml
+
+    // Rodapé
+    +'<div style="margin-top:24px;text-align:center;color:#94a3b8;font-size:11px;border-top:1px solid #e2e8f0;padding-top:12px">'
+    +'PJ Tecnologia e Sistemas &nbsp;|&nbsp; Sistema de Folga Trabalhada &nbsp;|&nbsp; Pág. 1 / 1'
+    +'</div>'
+    +'</body></html>';
+
+  var win = window.open('','_blank');
+  if(!win){ ftToast('⚠️ Permita pop-ups para abrir o PDF.','warn'); return; }
+  win.document.write(html);
+  win.document.close();
+  setTimeout(function(){ win.focus(); }, 300);
+}
+
+// ── Exportar FTs Validadas — Excel (CSV) ─────────────────────────────────────
+function ftvExportarExcel(){
+  var lf = ftvGetListaFiltrada();
+  if(!lf.length){ ftToast('⚠️ Nenhuma FT para exportar com os filtros atuais.','warn'); return; }
+
+  var csvEsc = function(v){ return '"'+String(v===null||v===undefined?'':v).replace(/"/g,'""')+'"'; };
+
+  var cabecalho = ['Nº','Colaborador','Posto','Data/Hora','Horário','Motivo','Valor (R$)','Ausente','Origem','Validado em'];
+  var linhas = lf.map(function(ft, i){
+    var nome    = ft.substituto||ft.colaboradorNome||'';
+    var dtPonto = ftvFormatarDataHora(ft.dataHora||ft.criadoEm);
+    var dtVal   = ftvFormatarDataHora(ft.validadoEm||ft.enviadoEm||'');
+    var origemFT= ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm');
+    var ausente = ft.ausente||ft.motivo||'';
+    return [
+      i+1, nome, ft.posto||'', dtPonto,
+      ft.horario||'', ft.motivo||'',
+      (parseFloat(ft.valor)||0).toFixed(2).replace('.',','),
+      ausente,
+      origemFT==='inteligencia'?'IA':'ADM',
+      dtVal
+    ].map(csvEsc).join(';');
+  });
+
+  var totalVal = lf.reduce(function(s,f){ return s+(parseFloat(f.valor)||0); }, 0);
+  linhas.push(['','','','','','Total',''+totalVal.toFixed(2).replace('.',','),'','',''].map(csvEsc).join(';'));
+
+  var csv = '\uFEFF' + [cabecalho.map(csvEsc).join(';')].concat(linhas).join('\n');
+  var blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  var dataHoje = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  a.href = url; a.download = 'FTs_Validadas_GrupoMS_'+dataHoje+'.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  ftToast('✅ Excel exportado com '+lf.length+' registros!','success');
+}
 function ftUpdateStats(){
   var p=ftS.ftsLocal.filter(function(f){return f.status==='pendente'&&ftFTDentroPeriodo(f);}).length;
   var e=ftS.ftsLocal.filter(function(f){return f.status==='enviada'&&ftFTDentroPeriodo(f);}).length;
@@ -4728,6 +5028,13 @@ window.ftRecuperarDoHistorico=function(){
 
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',ftInit):ftInit();
 window.addEventListener('firebaseReady',function(){if(ftS.dbFT)ftSyncFirestore();});
+
+// ── Expõe funções de exportação no escopo global ──────────────────────────────
+window.ftvGetListaFiltrada = ftvGetListaFiltrada;
+window.ftvFormatarDataHora = ftvFormatarDataHora;
+window.ftvFormatarBRL      = ftvFormatarBRL;
+window.ftvExportarPDF      = ftvExportarPDF;
+window.ftvExportarExcel    = ftvExportarExcel;
 })();
 // ─── EXPORTAR HISTÓRICO EXCEL (CSV) ───────────────────────────────────────────
 function exportarHistoricoExcel() {
@@ -4932,6 +5239,111 @@ function exportarCredenciais() {
   ].join('\n');
 
   navigator.clipboard.writeText(texto).catch(() => {});
+}
+
+// ── Exportar cadastros completos em PDF ─────────────────────────────────────
+function exportarCadastrosPDF() {
+  if (currentUser?.role !== 'admin') { alert('Acesso restrito a administradores.'); return; }
+
+  const dataHoje = new Date().toLocaleDateString('pt-BR');
+  const total    = colaboradores.filter(c => c.ativo !== false).length;
+  const inativos = colaboradores.filter(c => c.ativo === false).length;
+
+  const cards = colaboradores
+    .slice()
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    .map((c, i) => {
+      const user  = usuarios.find(u => u.colaboradorId === c.id);
+      const ativo = c.ativo !== false;
+      const idxLabel = String(i + 1).padStart(2, '0');
+
+      const linhas = [
+        c.posto       ? `<tr><td>📍 Posto</td><td>${c.posto}</td></tr>` : '',
+        c.rg          ? `<tr><td>🪪 RG</td><td>${c.rg}</td></tr>` : '',
+        c.cpf         ? `<tr><td>📋 CPF</td><td>${c.cpf}</td></tr>` : '',
+        c.dataNasc    ? `<tr><td>🎂 Nascimento</td><td>${new Date(c.dataNasc+'T12:00:00').toLocaleDateString('pt-BR')}</td></tr>` : '',
+        c.estadoCivil ? `<tr><td>💍 Est. Civil</td><td>${c.estadoCivil}</td></tr>` : '',
+        c.telefone    ? `<tr><td>📞 Telefone</td><td>${c.telefone}</td></tr>` : '',
+        c.email       ? `<tr><td>✉️ E-mail</td><td>${c.email}</td></tr>` : '',
+        c.endereco    ? `<tr><td>🏠 Endereço</td><td>${c.endereco}</td></tr>` : '',
+        user          ? `<tr><td>👤 Login</td><td style="font-family:monospace;color:#0369a1">${user.login}</td></tr>` : '',
+        user?.role    ? `<tr><td>🛡️ Perfil</td><td>${user.role === 'admin' ? 'Administrador' : 'Colaborador'}</td></tr>` : '',
+      ].filter(Boolean).join('');
+
+      return `
+      <div class="card" style="page-break-inside:avoid">
+        <div class="card-header" style="background:${ativo ? '#0f172a' : '#78716c'}">
+          <div class="card-num">${idxLabel}</div>
+          <div>
+            <div class="card-nome">${c.nome}</div>
+            <div class="card-sub">${c.posto || 'Sem posto definido'}</div>
+          </div>
+          <div class="card-badge" style="background:${ativo ? '#16a34a22' : '#9ca3af22'};border-color:${ativo ? '#16a34a55' : '#9ca3af55'};color:${ativo ? '#16a34a' : '#9ca3af'}">
+            ${ativo ? '✅ Ativo' : '⛔ Inativo'}
+          </div>
+        </div>
+        ${linhas ? `<table class="info-table">${linhas}</table>` : '<p class="sem-dados">Sem informações adicionais cadastradas.</p>'}
+      </div>`;
+    }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Cadastro de Colaboradores — Grupo M.S — ${dataHoje}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f1f5f9; color: #1e293b; padding: 28px; font-size: 13px; }
+    .page-header { background: #0f172a; color: #fff; border-radius: 12px; padding: 22px 28px; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: center; }
+    .page-header h1 { font-size: 20px; font-weight: 700; }
+    .page-header h2 { font-size: 12px; color: #94a3b8; margin-top: 4px; font-weight: 400; }
+    .page-header .totais { text-align: right; font-size: 12px; color: #94a3b8; line-height: 1.8; }
+    .page-header .totais strong { color: #e2e8f0; font-size: 14px; }
+    .btn-print { display: block; margin: 0 0 24px; padding: 10px 24px; background: #0f172a; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 600; }
+    .btn-print:hover { background: #1e293b; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+    .card-header { display: flex; align-items: center; gap: 14px; padding: 14px 16px; color: #fff; }
+    .card-num { background: rgba(255,255,255,.15); border-radius: 8px; padding: 4px 10px; font-size: 11px; font-family: monospace; font-weight: 700; white-space: nowrap; }
+    .card-nome { font-size: 15px; font-weight: 700; }
+    .card-sub { font-size: 11px; color: #cbd5e1; margin-top: 2px; }
+    .card-badge { margin-left: auto; border: 1px solid; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .info-table { width: 100%; border-collapse: collapse; }
+    .info-table td { padding: 7px 14px; border-bottom: 1px solid #f1f5f9; font-size: 12px; vertical-align: top; }
+    .info-table td:first-child { color: #64748b; white-space: nowrap; width: 110px; font-weight: 600; }
+    .info-table tr:last-child td { border-bottom: none; }
+    .sem-dados { padding: 12px 16px; color: #94a3b8; font-size: 12px; font-style: italic; }
+    .footer { margin-top: 32px; text-align: center; color: #94a3b8; font-size: 11px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+    @media print {
+      body { background: #fff; padding: 12px; }
+      .btn-print { display: none !important; }
+      .cards-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .page-header { border-radius: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <div>
+      <h1>👥 Cadastro de Colaboradores</h1>
+      <h2>Grupo M.S &nbsp;·&nbsp; Gerado em ${dataHoje}</h2>
+    </div>
+    <div class="totais">
+      <strong>${total}</strong> ativos<br>
+      ${inativos > 0 ? `<span>${inativos} inativos</span>` : ''}
+    </div>
+  </div>
+  <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Salvar como PDF</button>
+  <div class="cards-grid">
+    ${cards}
+  </div>
+  <div class="footer">Grupo M.S — Sistema de Ponto · ${dataHoje} · Total: ${total + inativos} colaboradores</div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  window.open(url, '_blank');
 }
 
 // Versão silenciosa do reparo — roda automaticamente ao carregar
