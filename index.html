@@ -3945,7 +3945,8 @@ var FT_HORARIOS=JSON.parse(localStorage.getItem(LS_HORARIOS)||'null')||FT_HORARI
 function ftSalvarMotivos(){localStorage.setItem(LS_MOTIVOS,JSON.stringify(FT_MOTIVOS));}
 function ftSalvarHorarios(){localStorage.setItem(LS_HORARIOS,JSON.stringify(FT_HORARIOS));}
 
-// ══ FUNÇÕES AUXILIARES DE DATA FT ════════════════════════════════════
+// ══ CORTE DE CONTABILIZAÇÃO FT — a partir de 19/05/2026 ══════════════
+var FT_DATA_INICIAL_CONTAGEM='2026-05-19';
 function ftDataISO(valor){
   return String(valor||'').slice(0,10);
 }
@@ -3954,16 +3955,51 @@ function ftDataDoRegistro(reg){
   return ftDataISO(reg&&reg.dataHora);
 }
 function ftDentroPeriodoFT(dataISO){
-  return true; // sem restrição de período — exibe todos os registros
+  return !dataISO||dataISO>=FT_DATA_INICIAL_CONTAGEM;
 }
 function ftFTDentroPeriodo(ft){
-  return true; // sem restrição de período — exibe todos os registros
+  return ftDentroPeriodoFT(ftDataDoRegistro(ft));
 }
 function ftAplicarDataInicialNosFiltros(){
-  // sem data mínima forçada
+  ['ft-filter-data-ini','ftv-filter-data-ini'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(!el)return;
+    if(!el.value||el.value<FT_DATA_INICIAL_CONTAGEM)el.value=FT_DATA_INICIAL_CONTAGEM;
+    el.min=FT_DATA_INICIAL_CONTAGEM;
+  });
 }
 function ftLimparLancamentosAntigosLocal(){
-  // sem remoção de registros antigos
+  // Remove do localStorage tudo anterior ao corte
+  var antes=ftS.ftsLocal.length;
+  ftS.ftsLocal=ftS.ftsLocal.filter(ftFTDentroPeriodo);
+  if(ftS.ftsLocal.length!==antes)ftSalvarLocal();
+}
+// Apaga TODOS os registros antigos do Firebase (ft_registros) uma única vez,
+// controlado por flag no localStorage para não repetir em cada abertura.
+function ftLimparFirebaseAntigos(){
+  var FLAG='ft_limpeza_firebase_20260519';
+  if(localStorage.getItem(FLAG))return; // já executado
+  if(!window._firebaseReady||!window._db)return;
+  window._fbGet(window._fbRef(window._db,'ft_registros')).then(function(snap){
+    var data=snap.val();
+    if(!data)return;
+    var promises=[];
+    Object.keys(data).forEach(function(key){
+      var reg=data[key];
+      var d=ftDataDoRegistro(reg);
+      if(!ftDentroPeriodoFT(d)){
+        promises.push(window._fbRemove(window._fbRef(window._db,'ft_registros/'+key)));
+      }
+    });
+    if(promises.length){
+      Promise.all(promises).then(function(){
+        localStorage.setItem(FLAG,'1');
+        console.log('[FT] Limpeza de histórico antigo concluída: '+promises.length+' registros removidos do Firebase.');
+      }).catch(function(e){console.warn('[FT] Erro na limpeza Firebase:',e);});
+    } else {
+      localStorage.setItem(FLAG,'1');
+    }
+  }).catch(function(e){console.warn('[FT] Erro ao ler ft_registros para limpeza:',e);});
 }
 
 function ftInit(){
@@ -3985,6 +4021,8 @@ function ftConectar(){
       return;
     }
     ftS.dbFT=true; // sinaliza que a conexão está OK
+    // Executa limpeza de histórico antigo no Firebase (apenas uma vez, controlado por flag)
+    ftLimparFirebaseAntigos();
     // Escuta mudanças na coleção FT em tempo real
     window._fbOnValue(window._fbRef(window._db,'ft_registros'),function(snap){
       var data=snap.val();
