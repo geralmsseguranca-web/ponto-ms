@@ -4164,9 +4164,14 @@ function ftEnviarParaFirestore(ftId){
 window.ftSyncFirestore=function(){
   if(ftS.sync)return;
   if(!window._firebaseReady||!window._db){ftToast('⚠️ Firebase não disponível.','warn');return;}
+  if(!ftS.dbFT){ftConectar();ftToast('⏳ Conectando ao Firebase...','warn');return;}
   ftS.sync=true;
   var btn=document.getElementById('ft-btn-sync');
   if(btn){btn.textContent='⏳ Sincronizando...';btn.classList.add('syncing');}
+  // Timeout de segurança: libera o lock após 15s mesmo se a Promise travar
+  var syncTimeout=setTimeout(function(){
+    if(ftS.sync){ftS.sync=false;if(btn){btn.textContent='🔄 Sincronizar FT';btn.classList.remove('syncing');}}
+  },15000);
   window._fbGet(window._fbRef(window._db,'ft_registros'))
     .then(function(snap){
       var data=snap.val();
@@ -4176,6 +4181,7 @@ window.ftSyncFirestore=function(){
       ftToast('🔄 '+ftS.padroes.length+' padrões aprendidos','success');
     })
     .catch(function(e){ftToast('❌ Erro na sincronização: '+e.message,'error');})
+    .finally(function(){clearTimeout(syncTimeout);})
     .finally(function(){ftS.sync=false;if(btn){btn.textContent='🔄 Sincronizar FT';btn.classList.remove('syncing');}});
 };
 
@@ -5005,7 +5011,9 @@ window.ftRecuperarDoHistorico=function(){
   }
   // Filtra apenas entradas a partir da data inicial e sem FT gerada
   var pendentes=regs.filter(function(r){
-    return r.tipo==='entrada'&&ftDentroPeriodoFT(ftDataDoRegistro(r))&&!ftS.ftsLocal.some(function(f){return f.pontoId===r.id;});
+    return r.tipo==='entrada'&&ftDentroPeriodoFT(ftDataDoRegistro(r))
+      &&!ftS.ftsLocal.some(function(f){return f.pontoId===r.id;})
+      &&!ftS.ftFirestore.some(function(f){return f._pontoId===r.id||f.pontoId===r.id;});
   });
   if(!pendentes.length){
     ftToast('✅ Todos os registros já possuem FT gerada.','success');return;
@@ -5037,7 +5045,11 @@ window.ftRecuperarDoHistorico=function(){
 };
 
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',ftInit):ftInit();
-window.addEventListener('firebaseReady',function(){if(ftS.dbFT)ftSyncFirestore();});
+window.addEventListener('firebaseReady',function(){
+  // Se dbFT ainda não está pronto, reconecta primeiro; depois sincroniza
+  if(!ftS.dbFT){ftConectar();}
+  else{ftSyncFirestore();}
+});
 
 // ── Expõe funções de exportação no escopo global ──────────────────────────────
 window.ftvGetListaFiltrada = ftvGetListaFiltrada;
