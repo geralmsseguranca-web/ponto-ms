@@ -1770,6 +1770,59 @@ footer {
         Criar cadastro →
       </button>
     </div>
+    <div style="margin-top:10px;text-align:center">
+      <button onclick="abrirRecuperarSenha()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-family:var(--font-mono);font-size:11px;text-decoration:underline;padding:0">
+        🔑 Esqueceu sua senha?
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TELA DE RECUPERAR SENHA ══ -->
+<div id="recuperar-senha-screen" style="position:fixed;inset:0;z-index:999;background:var(--bg);display:none;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto">
+  <div class="pa-card" style="max-width:420px;margin:auto">
+    <div class="pa-header">
+      <div class="pa-icon" style="background:linear-gradient(135deg,#7c2d12,#f97316);box-shadow:0 0 32px #f9731644">🔑</div>
+      <div class="pa-title">Recuperar Senha</div>
+      <div class="pa-subtitle">Informe seu CPF cadastrado.<br>O sistema mostrará suas credenciais de acesso.</div>
+    </div>
+
+    <div class="pa-error-msg" id="rec-error"></div>
+
+    <!-- Painel: busca por CPF -->
+    <div id="rec-panel-1">
+      <div class="pa-field">
+        <label class="pa-label">CPF <span class="req">*</span></label>
+        <input class="pa-input" id="rec-cpf" type="text" placeholder="000.000.000-00" maxlength="14"
+          oninput="maskCpf(this)"
+          onkeydown="if(event.key==='Enter') buscarCredenciaisPorCpf()"/>
+      </div>
+      <div class="pa-nav">
+        <button class="btn-pa-back" onclick="fecharRecuperarSenha()">← Voltar</button>
+        <button class="btn-pa-next" onclick="buscarCredenciaisPorCpf()">🔍 Buscar</button>
+      </div>
+    </div>
+
+    <!-- Painel: credenciais encontradas -->
+    <div id="rec-panel-2" style="display:none">
+      <div class="pa-success">
+        <div class="pa-success-icon">✅</div>
+        <div class="pa-success-title" style="color:var(--accent)">Credenciais encontradas!</div>
+        <div class="pa-success-sub">Anote seu usuário e senha para acessar o sistema:</div>
+      </div>
+      <div class="pa-credential-box" style="border-color:#0ea5e955;background:#001e30">
+        <div class="pa-cred-row">
+          <span class="pa-cred-label">👤 Usuário</span>
+          <span class="pa-cred-val" id="rec-gen-login" style="color:var(--accent)">—</span>
+        </div>
+        <div class="pa-cred-row">
+          <span class="pa-cred-label">🔒 Senha</span>
+          <span class="pa-cred-val" id="rec-gen-senha" style="color:var(--accent)">—</span>
+        </div>
+      </div>
+      <div class="pa-warn-box">⚠️ Se você alterou sua senha depois do cadastro, esta tela mostrará apenas a senha gerada automaticamente. Solicite ao administrador para redefinir sua senha caso necessário.</div>
+      <button class="btn-pa-entrar" onclick="fecharRecuperarSenha()">🔐 Voltar ao Login</button>
+    </div>
   </div>
 </div>
 
@@ -6584,6 +6637,70 @@ function fecharPrimeiroAcesso() {
   document.getElementById('login-screen').style.display = 'flex';
 }
 
+// ── RECUPERAR SENHA ──
+function abrirRecuperarSenha() {
+  document.getElementById('rec-cpf').value = '';
+  document.getElementById('rec-error').textContent = '';
+  document.getElementById('rec-error').classList.remove('show');
+  document.getElementById('rec-panel-1').style.display = 'block';
+  document.getElementById('rec-panel-2').style.display = 'none';
+  // Garante que usuários estejam carregados
+  if (!usuarios.length) {
+    try { usuarios = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuarios = []; }
+  }
+  document.getElementById('recuperar-senha-screen').style.display = 'flex';
+  document.getElementById('login-screen').style.display = 'none';
+}
+
+function fecharRecuperarSenha() {
+  document.getElementById('recuperar-senha-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+function buscarCredenciaisPorCpf() {
+  const errEl = document.getElementById('rec-error');
+  errEl.classList.remove('show');
+
+  const cpfInput = document.getElementById('rec-cpf').value.trim();
+  const cpfDigitos = cpfInput.replace(/\D/g, '');
+
+  if (cpfDigitos.length < 11) {
+    errEl.textContent = '❌ Informe um CPF válido com 11 dígitos.';
+    errEl.classList.add('show');
+    document.getElementById('rec-cpf').classList.add('error');
+    return;
+  }
+  document.getElementById('rec-cpf').classList.remove('error');
+
+  // Busca usuário pelo CPF (campo cpf no cadastro)
+  const usuario = usuarios.find(u => u.cpf && u.cpf.replace(/\D/g, '') === cpfDigitos);
+
+  if (!usuario) {
+    // CPF não encontrado — recalcula credenciais automáticas a partir dos colaboradores
+    const colab = colaboradores.find(c => c.cpf && c.cpf.replace(/\D/g, '') === cpfDigitos);
+    if (colab) {
+      const primeiroNome = (colab.nome || '').split(' ')[0].toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+      const loginCalc = primeiroNome + cpfDigitos.slice(0, 3);
+      const senhaCalc = cpfDigitos.slice(0, 4);
+      document.getElementById('rec-gen-login').textContent = loginCalc;
+      document.getElementById('rec-gen-senha').textContent = senhaCalc;
+      document.getElementById('rec-panel-1').style.display = 'none';
+      document.getElementById('rec-panel-2').style.display = 'block';
+      return;
+    }
+    errEl.textContent = '❌ CPF não encontrado. Verifique o número ou realize o primeiro cadastro.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  // Usuário encontrado — exibe login e senha original (gerada no cadastro)
+  document.getElementById('rec-gen-login').textContent = usuario.login || '—';
+  document.getElementById('rec-gen-senha').textContent = usuario.senha || '—';
+  document.getElementById('rec-panel-1').style.display = 'none';
+  document.getElementById('rec-panel-2').style.display = 'block';
+}
+
 function paMostrarStep(n) {
   // Paineis
   for (let i = 1; i <= 4; i++) {
@@ -6724,21 +6841,14 @@ async function finalizarCadastro() {
   const cidade  = document.getElementById('pa-cidade').value.trim();
   const uf      = document.getElementById('pa-uf').value;
 
-  // Gerar login: primeirnome + primeiros 3 dígitos do CPF
+  // Gerar login: primeiro nome + primeiros 3 dígitos do CPF
   const primeiroNome = nome.split(' ')[0].toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
-  const cpfDigitos = cpf.replace(/\D/g,'').slice(0, 4);
-  const loginGerado = primeiroNome + cpfDigitos;
+  const cpfSomenteDigitos = cpf.replace(/\D/g,'');
+  const loginGerado = primeiroNome + cpfSomenteDigitos.slice(0, 3);
 
-  // Gerar senha aleatória: 3 letras + 3 números
-  const letras = 'abcdefghjkmnpqrstuvwxyz';
-  const senhaGerada =
-    letras[Math.floor(Math.random()*letras.length)] +
-    letras[Math.floor(Math.random()*letras.length)] +
-    letras[Math.floor(Math.random()*letras.length)] +
-    Math.floor(Math.random()*9+1) +
-    Math.floor(Math.random()*10) +
-    Math.floor(Math.random()*10);
+  // Gerar senha: 4 primeiros dígitos do CPF
+  const senhaGerada = cpfSomenteDigitos.slice(0, 4);
 
   const idColab = uid();
   const idUser  = uid();
