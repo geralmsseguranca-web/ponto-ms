@@ -1471,6 +1471,10 @@ footer {
 .ft-btn-edit-horario:hover{background:rgba(0,212,255,.15)}
 .ft-btn-edit-data{flex:1;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);color:#fbbf24;border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
 .ft-btn-edit-data:hover{background:rgba(251,191,36,.18)}
+.ft-card-dup-warn{display:flex;align-items:center;gap:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.35);border-radius:10px;padding:8px 12px;margin-top:10px;font-size:.8rem;color:#f87171;font-weight:600}
+.ft-card-dup-warn span{flex:1}
+.ft-btn-enviar[disabled],.ft-btn-enviar.bloqueado{opacity:.45;cursor:not-allowed;pointer-events:none}
+.ft-card.ft-card-dup{border-color:rgba(239,68,68,.45)!important;box-shadow:0 0 0 1px rgba(239,68,68,.20)}
 .ft-qe-data-row input[type=datetime-local]{flex:1;min-width:180px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:.82rem;color-scheme:dark;width:100%}
 .ft-quick-edit{display:none;margin-top:10px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;animation:fadeUp .2s ease}
 .ft-quick-edit.open{display:block}
@@ -4380,6 +4384,39 @@ window.ftRenderLista=function(){
   });
   if(!lf.length){if(emEl)emEl.style.display='flex';lista.innerHTML='';return;}
   if(emEl)emEl.style.display='none';
+
+  // ── DETECÇÃO DE DUPLICIDADE NA LISTA ──────────────────────────────────────
+  // Chave de duplicidade: colaboradorNome + posto + horário + dia (yyyy-mm-dd)
+  function _ftDupKey(f){
+    var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+    return [(f.colaboradorNome||'').trim().toLowerCase(),
+            (f.posto||'').trim().toLowerCase(),
+            (f.horario||'').trim(),
+            dia].join('|');
+  }
+  var _dupSet={}; // key → true se duplicata detectada
+  // 1) Duplicata com FT já validada no Firebase
+  var _validadas=(ftS.ftFirestore||[]).filter(function(f){return (f.status||'enviada')==='enviada';});
+  lf.forEach(function(ft){
+    if(!ft.posto||!ft.horario)return; // incompleta — não bloquear por falta de dados
+    var key=_ftDupKey(ft);
+    var dupFirebase=_validadas.some(function(v){return _ftDupKey(v)===key;});
+    if(dupFirebase) _dupSet[ft.id]=true;
+  });
+  // 2) Duplicata entre pendentes na própria lista (mesmo colab+posto+horário+dia)
+  var _keyCount={};
+  lf.forEach(function(ft){
+    if(!ft.posto||!ft.horario)return;
+    var key=_ftDupKey(ft);
+    _keyCount[key]=(_keyCount[key]||0)+1;
+  });
+  lf.forEach(function(ft){
+    if(!ft.posto||!ft.horario)return;
+    var key=_ftDupKey(ft);
+    if(_keyCount[key]>1) _dupSet[ft.id]=true;
+  });
+  // ──────────────────────────────────────────────────────────────────────────
+
   lista.innerHTML=lf.map(function(ft){
     var conf=ft.confianca||0,cc=conf>=80?'#00ff88':conf>=50?'#ffc800':'#ef4444';
     var chips=[];
@@ -4389,16 +4426,18 @@ window.ftRenderLista=function(){
     chips.push(ft.autoMotivo&&ft.motivo?'<span class="ft-chip auto">💬 '+esc(ft.motivo)+'</span>':ft.motivo?'<span class="ft-chip">💬 '+esc(ft.motivo)+'</span>':'<span class="ft-chip warn">💬 Motivo pendente</span>');
     chips.push(ft.valor?'<span class="ft-chip ok">💰 R$ '+parseFloat(ft.valor).toFixed(2).replace('.',',')+'</span>':'<span class="ft-chip warn">💰 Valor pendente</span>');
     var ok=ft.posto&&ft.horario&&ft.motivo,btns='';
+    var isDup=!!_dupSet[ft.id];
     if(ft.status==='pendente'){
       btns+='<button class="ft-btn-edit-data" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'data\')">📅 Data</button>';
       btns+='<button class="ft-btn-edit-motivo" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'motivo\')">💬 Motivo</button>';
       btns+='<button class="ft-btn-edit-horario" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'horario\')">🕐 Horário</button>';
       btns+='<button class="ft-btn-completar" onclick="ftModalAbrir(\''+ft.id+'\')">✏️ Completar</button>';
-      btns+='<button class="ft-btn-enviar" onclick="ftModalAbrir(\''+ft.id+'\')">✅ Validar e Enviar FT</button>';
-    }else{
-      btns+='<span class="ft-chip ok" style="padding:8px 14px">✅ Enviada '+(ft.enviadoEm?new Date(ft.enviadoEm).toLocaleDateString('pt-BR'):'')+'</span>';
-      btns+='<button class="ft-btn-edit-motivo" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'motivo\')" title="Editar motivo desta FT enviada">💬 Editar Motivo</button>';
-    }
+      if(isDup){
+        btns+='<button class="ft-btn-enviar bloqueado" disabled title="Duplicidade detectada — verifique colaborador, posto e horário">🚫 Duplicidade</button>';
+      }else{
+        btns+='<button class="ft-btn-enviar" onclick="ftModalAbrir(\''+ft.id+'\')">✅ Validar e Enviar FT</button>';
+      }
+    }else{btns+='<span class="ft-chip ok" style="padding:8px 14px">✅ Enviada '+(ft.enviadoEm?new Date(ft.enviadoEm).toLocaleDateString('pt-BR'):'')+'</span>';}
     btns+='<button class="ft-btn-del" onclick="ftDeletar(\''+ft.id+'\')" title="Remover">🗑</button>';
     var dt=ft.dataHora?new Date(ft.dataHora).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
     var motivoOpts=FT_MOTIVOS.map(function(m){return '<option value="'+esc(m)+'"'+(ft.motivo===m?' selected':'')+'>'+esc(m)+'</option>';}).join('');
@@ -4422,9 +4461,15 @@ window.ftRenderLista=function(){
     var obsHtml='<div class="ft-obs-wrap">'
       +'<textarea class="ft-obs-textarea" id="ft-obs-'+ft.id+'" placeholder="📝 Observação (opcional)..." onblur="ftSalvarObs(\''+ft.id+'\')" onkeydown="if(event.ctrlKey&&event.key===\'Enter\')ftSalvarObs(\''+ft.id+'\')">'+obsVal+'</textarea>'
       +'</div>';
-    return '<div class="ft-card '+ft.status+'"><div class="ft-card-top"><div><div class="ft-card-nome">'+esc(ft.colaboradorNome)+'</div><div class="ft-card-ts">'+dt+' &nbsp;·&nbsp; 🤖 '+conf+'%</div></div><span class="ft-card-badge '+ft.status+'">'+(ft.status==='pendente'?'⏳ Pendente':'✅ Enviada')+'</span></div>'
+    var dupWarnHtml=isDup
+      ?'<div class="ft-card-dup-warn">'
+        +'<span>⚠️ Possível duplicidade: já existe lançamento para este colaborador, posto e horário neste dia. Revise antes de validar.</span>'
+        +'</div>'
+      :'';
+    return '<div class="ft-card '+ft.status+(isDup?' ft-card-dup':'')+'"><div class="ft-card-top"><div><div class="ft-card-nome">'+esc(ft.colaboradorNome)+'</div><div class="ft-card-ts">'+dt+' &nbsp;·&nbsp; 🤖 '+conf+'%</div></div><span class="ft-card-badge '+ft.status+'">'+(ft.status==='pendente'?'⏳ Pendente':'✅ Enviada')+'</span></div>'
       +'<div class="ft-conf-bar"><div class="ft-conf-fill" style="width:'+conf+'%;background:'+cc+'"></div></div>'
       +'<div class="ft-card-chips" style="margin-top:10px">'+chips.join('')+'</div>'
+      +dupWarnHtml
       +obsHtml
       +'<div class="ft-card-btns" style="margin-top:8px">'+btns+'</div>'
       +quickEdit+'</div>';
@@ -4511,25 +4556,14 @@ window.renderFTValidadas=function(){
       : '';
     var ftId=ft.id||ft._fbId||'';
     var dtSubLabel = dtVal ? ' &nbsp;·&nbsp; <span style="color:var(--muted);font-size:10px">Validada: '+dtVal+'</span>' : '';
-    var motivoOptsV=FT_MOTIVOS.map(function(m){return '<option value="'+esc(m)+'"'+(ft.motivo===m?' selected':'')+'>'+esc(m)+'</option>';}).join('');
-    var quickEditV='<div class="ft-quick-edit" id="ftv-qe-'+ftId+'">'
-      +'<div class="ft-quick-edit-row">'
-      +'<select id="ftv-qe-sel-motivo-'+ftId+'"><option value="">-- Motivo --</option>'+motivoOptsV+'</select>'
-      +'</div>'
-      +'<div class="ft-quick-edit-btns">'
-      +'<button class="ft-qe-ok" onclick="ftvQuickEditMotivoSalvar(\''+ftId+'\')">✅ Salvar</button>'
-      +'<button class="ft-qe-cancel" onclick="ftvQuickEditMotivoFechar(\''+ftId+'\')">❌ Cancelar</button>'
-      +'</div></div>';
     return '<div class="ft-card enviada"><div class="ft-card-top"><div><div class="ft-card-nome">'+esc(nome)+'</div><div class="ft-card-ts">📅 '+dt+dtSubLabel+'</div></div><span class="ft-card-badge enviada">✅ Validada</span></div>'
       +'<div class="ft-card-chips" style="margin-top:10px">'+chips.join('')+'</div>'
       +confBar
       +(ft.observacao?'<div class="ft-obs-wrap" style="margin-top:10px"><div class="ft-obs-textarea" style="min-height:auto">📝 '+esc(ft.observacao)+'</div></div>':'')
       +'<div class="ftv-card-btns">'
-        +'<button class="ft-btn-edit-motivo" onclick="ftvQuickEditMotivoAbrir(\''+ftId+'\')" title="Editar motivo rapidamente">💬 Motivo</button>'
         +'<button class="ftv-btn-edit" onclick="ftvEditarAbrir(\''+ftId+'\')">✏️ Editar FT</button>'
         +'<button class="ftv-btn-del" onclick="ftvDeletar(\''+ftId+'\')">🗑️ Excluir</button>'
       +'</div>'
-      +quickEditV
       +'</div>';
   }).join('');
 };
@@ -4974,48 +5008,6 @@ window.ftvDeletar=function(ftId){
   ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
 };
 
-// ── QUICK-EDIT MOTIVO — FT VALIDADA ──────────────────────────────────────────
-window.ftvQuickEditMotivoAbrir=function(ftId){
-  // Fecha outros painéis abertos
-  document.querySelectorAll('.ft-quick-edit.open').forEach(function(el){
-    if(el.id!=='ftv-qe-'+ftId) el.classList.remove('open');
-  });
-  var qe=document.getElementById('ftv-qe-'+ftId);
-  if(qe) qe.classList.add('open');
-};
-window.ftvQuickEditMotivoFechar=function(ftId){
-  var qe=document.getElementById('ftv-qe-'+ftId);
-  if(qe) qe.classList.remove('open');
-};
-window.ftvQuickEditMotivoSalvar=function(ftId){
-  var sel=document.getElementById('ftv-qe-sel-motivo-'+ftId);
-  var val=sel?sel.value:'';
-  if(!val){ftToast('⚠️ Selecione um motivo.','warn');return;}
-  var updates={motivo:val,autoMotivo:false,editadoEm:new Date().toISOString()};
-  // Atualiza ftsLocal
-  ftS.ftsLocal=ftS.ftsLocal.map(function(f){
-    if(f.id!==ftId&&f._fbId!==ftId)return f;
-    return Object.assign({},f,updates);
-  });
-  // Atualiza ftFirestore (memória)
-  ftS.ftFirestore=ftS.ftFirestore.map(function(f){
-    if(f.id!==ftId&&f._fbId!==ftId)return f;
-    return Object.assign({},f,updates);
-  });
-  ftSalvarLocal();
-  // Persiste no Firebase
-  if(window._firebaseReady&&window._db){
-    var ftRef=((ftS.ftsLocal.find(function(f){return f.id===ftId||f._fbId===ftId;})||{})._fbId)||ftId;
-    window._fbUpdate(window._fbRef(window._db,'ft_registros/'+ftRef),updates)
-      .then(function(){ftToast('✅ Motivo atualizado!','success');})
-      .catch(function(e){ftToast('⚠️ Salvo localmente. Erro Firebase: '+e.message,'warn');});
-  } else {
-    ftToast('✅ Motivo atualizado localmente!','success');
-  }
-  ftvQuickEditMotivoFechar(ftId);
-  ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
-};
-
 window.ftSalvarObs=function(ftId){
   var el=document.getElementById('ft-obs-'+ftId);
   if(!el)return;
@@ -5067,7 +5059,6 @@ window.ftQuickEditSalvar=function(ftId){
   var sel=document.getElementById('ft-qe-sel-'+campo+'-'+ftId);
   var val=sel?sel.value:'';
   if(!val){ftToast('⚠️ Selecione uma opção.','warn');return;}
-  var fbUpdate={};
   ftS.ftsLocal=ftS.ftsLocal.map(function(f){
     if(f.id!==ftId)return f;
     var update={};
@@ -5075,27 +5066,9 @@ window.ftQuickEditSalvar=function(ftId){
     // Quick edit é sempre intervenção do ADM → campo NÃO é automático
     if(campo==='motivo') update.autoMotivo=false;
     if(campo==='horario')update.autoHorario=false;
-    fbUpdate=Object.assign({},update,{editadoEm:new Date().toISOString()});
     return Object.assign({},f,update);
   });
-  // Atualiza também em ftFirestore (memória) caso seja FT enviada/validada
-  ftS.ftFirestore=ftS.ftFirestore.map(function(f){
-    if(f.id!==ftId&&f._fbId!==ftId)return f;
-    var update={};
-    update[campo]=val;
-    if(campo==='motivo') update.autoMotivo=false;
-    if(campo==='horario')update.autoHorario=false;
-    return Object.assign({},f,update,{editadoEm:new Date().toISOString()});
-  });
-  ftSalvarLocal();
-  // Persiste no Firebase se disponível
-  if(window._firebaseReady&&window._db&&Object.keys(fbUpdate).length){
-    var ftRef=((ftS.ftsLocal.find(function(f){return f.id===ftId;})||{})._fbId)||ftId;
-    window._fbUpdate(window._fbRef(window._db,'ft_registros/'+ftRef),fbUpdate)
-      .then(function(){})
-      .catch(function(e){ftToast('⚠️ Salvo localmente. Erro Firebase: '+e.message,'warn');});
-  }
-  ftQuickEditFechar(ftId);ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
+  ftSalvarLocal();ftQuickEditFechar(ftId);ftRenderLista();ftUpdateStats();
   ftToast('✅ '+( campo==='motivo'?'Motivo':'Horário')+' atualizado!','success');
 };
 
