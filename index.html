@@ -4112,10 +4112,30 @@ function ftConectar(){
     // Escuta mudanças na coleção FT em tempo real
     window._fbOnValue(window._fbRef(window._db,'ft_registros'),function(snap){
       var data=snap.val();
-      ftS.ftFirestore=data?Object.values(data):[];
+      var remotas=data?Object.values(data):[];
+      ftS.ftFirestore=remotas;
+      // Merge: incorpora no ftsLocal qualquer FT remota (pendente ou enviada) ainda não conhecida
+      // Isso garante que todos os dispositivos vejam FTs pendentes geradas em outros celulares
+      var idsLocais=ftS.ftsLocal.map(function(f){return f.id;});
+      var novas=remotas.filter(function(r){
+        return !idsLocais.includes(r.id) && !idsLocais.includes(r._fbId||'__');
+      });
+      if(novas.length){
+        ftS.ftsLocal=ftS.ftsLocal.concat(novas);
+        ftSalvarLocal();
+      }
+      // Atualiza status local de FTs que foram validadas em outro dispositivo
+      ftS.ftsLocal=ftS.ftsLocal.map(function(f){
+        var remota=remotas.find(function(r){return r.id===f.id||r.id===f._fbId||r._pontoId===f.pontoId;});
+        if(remota&&remota.status==='enviada'&&f.status==='pendente'){
+          return Object.assign({},f,{status:'enviada',enviadoEm:remota.enviadoEm,_fbId:remota.id,validadoPor:remota.validadoPor||'adm'});
+        }
+        return f;
+      });
+      ftSalvarLocal();
       ftAprenderComHistorico(ftS.ftFirestore);
       ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
-      console.log('[FT] Conectado ao Realtime Database. Registros:',ftS.ftFirestore.length);
+      console.log('[FT] Firebase sync: '+remotas.length+' registros ('+novas.length+' novos incorporados)');
     },function(e){console.warn('[FT] onValue err',e);});
   }
   conectarComDB();
@@ -4207,6 +4227,11 @@ window.ftGerarDePonto=function(reg){
     ftS.ftsLocal.unshift(ft);ftSalvarLocal();ftRenderLista();ftUpdateStats();
     var ok=ft.posto&&ft.horario&&ft.motivo&&ft.valor;
     ftToast(ft.confianca>=80&&ok?'🤖 FT gerada: '+ft.colaboradorNome:'📋 FT pendente: '+ft.colaboradorNome,ft.confianca>=80&&ok?'success':'warn');
+    // Persiste FT pendente no Firebase para que outros dispositivos vejam em tempo real
+    if(window._firebaseReady&&window._db){
+      window._fbSet(window._fbRef(window._db,'ft_registros/'+ft.id),ft)
+        .catch(function(e){console.warn('[FT] Erro ao salvar pendente no Firebase:',e);});
+    }
   }
 
   // Se Firebase já carregou e tem dados, gera imediatamente
