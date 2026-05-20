@@ -2197,6 +2197,7 @@ footer {
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <button class="btn-export btn-export-pdf" onclick="exportarHistoricoPDF()" style="padding:8px 16px;font-size:13px">📄 PDF</button>
           <button class="btn-export btn-export-xlsx" onclick="exportarHistoricoExcel()" style="padding:8px 16px;font-size:13px">📊 Excel</button>
+          <button id="btn-del-sel" onclick="excluirSelecionados()" style="display:none;padding:8px 16px;font-size:13px;background:linear-gradient(135deg,#7f1d1d,#b91c1c);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700;gap:6px;align-items:center">🗑️ Excluir selecionados (<span id="sel-count">0</span>)</button>
           <button class="btn-clear" onclick="clearFilters()">Limpar filtros</button>
         </div>
       </div>
@@ -2206,6 +2207,7 @@ footer {
         <table>
           <thead>
             <tr>
+              <th id="th-sel" style="display:none;width:36px;text-align:center"><input type="checkbox" id="hist-sel-all" title="Selecionar todos" onchange="histToggleAll(this.checked)" style="cursor:pointer;width:16px;height:16px"/></th>
               <th>Data</th><th>Colaborador</th><th>Posto</th><th>Entrada</th><th>Saída</th><th>Duração</th><th id="th-acoes" style="display:none">Ações</th>
             </tr>
           </thead>
@@ -3817,8 +3819,17 @@ function setDateRange(preset) {
 }
 
 let _filtrados = [];
+let _histSelIds = new Set(); // IDs selecionados para exclusão em lote
+
 function renderHistorico() {
   histPage = 1;
+  _histSelIds = new Set();
+  _renderHistTabla();
+}
+
+// Renderiza mantendo a página atual (usado após excluir)
+function _renderHistoricoMesmaPage() {
+  _histSelIds = new Set();
   _renderHistTabla();
 }
 
@@ -3953,16 +3964,26 @@ function _renderHistTabla() {
 
   document.getElementById('filter-count').textContent = `${total} registro(s) encontrado(s)`;
 
-  // Mostra coluna Ações só para admin
+  // Mostra coluna Ações e Seleção só para admin
   const thAcoes = document.getElementById('th-acoes');
   if (thAcoes) thAcoes.style.display = isAdmin ? '' : 'none';
+  const thSel = document.getElementById('th-sel');
+  if (thSel) thSel.style.display = isAdmin ? '' : 'none';
+  const btnDelSel = document.getElementById('btn-del-sel');
+  if (btnDelSel) btnDelSel.style.display = 'none';
+  const selAllCb = document.getElementById('hist-sel-all');
+  if (selAllCb) selAllCb.checked = false;
+  _atualizarBarraSel();
 
   const tbody = document.getElementById('hist-tbody');
+  const colSpan = isAdmin ? 8 : 6;
   if (!slice.length) {
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="${isAdmin?7:6}">Nenhum registro encontrado</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="${colSpan}">Nenhum registro encontrado</td></tr>`;
   } else {
     tbody.innerHTML = slice.map(l => {
       const idsEsc = esc(JSON.stringify(l.ids || []));
+      const rowKey = (l.ids||[]).join(',');
+      const isSel  = (l.ids||[]).every(id => _histSelIds.has(id));
       const turnoLabel = l.turnoIdx > 0 ? `<span style="font-size:10px;color:var(--gold);font-family:var(--font-mono);margin-left:6px">TURNO ${l.turnoIdx + 1}</span>` : '';
       const entradaHtml = l.entrada
         ? `<span class="tipo-tag tipo-entrada">▲ ${fmtHora(l.entrada)}</span>${l.locEntrada ? `<br><a href="https://maps.google.com/?q=${l.locEntrada.lat},${l.locEntrada.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none" title="Ver localização">📍 Ver mapa</a>` : '<br><span style="font-size:10px;color:var(--muted)">📍 —</span>'}`
@@ -3970,6 +3991,9 @@ function _renderHistTabla() {
       const saidaHtml = l.saida
         ? `<span class="tipo-tag tipo-saida">▼ ${fmtHora(l.saida)}</span>${l.locSaida ? `<br><a href="https://maps.google.com/?q=${l.locSaida.lat},${l.locSaida.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none" title="Ver localização">📍 Ver mapa</a>` : '<br><span style="font-size:10px;color:var(--muted)">📍 —</span>'}`
         : `<span class="tipo-tag tipo-vazio">–</span>`;
+      const selHtml = isAdmin
+        ? `<td style="text-align:center;width:36px"><input type="checkbox" data-ids='${idsEsc}' ${isSel?'checked':''} onchange="histToggleRow(this)" style="cursor:pointer;width:16px;height:16px"/></td>`
+        : '';
       const acoesHtml = isAdmin
         ? `<td style="text-align:center"><button class="btn-del" title="Excluir este turno" onclick="confirmarDelRegistroPorIds(${idsEsc},'${esc(l.colaboradorNome)}','${esc(fmtData(l.dataTs))}')" >🗑️</button></td>`
         : '';
@@ -3984,6 +4008,7 @@ function _renderHistTabla() {
         : `<span style="color:var(--muted);font-size:12px">–</span>`;
       return `
         <tr>
+          ${selHtml}
           <td class="td-data">${fmtData(l.dataTs)}${turnoLabel}</td>
           <td class="td-nome">${esc(l.colaboradorNome)}</td>
           <td class="td-posto">${esc(l.posto)}</td>
@@ -5449,12 +5474,65 @@ function confirmarDelRegistroOk() {
   saveRegistros();
   _delRegIds = [];
   document.getElementById('del-reg-overlay').style.display = 'none';
-  renderHistorico();
+  _renderHistoricoMesmaPage(); // mantém na mesma página após excluir
 }
 
 function cancelarDelRegistro() {
   _delRegIds = [];
   document.getElementById('del-reg-overlay').style.display = 'none';
+}
+
+// ─── SELEÇÃO MÚLTIPLA NO HISTÓRICO ───────────────────────────────────────────
+function histToggleRow(cb) {
+  const ids = JSON.parse(cb.dataset.ids || '[]');
+  if (cb.checked) {
+    ids.forEach(id => _histSelIds.add(id));
+  } else {
+    ids.forEach(id => _histSelIds.delete(id));
+  }
+  _atualizarBarraSel();
+  // Atualiza checkbox "selecionar todos" da página
+  const allCbs = document.querySelectorAll('#hist-tbody input[type=checkbox]');
+  const selAll = document.getElementById('hist-sel-all');
+  if (selAll && allCbs.length) {
+    selAll.checked = [...allCbs].every(c => c.checked);
+    selAll.indeterminate = !selAll.checked && [...allCbs].some(c => c.checked);
+  }
+}
+
+function histToggleAll(checked) {
+  const allCbs = document.querySelectorAll('#hist-tbody input[type=checkbox]');
+  allCbs.forEach(cb => {
+    cb.checked = checked;
+    const ids = JSON.parse(cb.dataset.ids || '[]');
+    if (checked) ids.forEach(id => _histSelIds.add(id));
+    else         ids.forEach(id => _histSelIds.delete(id));
+  });
+  const selAll = document.getElementById('hist-sel-all');
+  if (selAll) selAll.indeterminate = false;
+  _atualizarBarraSel();
+}
+
+function _atualizarBarraSel() {
+  const btn = document.getElementById('btn-del-sel');
+  const cnt = document.getElementById('sel-count');
+  if (!btn) return;
+  const n = _histSelIds.size;
+  if (n > 0) {
+    btn.style.display = 'inline-flex';
+    if (cnt) cnt.textContent = n;
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function excluirSelecionados() {
+  if (!_histSelIds.size) return;
+  const n = _histSelIds.size;
+  _delRegIds = [..._histSelIds];
+  _delRegDesc = `Excluir ${n} registro(s) selecionado(s)? Esta ação não pode ser desfeita.`;
+  document.getElementById('del-reg-desc').textContent = _delRegDesc;
+  document.getElementById('del-reg-overlay').style.display = 'flex';
 }
 
 // ─── RENDER: COLABORADORES ────────────────────────────────────────────────────
