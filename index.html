@@ -2788,8 +2788,11 @@ function loadData() {
       // Sincronização em tempo real: gera FT para registros novos de ENTRADA
       // que chegaram de outros dispositivos (não foram registrados nesta sessão)
       if (typeof window.ftGerarDePonto === 'function' && anterior.length > 0) {
+        if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
         registros.forEach(function(r) {
-          if (r.tipo === 'entrada' && !anterior.includes(r.id)) {
+          // Pula entradas já processadas nesta sessão (evita reprocessar o próprio registro)
+          if (r.tipo === 'entrada' && !anterior.includes(r.id) && !window._ftPontosProcessados.has(r.id)) {
+            window._ftPontosProcessados.add(r.id); // marca antes de gerar para evitar race condition
             window.ftGerarDePonto(r);
           }
         });
@@ -3595,6 +3598,9 @@ function registrarPonto() {
   saveUmRegistro(reg); // salva somente este registro — não sobrescreve os demais
   showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao);
   if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
+  // Marca este id como já processado nesta sessão, para o listener Firebase não regerar
+  if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
+  window._ftPontosProcessados.add(reg.id);
   selectedColab = null;
   pendingTipo = null;
   pendingLocalizacao = null;
@@ -4216,10 +4222,23 @@ window.ftGerarDePonto=function(reg){
   if(!ftDentroPeriodoFT(ftDataDoRegistro(reg)))return;
 
   function _gerar(){
-    // Dedup: checa ftsLocal E ftFirestore (evita regerar FT já validada em outra sessão)
+    // Dedup 1: checa ftsLocal E ftFirestore pelo pontoId (evita regerar FT já existente)
     var jaExiste=ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;})
       ||ftS.ftFirestore.some(function(f){return f.pontoId===reg.id||f._pontoId===reg.id;});
     if(jaExiste)return;
+    // Dedup 2: espelha o cooldown de 60min da UI — impede gerar FT duplicada
+    // para o mesmo colaborador no mesmo dia/posto se já existe uma gerada recentemente
+    var agora60=Date.now();
+    var colabNomeLower=(reg.colaboradorNome||'').trim().toLowerCase();
+    var regDia=ftLocalISO(reg.timestamp).slice(0,10);
+    var jaGeradaRecente=ftS.ftsLocal.some(function(f){
+      if((f.colaboradorNome||'').trim().toLowerCase()!==colabNomeLower)return false;
+      if((f.dataHora||f.criadoEm||'').slice(0,10)!==regDia)return false;
+      // Considera duplicata se criada nos últimos 60 minutos (mesmo cooldown da UI)
+      var criadoMs=f.criadoEm?new Date(f.criadoEm).getTime():0;
+      return (agora60-criadoMs)<(60*60*1000);
+    });
+    if(jaGeradaRecente){console.warn('[FT] Dedup cooldown: FT já gerada para '+reg.colaboradorNome+' nas últimas 60 min. Ignorando.');return;}
     var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
     var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',colaboradorNome:reg.colaboradorNome||'',
       posto:(pad&&pad.posto)||reg.posto||'',horario:(pad&&pad.horario)||(turno?turno.t:''),
