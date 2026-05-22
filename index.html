@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Grupo M.S — Ponto Eletrônico</title>
+<title>Grupo M.S — Ponto Eletrônico v17</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
@@ -778,6 +778,61 @@ footer {
   font-size: 12px; font-family: var(--font-mono);
   position: relative; z-index: 1;
 }
+
+/* ══════════════════════════════════════════
+   OFFLINE / FILA
+══════════════════════════════════════════ */
+#offline-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+  background: linear-gradient(90deg, #1a0800, #3d1a00, #1a0800);
+  border-bottom: 2px solid #f59e0b88;
+  padding: 10px 20px;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+  color: var(--gold); letter-spacing: 0.5px;
+  animation: slideDown .3s ease;
+  box-shadow: 0 4px 24px #0009;
+}
+#offline-banner.online {
+  background: linear-gradient(90deg, #001a0d, #052e12, #001a0d);
+  border-bottom-color: #22c55e88;
+  color: var(--green);
+}
+@keyframes slideDown { from{transform:translateY(-100%)} to{transform:translateY(0)} }
+
+.offline-queue-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #f59e0b22; border: 1px solid #f59e0b55;
+  border-radius: 20px; padding: 3px 12px;
+  font-size: 12px; color: var(--gold);
+  cursor: pointer; transition: all .2s;
+}
+.offline-queue-badge:hover { background: #f59e0b33; }
+.offline-queue-badge .badge-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--gold); animation: pulse 1.5s infinite;
+}
+
+/* Marcador de registro offline na lista */
+.reg-offline-tag {
+  display: inline-block;
+  font-size: 10px; font-family: var(--font-mono); font-weight: 700;
+  background: #1a1000; color: #f59e0b; border: 1px solid #f59e0b55;
+  border-radius: 4px; padding: 1px 6px; margin-left: 6px;
+  vertical-align: middle; letter-spacing: 0.5px;
+}
+
+/* Toast de sincronização */
+#sync-toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px 22px;
+  font-family: var(--font-mono); font-size: 13px; color: var(--text);
+  box-shadow: 0 8px 40px #000a; z-index: 9998;
+  display: none; white-space: nowrap;
+  animation: fadeUp .25s ease;
+}
+#sync-toast.show { display: block; }
 
 /* ══════════════════════════════════════════
    PRIMEIRO ACESSO
@@ -1714,6 +1769,42 @@ footer {
   </div>
 </div>
 
+<!-- ══ BANNER OFFLINE ══ -->
+<div id="offline-banner" style="display:none">
+  <span id="offline-banner-icon">📡</span>
+  <span id="offline-banner-text">Sem conexão — os pontos serão salvos e sincronizados ao reconectar</span>
+  <span class="offline-queue-badge" id="offline-queue-badge" onclick="abrirFilaOffline()" style="display:none">
+    <span class="badge-dot"></span>
+    <span id="offline-queue-count">0</span> na fila
+  </span>
+</div>
+
+<!-- ══ TOAST DE SINCRONIZAÇÃO ══ -->
+<div id="sync-toast"></div>
+
+<!-- ══ MODAL FILA OFFLINE ══ -->
+<div class="overlay" id="fila-offline-overlay" style="display:none;z-index:2100" onclick="if(event.target===this)fecharFilaOffline()">
+  <div class="confirm-modal" style="max-width:480px;width:94%;text-align:left">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="font-size:17px;color:var(--gold)">📦 Fila de Registros Offline</h3>
+      <button onclick="fecharFilaOffline()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Registros feitos sem conexão, aguardando envio ao Firebase:</p>
+    <div id="fila-offline-lista" style="max-height:280px;overflow-y:auto;display:grid;gap:8px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="sincronizarFilaOffline()" id="btn-sync-fila"
+        style="flex:1;background:#052e0f;border:1px solid var(--green);color:var(--green);border-radius:10px;padding:11px;cursor:pointer;font-weight:700;font-size:13px">
+        ☁️ Sincronizar agora
+      </button>
+      <button onclick="fecharFilaOffline()"
+        style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:11px 18px;cursor:pointer;font-size:13px">
+        Fechar
+      </button>
+    </div>
+    <p style="font-size:11px;color:var(--muted2);margin-top:10px;text-align:center">A sincronização automática ocorre quando a conexão é restaurada</p>
+  </div>
+</div>
+
 <!-- ══ TELA DE LOGIN ══ -->
 <div id="login-screen">
   <div class="login-card">
@@ -2530,7 +2621,7 @@ footer {
 
 <footer id="main-footer" style="display:none">
   <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
-    <div>© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v7.7</div>
+    <div>© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v17 · Modo Offline ✓</div>
     <div style="display:flex;align-items:center;gap:8px;opacity:.55;font-size:11px;letter-spacing:1.5px;text-transform:uppercase">
       <svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:18px;height:20px;filter:drop-shadow(0 0 4px rgba(0,200,248,.4))">
         <defs>
@@ -2688,11 +2779,13 @@ function _setSyncStatus(s) {
   _syncStatus = s;
   const el = document.getElementById('sync-indicator');
   if (!el) return;
+  const q = offlineQueueGet ? offlineQueueGet() : [];
+  const temFila = q.length > 0;
   const map = {
     idle:    { icon:'🔵', txt:'Aguardando',  color:'#0ea5e9' },
     syncing: { icon:'🔄', txt:'Sincronizando…', color:'#f59e0b' },
     ok:      { icon:'✅', txt:'Sincronizado', color:'#22c55e' },
-    error:   { icon:'❌', txt:'Erro ao salvar', color:'#ef4444' },
+    error:   { icon: temFila ? '📦' : '❌', txt: temFila ? `Offline · ${q.length} na fila` : 'Sem conexão', color: temFila ? '#f59e0b' : '#ef4444' },
   };
   const m = map[s] || map.idle;
   el.innerHTML = `<span style="color:${m.color}">${m.icon} ${m.txt}</span>`;
@@ -3638,7 +3731,7 @@ function stopCam() {
   if (vid) { vid.srcObject=null; }
 }
 
-function registrarPonto() {
+function registrarPontoBase() {
   const postoEscolhido = document.getElementById('ponto-posto-select').value || selectedColab.posto;
   const reg = {
     id: uid(),
@@ -7099,20 +7192,37 @@ async function diagnosticoAtualizar() {
 
   el.innerHTML = '<div style="margin-bottom:10px">'
     + '<span style="color:' + (fbOk?'var(--green)':'var(--red)') + '">'
-    + (fbOk ? '\u2705 Firebase conectado' : '\u274C Firebase offline') + (fbOk?' \xB7 '+fbLatency:'')
+    + (fbOk ? '✅ Firebase conectado' : '❌ Firebase offline') + (fbOk?' · '+fbLatency:'')
     + '</span></div>'
     + avisoHtml
-    + '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">\u2601\uFE0F Firebase \xA0\xA0 \uD83D\uDCBE Local</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">☁️ Firebase &nbsp;&nbsp; 💾 Local</div>'
     + diagRow('Colaboradores', fbColabs, lcColabs)
     + diagRow('Registros', fbRegs, lcRegs)
-    + diagRow('Usu\xE1rios', fbUsers, lcUsers)
+    + diagRow('Usuários', fbUsers, lcUsers)
+    + (function(){
+        const q = offlineQueueGet();
+        if (!q.length) return '';
+        return '<div style="margin-top:10px;background:#1a1000;border:1px solid #f59e0b44;border-radius:8px;padding:8px 10px">'
+          + '<div style="color:var(--gold);font-weight:700;margin-bottom:6px">📦 Fila offline: ' + q.length + ' registro' + (q.length>1?'s':'') + ' pendente' + (q.length>1?'s':'') + '</div>'
+          + q.slice(0,3).map(function(r){
+              var h = new Date(r.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+              return '<div style="font-size:11px;color:var(--muted);padding:2px 0">'
+                + (r.tipo==='entrada'?'▲':'▼') + ' ' + esc(r.colaboradorNome) + ' &nbsp;·&nbsp; ' + h + '</div>';
+            }).join('')
+          + (q.length>3 ? '<div style="font-size:11px;color:var(--muted2)">... e mais ' + (q.length-3) + '</div>' : '')
+          + '<button onclick="fecharDiagnostico();abrirFilaOffline()" style="margin-top:8px;width:100%;background:#052e0f;border:1px solid var(--green);color:var(--green);border-radius:8px;padding:7px;cursor:pointer;font-size:12px;font-weight:700">☁️ Sincronizar fila agora</button>'
+          + '</div>';
+      })()
     + '<div style="margin-top:8px;font-size:11px;color:var(--muted2);border-top:1px solid var(--border);padding-top:6px">'
-    + 'Em mem\xF3ria: ' + colaboradores.length + ' colabs \xB7 ' + registros.length + ' registros \xB7 ' + usuarios.length + ' usu\xE1rios'
+    + 'Em memória: ' + colaboradores.length + ' colabs · ' + registros.length + ' registros · ' + usuarios.length + ' usuários'
     + '</div>'
     + '<div style="margin-top:6px;font-size:12px">'
-    + '<span style="color:var(--muted)">Usu\xE1rio logado: </span>'
-    + '<span style="color:var(--text)">' + (currentUser ? (currentUser.nome || currentUser.login) : '\u2014') + '</span>'
+    + '<span style="color:var(--muted)">Usuário logado: </span>'
+    + '<span style="color:var(--text)">' + (currentUser ? (currentUser.nome || currentUser.login) : '—') + '</span>'
     + (currentUser && currentUser.colaboradorId ? '<br><span style="color:var(--muted)">ColabID: </span><span style="color:var(--accent);font-size:11px">' + currentUser.colaboradorId + '</span>' : '')
+    + '</div>'
+    + '<div style="margin-top:8px;font-size:12px;color:var(--muted)">'
+    + '🌐 Conexão: <span style="color:' + (navigator.onLine ? 'var(--green)' : 'var(--red)') + '">' + (navigator.onLine ? 'Online' : 'Offline') + '</span>'
     + '</div>';
 }
 
@@ -7172,6 +7282,285 @@ function diagnosticoForcarLocal() {
     }
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  🔌 SISTEMA OFFLINE — fila persistente + sincronização automática
+// ══════════════════════════════════════════════════════════════════════════════
+
+const OFFLINE_QUEUE_KEY = 'ms_offline_queue';
+
+// Retorna a fila de registros pendentes (array)
+function offlineQueueGet() {
+  try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]'); } catch { return []; }
+}
+
+// Persiste a fila
+function offlineQueueSet(q) {
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q));
+}
+
+// Adiciona um registro à fila offline
+function offlineQueueAdd(reg) {
+  const q = offlineQueueGet();
+  // Evita duplicatas
+  if (!q.find(r => r.id === reg.id)) {
+    q.unshift({ ...reg, _offline: true, _queuedAt: Date.now() });
+    offlineQueueSet(q);
+  }
+  atualizarBadgeOffline();
+}
+
+// Remove um registro da fila (após sincronizar com sucesso)
+function offlineQueueRemove(id) {
+  const q = offlineQueueGet().filter(r => r.id !== id);
+  offlineQueueSet(q);
+  atualizarBadgeOffline();
+}
+
+// Atualiza o badge visual da fila
+function atualizarBadgeOffline() {
+  const q = offlineQueueGet();
+  const badge = document.getElementById('offline-queue-badge');
+  const count = document.getElementById('offline-queue-count');
+  if (!badge || !count) return;
+  if (q.length > 0) {
+    badge.style.display = 'inline-flex';
+    count.textContent = q.length;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// Sincroniza todos os registros da fila com o Firebase
+async function sincronizarFilaOffline() {
+  const q = offlineQueueGet();
+  if (!q.length) return;
+  if (!window._firebaseReady || !window._db) {
+    mostrarSyncToast('⚠️ Firebase ainda offline. Tente novamente em instantes.', 'gold');
+    return;
+  }
+
+  const btn = document.getElementById('btn-sync-fila');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; }
+
+  let ok = 0; let err = 0;
+  for (const reg of q) {
+    try {
+      const { _offline, _queuedAt, ...regLimpo } = reg;
+      await window._fbSet(window._fbRef(window._db, 'registros/' + regLimpo.id), regLimpo);
+      // Atualiza o array em memória se o registro não estiver lá ainda
+      if (!registros.find(r => r.id === regLimpo.id)) {
+        registros.unshift(regLimpo);
+      }
+      offlineQueueRemove(regLimpo.id);
+      ok++;
+    } catch(e) {
+      err++;
+    }
+  }
+
+  // Persiste localmente o estado mais recente
+  localStorage.setItem('ms_registros', JSON.stringify(registros));
+
+  if (btn) { btn.disabled = false; btn.textContent = '☁️ Sincronizar agora'; }
+  renderAll();
+  renderFilaOffline();
+  atualizarBadgeOffline();
+
+  if (ok > 0 && err === 0) {
+    mostrarSyncToast(`✅ ${ok} registro${ok>1?'s':''} sincronizado${ok>1?'s':''}!`, 'green');
+    _setSyncStatus('ok');
+  } else if (ok > 0) {
+    mostrarSyncToast(`⚠️ ${ok} sincronizados, ${err} com erro.`, 'gold');
+  } else {
+    mostrarSyncToast(`❌ Falha ao sincronizar. Tente novamente.`, 'red');
+  }
+}
+
+// Toast visual leve
+function mostrarSyncToast(msg, cor) {
+  const el = document.getElementById('sync-toast');
+  if (!el) return;
+  const cores = { green: '#22c55e', gold: '#f59e0b', red: '#ff4466' };
+  el.innerHTML = `<span style="color:${cores[cor]||cores.green}">${msg}</span>`;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+// Abre o modal da fila offline
+function abrirFilaOffline() {
+  document.getElementById('fila-offline-overlay').style.display = 'flex';
+  renderFilaOffline();
+}
+function fecharFilaOffline() {
+  document.getElementById('fila-offline-overlay').style.display = 'none';
+}
+
+// Renderiza a lista da fila no modal
+function renderFilaOffline() {
+  const lista = document.getElementById('fila-offline-lista');
+  if (!lista) return;
+  const q = offlineQueueGet();
+  if (!q.length) {
+    lista.innerHTML = '<div style="text-align:center;padding:20px;color:var(--green);font-family:var(--font-mono);font-size:13px">✅ Nenhum registro pendente</div>';
+    return;
+  }
+  lista.innerHTML = q.map(r => {
+    const hora = new Date(r.timestamp).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const corTipo = r.tipo === 'entrada' ? 'var(--green)' : 'var(--red)';
+    const iconeTipo = r.tipo === 'entrada' ? '▲' : '▼';
+    const esperando = Math.round((Date.now() - r._queuedAt) / 60000);
+    return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+      <span style="color:${corTipo};font-size:20px">${iconeTipo}</span>
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:14px;color:var(--text)">${esc(r.colaboradorNome)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">📍 ${esc(r.posto)} &nbsp;·&nbsp; ${hora}</div>
+      </div>
+      <div style="font-size:11px;color:var(--muted2);font-family:var(--font-mono)">⏳ ${esperando}min atrás</div>
+    </div>`;
+  }).join('');
+}
+
+// ── DETECÇÃO DE ONLINE/OFFLINE ─────────────────────────────────────────────────
+let _isOnline = navigator.onLine;
+let _syncInterval = null;
+
+function atualizarEstadoConexao(online) {
+  _isOnline = online;
+  const banner = document.getElementById('offline-banner');
+  const icon   = document.getElementById('offline-banner-icon');
+  const text   = document.getElementById('offline-banner-text');
+  if (!banner) return;
+
+  if (!online) {
+    banner.style.display = 'flex';
+    banner.className = '';
+    icon.textContent  = '📡';
+    text.textContent  = 'Sem conexão — os pontos serão salvos e sincronizados ao reconectar';
+    atualizarBadgeOffline();
+    _setSyncStatus('error');
+    // Ajusta padding do corpo para não cobrir conteúdo
+    document.body.style.paddingTop = '48px';
+  } else {
+    // Reconectou!
+    banner.className = 'online';
+    icon.textContent  = '✅';
+    text.textContent  = 'Conexão restaurada! Sincronizando registros pendentes...';
+    document.body.style.paddingTop = '48px';
+    // Sincroniza a fila automaticamente
+    setTimeout(async () => {
+      await sincronizarFilaOffline();
+      // Esconde banner após 3s se não houver mais pendentes
+      setTimeout(() => {
+        if (offlineQueueGet().length === 0) {
+          banner.style.display = 'none';
+          document.body.style.paddingTop = '';
+        }
+      }, 3000);
+    }, 800);
+  }
+}
+
+window.addEventListener('online',  () => atualizarEstadoConexao(true));
+window.addEventListener('offline', () => atualizarEstadoConexao(false));
+
+// Verificação periódica (a cada 30s) — útil quando o evento nativo falha
+function iniciarVerificacaoConexao() {
+  if (_syncInterval) clearInterval(_syncInterval);
+  _syncInterval = setInterval(async () => {
+    const fila = offlineQueueGet();
+    if (!fila.length) return;
+    // Tenta sincronizar se o Firebase estiver pronto e houver pendentes
+    if (window._firebaseReady && navigator.onLine) {
+      await sincronizarFilaOffline();
+    }
+  }, 30000);
+}
+
+// ── INTERCEPTA baterPonto PARA SALVAR OFFLINE SE NECESSÁRIO ──────────────────
+// Sobrescreve a função registrarPonto para usar a fila quando offline
+
+const _registrarPontoOriginal = window.registrarPonto;
+
+function registrarPonto() {
+  const postoEscolhido = document.getElementById('ponto-posto-select').value || selectedColab.posto;
+  const reg = {
+    id: uid(),
+    colaboradorId: selectedColab.id,
+    colaboradorNome: selectedColab.nome,
+    posto: postoEscolhido,
+    tipo: pendingTipo,
+    timestamp: Date.now(),
+    localizacao: pendingLocalizacao || null
+  };
+
+  // Sempre adiciona em memória e localStorage primeiro
+  registros.unshift(reg);
+  localStorage.setItem('ms_registros', JSON.stringify(registros));
+
+  // Se online e Firebase pronto → envia direto
+  if (window._firebaseReady && navigator.onLine && window._db) {
+    _syncStart();
+    window._fbSet(window._fbRef(window._db, 'registros/' + reg.id), reg)
+      .then(_syncDone)
+      .catch(e => {
+        _syncErr();
+        // Falhou no Firebase → coloca na fila offline
+        offlineQueueAdd(reg);
+        mostrarSyncToast('📦 Salvo na fila — será sincronizado ao reconectar', 'gold');
+        console.warn('saveRegistro offline fallback:', e.message);
+      });
+  } else {
+    // Sem Firebase ou offline → fila
+    offlineQueueAdd(reg);
+    _setSyncStatus('error');
+    mostrarSyncToast('📦 Ponto salvo localmente — sem conexão', 'gold');
+  }
+
+  showFeedbackOffline(pendingTipo, selectedColab.nome, pendingLocalizacao, !navigator.onLine || !window._firebaseReady);
+
+  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
+  if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
+  window._ftPontosProcessados.add(reg.id);
+
+  selectedColab = null;
+  pendingTipo = null;
+  pendingLocalizacao = null;
+  document.getElementById('ponto-btns').style.display = 'none';
+  document.getElementById('posto-selector').style.display = 'none';
+  renderColabPonto();
+}
+
+// Versão do feedback que indica modo offline
+function showFeedbackOffline(tipo, nome, loc, offline) {
+  const el = document.getElementById('feedback-banner');
+  el.className = 'feedback ' + tipo;
+  const locHtml = loc
+    ? `<div class="feedback-sub" style="margin-top:6px">${linkMaps(loc)}</div>`
+    : `<div class="feedback-sub" style="margin-top:6px;color:var(--muted)">📍 Localização não capturada</div>`;
+  const offlineHtml = offline
+    ? `<div class="feedback-sub" style="margin-top:4px;color:#f59e0b;font-size:12px">📦 Salvo na fila offline — será sincronizado ao reconectar</div>`
+    : '';
+  el.innerHTML = `
+    <div class="feedback-title">${tipo==='entrada'?'✅ Entrada registrada!':'🚪 Saída registrada!'}</div>
+    <div class="feedback-sub">${esc(nome)} &nbsp;·&nbsp; ${fmtHora(Date.now())}</div>
+    ${locHtml}
+    ${offlineHtml}
+  `;
+  el.style.display = 'block';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(()=>{ el.style.display='none'; }, 7000);
+}
+
+// Inicializa estado de conexão ao carregar
+(function initOffline() {
+  if (!navigator.onLine) {
+    atualizarEstadoConexao(false);
+  }
+  atualizarBadgeOffline();
+  iniciarVerificacaoConexao();
+})();
 
 checkSession();
 mostrarSetupSeNecessario();
