@@ -2897,20 +2897,6 @@ function loadData() {
   _fbUnsubs.forEach(fn => { try { fn(); } catch(e){} });
   _fbUnsubs = [];
 
-  // ── OFFLINE FALLBACK: se sem internet, usa localStorage direto ──────────────
-  if (!navigator.onLine) {
-    try { colaboradores = JSON.parse(localStorage.getItem('ms_colaboradores')) || []; } catch { colaboradores=[]; }
-    try { registros    = JSON.parse(localStorage.getItem('ms_registros'))     || []; } catch { registros=[]; }
-    try { usuarios     = JSON.parse(localStorage.getItem('ms_usuarios'))      || []; } catch { usuarios=[]; }
-    try { postos       = JSON.parse(localStorage.getItem('ms_postos'))        || []; } catch { postos=[]; }
-    if (!postos.length) { postos = []; } // não faz seed offline
-    populatePostoSelects();
-    renderAll();
-    renderUsuarios();
-    _setSyncStatus('error');
-    return;
-  }
-
   if (window._firebaseReady) {
     _setSyncStatus('syncing');
 
@@ -3074,54 +3060,24 @@ function fazerLogin() {
     }
   }
 
-  // ── OFFLINE FIRST: sempre carrega o cache local imediatamente
-  let usuariosLocal = [];
-  try { usuariosLocal = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuariosLocal = []; }
-
-  // Merge: cache local + o que já está em memória (o maior vence)
-  const cacheBase = usuariosLocal.length >= usuarios.length ? usuariosLocal : usuarios;
-
-  // Se offline ou Firebase não disponível → entra imediatamente via cache
-  if (!navigator.onLine || !window._firebaseReady || !window._db) {
-    if (cacheBase.length === 0) {
-      mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
-      btn.disabled = false;
-      btn.textContent = '🔐 ENTRAR';
-      return;
-    }
-    btn.textContent = '📦 Entrando offline...';
-    setTimeout(() => tentarLogin(cacheBase), 300);
-    return;
+  // Se Firebase disponível, busca usuários direto do banco (sempre atualizado)
+  if (window._firebaseReady && window._db) {
+    window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
+      const data = snap.val();
+      const lista = data ? fromFirebaseObj(data) : [];
+      if (lista.length) {
+        usuarios = lista;
+        localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+      }
+      tentarLogin(lista.length ? lista : usuarios);
+    }).catch(() => {
+      // Firebase falhou — usa o que já tem no localStorage
+      tentarLogin(usuarios);
+    });
+  } else {
+    // Firebase ainda não pronto — usa localStorage carregado no boot
+    tentarLogin(usuarios);
   }
-
-  // Online + Firebase pronto → busca atualizado, com timeout de segurança
-  let loginResolvido = false;
-
-  const timeoutSeguranca = setTimeout(() => {
-    if (!loginResolvido) {
-      loginResolvido = true;
-      // Firebase demorou demais → cai no cache local
-      tentarLogin(cacheBase.length ? cacheBase : usuarios);
-    }
-  }, 5000); // 5s máximo esperando Firebase
-
-  window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
-    if (loginResolvido) return;
-    loginResolvido = true;
-    clearTimeout(timeoutSeguranca);
-    const data = snap.val();
-    const lista = data ? fromFirebaseObj(data) : [];
-    if (lista.length) {
-      usuarios = lista;
-      localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
-    }
-    tentarLogin(lista.length ? lista : cacheBase);
-  }).catch(() => {
-    if (loginResolvido) return;
-    loginResolvido = true;
-    clearTimeout(timeoutSeguranca);
-    tentarLogin(cacheBase.length ? cacheBase : usuarios);
-  });
 }
 
 function mostrarErroLogin(msg) {
@@ -3160,10 +3116,8 @@ function entrarSistema(usuario) {
       : 'Olá, ' + usuario.nome + '! Registre sua entrada ou saída:';
   }
 
-  // Se offline → carrega localStorage imediatamente sem esperar Firebase
-  if (!navigator.onLine || !window._firebaseReady || !window._db) {
-    loadData(); // loadData já detecta offline e usa localStorage
-  } else if (window._firebaseReady !== undefined) {
+  // Se Firebase já está pronto, carrega agora; senão aguarda o evento
+  if (window._firebaseReady !== undefined) {
     loadData();
   } else {
     window.addEventListener('firebaseReady', () => loadData(), { once: true });
@@ -4171,8 +4125,32 @@ function _renderHistTabla() {
 
 // ─── EXPORTAR HISTÓRICO PDF ───────────────────────────────────────────────────
 function exportarHistoricoPDF() {
+  // Força re-renderização para garantir que _filtrados reflita os filtros atuais
+  _renderHistTabla();
+
   const dados = _filtrados;
-  if (!dados.length) { alert('Nenhum registro para exportar.'); return; }
+  if (!dados.length) { alert('Nenhum registro para exportar com os filtros selecionados.'); return; }
+
+  // Captura filtros ativos para exibir no cabeçalho do PDF
+  const postoSel   = document.getElementById('f-posto')?.value || '';
+  const colabSel   = document.getElementById('f-colaborador')?.value || '';
+  const nomeSel    = (document.getElementById('f-nome')?.value || '').trim();
+  const tipoSel    = document.getElementById('f-tipo')?.value || '';
+  const dataDeSel  = document.getElementById('f-data-de')?.value || '';
+  const dataAteSel = document.getElementById('f-data-ate')?.value || '';
+
+  const colabNome = colabSel
+    ? (colaboradores.find(c => c.id === colabSel)?.nome || colabSel)
+    : '';
+
+  const filtrosAtivos = [
+    postoSel   ? `Posto: <strong>${esc(postoSel)}</strong>`          : '',
+    colabNome  ? `Colaborador: <strong>${esc(colabNome)}</strong>`   : '',
+    nomeSel    ? `Busca: <strong>${esc(nomeSel)}</strong>`           : '',
+    tipoSel    ? `Tipo: <strong>${esc(tipoSel)}</strong>`            : '',
+    dataDeSel  ? `De: <strong>${new Date(dataDeSel+'T12:00').toLocaleDateString('pt-BR')}</strong>` : '',
+    dataAteSel ? `Até: <strong>${new Date(dataAteSel+'T12:00').toLocaleDateString('pt-BR')}</strong>` : '',
+  ].filter(Boolean);
 
   const agora = new Date().toLocaleString('pt-BR');
 
@@ -4202,10 +4180,12 @@ function exportarHistoricoPDF() {
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; color: #111; padding: 28px 32px; font-size: 13px; }
-  .topo { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px; border-bottom:3px solid #0d3878; padding-bottom:14px; }
+  .topo { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:12px; border-bottom:3px solid #0d3878; padding-bottom:14px; }
   .topo h1 { font-size:22px; color:#0d3878; margin-bottom:4px; }
   .topo p  { font-size:11px; color:#555; }
   .meta { font-size:11px; color:#777; text-align:right; line-height:1.6; }
+  .filtros-bar { background:#f0f4ff; border:1px solid #c7d7f5; border-radius:6px; padding:8px 14px; margin-bottom:14px; font-size:11px; color:#444; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .filtros-bar .fl { background:#fff; border:1px solid #b0c4e8; border-radius:4px; padding:3px 10px; white-space:nowrap; }
   table { width:100%; border-collapse:collapse; margin-top:4px; }
   thead tr { background:#0d3878; color:#fff; }
   th { padding:9px 10px; text-align:left; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; white-space:nowrap; }
@@ -4226,6 +4206,7 @@ function exportarHistoricoPDF() {
   </div>
   <div class="meta">Gerado em:<br>${agora}</div>
 </div>
+${filtrosAtivos.length ? `<div class="filtros-bar"><span style="font-weight:700;color:#0d3878;margin-right:4px">🔍 Filtros:</span>${filtrosAtivos.map(f=>`<span class="fl">${f}</span>`).join('')}</div>` : ''}
 <table>
   <thead>
     <tr><th>Data</th><th>Colaborador</th><th>Posto</th><th>Entrada</th><th>Saída</th><th>Duração</th></tr>
@@ -5540,8 +5521,11 @@ window.ftvExportarExcel    = ftvExportarExcel;
 })();
 // ─── EXPORTAR HISTÓRICO EXCEL (CSV) ───────────────────────────────────────────
 function exportarHistoricoExcel() {
+  // Força re-renderização para garantir que _filtrados reflita os filtros atuais
+  _renderHistTabla();
+
   const dados = _filtrados;
-  if (!dados.length) { alert('Nenhum registro para exportar.'); return; }
+  if (!dados.length) { alert('Nenhum registro para exportar com os filtros selecionados.'); return; }
 
   function _fmtDur(entrada, saida) {
     if (!entrada || !saida) return '';
