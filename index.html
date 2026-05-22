@@ -2897,6 +2897,20 @@ function loadData() {
   _fbUnsubs.forEach(fn => { try { fn(); } catch(e){} });
   _fbUnsubs = [];
 
+  // ── OFFLINE FALLBACK: se sem internet, usa localStorage direto ──────────────
+  if (!navigator.onLine) {
+    try { colaboradores = JSON.parse(localStorage.getItem('ms_colaboradores')) || []; } catch { colaboradores=[]; }
+    try { registros    = JSON.parse(localStorage.getItem('ms_registros'))     || []; } catch { registros=[]; }
+    try { usuarios     = JSON.parse(localStorage.getItem('ms_usuarios'))      || []; } catch { usuarios=[]; }
+    try { postos       = JSON.parse(localStorage.getItem('ms_postos'))        || []; } catch { postos=[]; }
+    if (!postos.length) { postos = []; } // não faz seed offline
+    populatePostoSelects();
+    renderAll();
+    renderUsuarios();
+    _setSyncStatus('error');
+    return;
+  }
+
   if (window._firebaseReady) {
     _setSyncStatus('syncing');
 
@@ -3060,24 +3074,54 @@ function fazerLogin() {
     }
   }
 
-  // Se Firebase disponível, busca usuários direto do banco (sempre atualizado)
-  if (window._firebaseReady && window._db) {
-    window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
-      const data = snap.val();
-      const lista = data ? fromFirebaseObj(data) : [];
-      if (lista.length) {
-        usuarios = lista;
-        localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
-      }
-      tentarLogin(lista.length ? lista : usuarios);
-    }).catch(() => {
-      // Firebase falhou — usa o que já tem no localStorage
-      tentarLogin(usuarios);
-    });
-  } else {
-    // Firebase ainda não pronto — usa localStorage carregado no boot
-    tentarLogin(usuarios);
+  // ── OFFLINE FIRST: sempre carrega o cache local imediatamente
+  let usuariosLocal = [];
+  try { usuariosLocal = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuariosLocal = []; }
+
+  // Merge: cache local + o que já está em memória (o maior vence)
+  const cacheBase = usuariosLocal.length >= usuarios.length ? usuariosLocal : usuarios;
+
+  // Se offline ou Firebase não disponível → entra imediatamente via cache
+  if (!navigator.onLine || !window._firebaseReady || !window._db) {
+    if (cacheBase.length === 0) {
+      mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
+      btn.disabled = false;
+      btn.textContent = '🔐 ENTRAR';
+      return;
+    }
+    btn.textContent = '📦 Entrando offline...';
+    setTimeout(() => tentarLogin(cacheBase), 300);
+    return;
   }
+
+  // Online + Firebase pronto → busca atualizado, com timeout de segurança
+  let loginResolvido = false;
+
+  const timeoutSeguranca = setTimeout(() => {
+    if (!loginResolvido) {
+      loginResolvido = true;
+      // Firebase demorou demais → cai no cache local
+      tentarLogin(cacheBase.length ? cacheBase : usuarios);
+    }
+  }, 5000); // 5s máximo esperando Firebase
+
+  window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
+    if (loginResolvido) return;
+    loginResolvido = true;
+    clearTimeout(timeoutSeguranca);
+    const data = snap.val();
+    const lista = data ? fromFirebaseObj(data) : [];
+    if (lista.length) {
+      usuarios = lista;
+      localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+    }
+    tentarLogin(lista.length ? lista : cacheBase);
+  }).catch(() => {
+    if (loginResolvido) return;
+    loginResolvido = true;
+    clearTimeout(timeoutSeguranca);
+    tentarLogin(cacheBase.length ? cacheBase : usuarios);
+  });
 }
 
 function mostrarErroLogin(msg) {
@@ -3116,8 +3160,10 @@ function entrarSistema(usuario) {
       : 'Olá, ' + usuario.nome + '! Registre sua entrada ou saída:';
   }
 
-  // Se Firebase já está pronto, carrega agora; senão aguarda o evento
-  if (window._firebaseReady !== undefined) {
+  // Se offline → carrega localStorage imediatamente sem esperar Firebase
+  if (!navigator.onLine || !window._firebaseReady || !window._db) {
+    loadData(); // loadData já detecta offline e usa localStorage
+  } else if (window._firebaseReady !== undefined) {
     loadData();
   } else {
     window.addEventListener('firebaseReady', () => loadData(), { once: true });
