@@ -4345,7 +4345,22 @@ function ftConectar(){
       // Isso garante que todos os dispositivos vejam FTs pendentes geradas em outros celulares
       var idsLocais=ftS.ftsLocal.map(function(f){return f.id;});
       var novas=remotas.filter(function(r){
-        return !idsLocais.includes(r.id) && !idsLocais.includes(r._fbId||'__');
+        // Bloqueia por ID
+        if(idsLocais.includes(r.id)||idsLocais.includes(r._fbId||'__'))return false;
+        // Bloqueia por pontoId (mesmo ponto registrado localmente com outro ID de FT)
+        if(r.pontoId&&ftS.ftsLocal.some(function(l){return l.pontoId===r.pontoId;}))return false;
+        // Bloqueia por colab+horario+dia se já há FT local para o mesmo turno do mesmo dia
+        var rNome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+        var rDia=(r.dataHora||r.criadoEm||'').slice(0,10);
+        var rHor=(r.horario||'').trim();
+        var colisao=ftS.ftsLocal.some(function(l){
+          if((l.colaboradorNome||'').trim().toLowerCase()!==rNome)return false;
+          if((l.dataHora||l.criadoEm||'').slice(0,10)!==rDia)return false;
+          if(rHor&&l.horario&&l.horario!==rHor)return false; // turnos diferentes = OK
+          return true;
+        });
+        if(colisao){console.warn('[FT] Merge bloqueado (colab+dia+turno já existe localmente):',rNome,rDia);return false;}
+        return true;
       });
       if(novas.length){
         ftS.ftsLocal=ftS.ftsLocal.concat(novas);
@@ -4442,7 +4457,7 @@ window.ftGerarDePonto=function(reg){
     // Dedup 1: checa ftsLocal E ftFirestore pelo pontoId (evita regerar FT já existente)
     var jaExiste=ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;})
       ||ftS.ftFirestore.some(function(f){return f.pontoId===reg.id||f._pontoId===reg.id;});
-    if(jaExiste)return;
+    if(jaExiste){console.warn('[FT] Dedup 1 (pontoId): FT já existe para pontoId='+reg.id+'. Ignorando.');return;}
     // Dedup 2: espelha o cooldown de 60min da UI — impede gerar FT duplicada
     // para o mesmo colaborador no mesmo dia/posto se já existe uma gerada recentemente
     var agora60=Date.now();
@@ -4455,7 +4470,24 @@ window.ftGerarDePonto=function(reg){
       var criadoMs=f.criadoEm?new Date(f.criadoEm).getTime():0;
       return (agora60-criadoMs)<(60*60*1000);
     });
-    if(jaGeradaRecente){console.warn('[FT] Dedup cooldown: FT já gerada para '+reg.colaboradorNome+' nas últimas 60 min. Ignorando.');return;}
+    if(jaGeradaRecente){console.warn('[FT] Dedup 2 (cooldown 60min): FT já gerada para '+reg.colaboradorNome+' nas últimas 60 min. Ignorando.');return;}
+    // Dedup 3: bloqueia se já existe FT (local ou remota) com mesmo colaborador+posto+turno+dia
+    // Cobre casos onde o cooldown expirou mas o ponto é do mesmo turno do mesmo dia
+    var turnoDedup=detectarTurno(reg.timestamp);
+    var horarioDedup=turnoDedup?turnoDedup.t:'';
+    var jaExisteMesmoDia=ftS.ftsLocal.some(function(f){
+      if((f.colaboradorNome||'').trim().toLowerCase()!==colabNomeLower)return false;
+      if((f.dataHora||f.criadoEm||'').slice(0,10)!==regDia)return false;
+      if(horarioDedup&&f.horario&&f.horario!==horarioDedup)return false; // turnos diferentes OK
+      return true;
+    })||ftS.ftFirestore.some(function(f){
+      var fNome=(f.substituto||f.colaboradorNome||'').trim().toLowerCase();
+      if(fNome!==colabNomeLower)return false;
+      if((f.dataHora||f.criadoEm||'').slice(0,10)!==regDia)return false;
+      if(horarioDedup&&f.horario&&f.horario!==horarioDedup)return false;
+      return true;
+    });
+    if(jaExisteMesmoDia){console.warn('[FT] Dedup 3 (mesmo dia/turno): FT já existe para '+reg.colaboradorNome+' em '+regDia+'. Ignorando.');return;}
     var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
     var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',colaboradorNome:reg.colaboradorNome||'',
       posto:(pad&&pad.posto)||reg.posto||'',horario:(pad&&pad.horario)||(turno?turno.t:''),
@@ -5308,7 +5340,46 @@ window.ftQuickEditSalvar=function(ftId){
   ftToast('✅ '+( campo==='motivo'?'Motivo':'Horário')+' atualizado!','success');
 };
 
-function ftSalvarLocal(){localStorage.setItem(LS_LOCAL,JSON.stringify(ftS.ftsLocal));}
+function ftSalvarLocal(){
+  // Dedup final antes de persistir: remove entradas com mesmo pontoId
+  // ou mesmo colaborador+posto+horario+dia (mantém o mais antigo pelo criadoEm)
+  var vistos={pontoIds:{},chaveDia:{}};
+  var limpo=[];
+  // Ordena mais antigos primeiro para manter o registro original
+  var ordenados=ftS.ftsLocal.slice().sort(function(a,b){
+    var ta=a.criadoEm?new Date(a.criadoEm).getTime():0;
+    var tb=b.criadoEm?new Date(b.criadoEm).getTime():0;
+    return ta-tb;
+  });
+  ordenados.forEach(function(f){
+    // Chave por pontoId
+    if(f.pontoId){
+      if(vistos.pontoIds[f.pontoId]){
+        console.warn('[FT] ftSalvarLocal: duplicata por pontoId removida:',f.id,'pontoId=',f.pontoId);
+        return;
+      }
+      vistos.pontoIds[f.pontoId]=true;
+    }
+    // Chave por colab+horario+dia (só para FTs com horário definido)
+    if(f.horario&&f.colaboradorNome){
+      var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+      var chave=(f.colaboradorNome||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
+      if(vistos.chaveDia[chave]){
+        console.warn('[FT] ftSalvarLocal: duplicata por colab+horario+dia removida:',f.id,chave);
+        return;
+      }
+      vistos.chaveDia[chave]=true;
+    }
+    limpo.push(f);
+  });
+  // Reordena de volta do mais recente para o mais antigo (ordem padrão da lista)
+  ftS.ftsLocal=limpo.sort(function(a,b){
+    var ta=a.criadoEm?new Date(a.criadoEm).getTime():0;
+    var tb=b.criadoEm?new Date(b.criadoEm).getTime():0;
+    return tb-ta;
+  });
+  localStorage.setItem(LS_LOCAL,JSON.stringify(ftS.ftsLocal));
+}
 
 // ── EXPORTAÇÃO ────────────────────────────────────────────────────
 function ftGetFiltrados(){
