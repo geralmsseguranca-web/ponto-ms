@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Grupo M.S — Ponto Eletrônico v18</title>
+<title>Grupo M.S — Ponto Eletrônico v20</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
@@ -2663,7 +2663,7 @@ footer {
 
 <footer id="main-footer" style="display:none">
   <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
-    <div>© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v17 · Modo Offline ✓</div>
+    <div>© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v20 · Modo Offline ✓</div>
     <div style="display:flex;align-items:center;gap:8px;opacity:.55;font-size:11px;letter-spacing:1.5px;text-transform:uppercase">
       <svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:18px;height:20px;filter:drop-shadow(0 0 4px rgba(0,200,248,.4))">
         <defs>
@@ -4390,11 +4390,17 @@ function ftInit(){
     var enviadasIds=new Set();
     var enviadasPontoIds=new Set();
     var enviadasChaves=new Set();
+    var enviadasColabDia=new Set(); // FIX V20: colab+dia sem exigir horário/posto
     ftS.ftsLocal.forEach(function(f){
       if(f.status!=='enviada')return;
       if(f.id)enviadasIds.add(f.id);
       if(f._fbId)enviadasIds.add(f._fbId);
       if(f.pontoId)enviadasPontoIds.add(f.pontoId);
+      if(f.colaboradorNome){
+        var nome=(f.colaboradorNome||'').trim().toLowerCase();
+        var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+        enviadasColabDia.add(nome+'||'+dia);
+      }
       if(f.horario&&f.posto&&f.colaboradorNome){
         var nome=(f.colaboradorNome||'').trim().toLowerCase();
         var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
@@ -4414,6 +4420,12 @@ function ftInit(){
         var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
         var chave=nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
         if(enviadasChaves.has(chave))return false;
+      }
+      // FIX V20: Pendente sem horário/posto mas cujo colab+dia já foi validado → remover
+      if(f.colaboradorNome){
+        var fNome=(f.colaboradorNome||'').trim().toLowerCase();
+        var fDia=(f.dataHora||f.criadoEm||'').slice(0,10);
+        if(enviadasColabDia.has(fNome+'||'+fDia))return false;
       }
       return true;
     });
@@ -4473,6 +4485,11 @@ function ftConectar(){
       // Isso garante que todos os dispositivos vejam FTs pendentes geradas em outros celulares
       var idsLocais=ftS.ftsLocal.map(function(f){return f.id;});
       var novas=remotas.filter(function(r){
+        // ── FIX V20: FTs já validadas (enviada) no Firebase nunca precisam ser
+        // incorporadas como pendentes no ftsLocal de outro dispositivo.
+        // Elas chegam via sync de status (map abaixo) ou via _fbEnviadasChaves (limpeza final).
+        // Incorporar enviadas aqui causava duplicatas fantasma na aba FT Automática.
+        if((r.status||'enviada')==='enviada')return false;
         // Bloqueia por ID
         if(idsLocais.includes(r.id)||idsLocais.includes(r._fbId||'__'))return false;
         // Bloqueia por pontoId (mesmo ponto registrado localmente com outro ID de FT)
@@ -4522,6 +4539,12 @@ function ftConectar(){
         return nome+'||'+(r.posto||'').trim().toLowerCase()+'||'+(r.horario||'').trim()+'||'+dia;
       }));
       var antesFinal=ftS.ftsLocal.length;
+      // FIX V20: Conjunto de colab+dia validados (sem exigir horário/posto preenchido na pendente)
+      var _fbEnviadasColabDia=new Set(remotas.filter(function(r){return (r.status||'enviada')==='enviada';}).map(function(r){
+        var nome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+        var dia=(r.dataHora||r.criadoEm||'').slice(0,10);
+        return nome+'||'+dia;
+      }));
       ftS.ftsLocal=ftS.ftsLocal.filter(function(f){
         if(f.status==='enviada')return true;
         if(f.pontoId&&_fbEnviadasPontoIds.has(f.pontoId))return false;
@@ -4530,6 +4553,12 @@ function ftConectar(){
           var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
           var chave=nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
           if(_fbEnviadasChaves.has(chave))return false;
+        }
+        // FIX V20: pendente sem horário/posto mas cujo colab+dia já foi validado no Firebase → remover
+        if(f.colaboradorNome){
+          var fNome=(f.colaboradorNome||'').trim().toLowerCase();
+          var fDia=(f.dataHora||f.criadoEm||'').slice(0,10);
+          if(_fbEnviadasColabDia.has(fNome+'||'+fDia))return false;
         }
         return true;
       });
@@ -4813,6 +4842,12 @@ window.ftRenderLista=function(){
     var pto=(r.posto||'').trim().toLowerCase();
     return nome+'||'+pto+'||'+hor+'||'+dia;
   }));
+  // FIX V20: Conjunto colab+dia das validadas (sem exigir horário/posto na pendente local)
+  var _validadasColabDia=new Set(_validadasFirebase.map(function(r){
+    var nome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+    var dia=(r.dataHora||r.criadoEm||'').slice(0,10);
+    return nome+'||'+dia;
+  }));
   function _jaValidadaNoFirebase(f){
     // Match por pontoId
     if(f.pontoId&&_validadasPontoIds.has(f.pontoId))return true;
@@ -4824,6 +4859,12 @@ window.ftRenderLista=function(){
       var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
       var chave=nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
       if(_validadasChaves.has(chave))return true;
+    }
+    // FIX V20: Match por colab+dia (cobre pendentes sem horário/posto ainda não preenchidos)
+    if(f.colaboradorNome){
+      var fNome=(f.colaboradorNome||'').trim().toLowerCase();
+      var fDia=(f.dataHora||f.criadoEm||'').slice(0,10);
+      if(_validadasColabDia.has(fNome+'||'+fDia))return true;
     }
     return false;
   }
