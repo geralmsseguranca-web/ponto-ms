@@ -2150,6 +2150,7 @@ footer {
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft" onclick="showTab('ft-auto',this)" style="display:none">📋 FT Automática</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft-validadas" onclick="showTab('ft-validadas',this)" style="display:none">✅ FTs Validadas</button>
+      <button class="tab-btn admin-tab" id="tab-btn-inconsistencias" onclick="showTab('inconsistencias',this);renderInconsistencias();" style="display:none">⚠️ Inconsistências <span id="badge-inconsist" style="display:none;background:var(--red);color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:4px">0</span></button>
 
     </nav>
   </div>
@@ -2238,6 +2239,47 @@ footer {
       <div id="dash-lista-saiu" class="dash-lista"></div>
     </div>
 
+  </section>
+
+  <!-- ─── ABA: INCONSISTÊNCIAS ─── -->
+  <section id="tab-inconsistencias" class="tab-content">
+    <div class="dash-header">
+      <div>
+        <h2 class="dash-title">⚠️ Relatório de Inconsistências</h2>
+        <p class="dash-sub">Cruzamento automático de pontos irregulares do dia</p>
+      </div>
+      <button class="btn-dash-refresh" onclick="renderInconsistencias()">🔄 Atualizar</button>
+    </div>
+
+    <!-- Cards de resumo -->
+    <div class="dash-stats" id="inconsist-stats" style="margin-bottom:24px"></div>
+
+    <!-- Sem saída -->
+    <div class="dash-section" id="inconsist-sec-semsaida">
+      <div class="dash-section-title ausente">
+        <span>🚪 Entrada sem saída (turno aberto)</span>
+        <span class="dash-count" id="inconsist-count-semsaida">0</span>
+      </div>
+      <div id="inconsist-lista-semsaida" class="dash-lista"></div>
+    </div>
+
+    <!-- Duração anômala -->
+    <div class="dash-section" id="inconsist-sec-duracao">
+      <div class="dash-section-title dentro">
+        <span>⏱️ Duração fora do esperado (&lt;6h ou &gt;14h)</span>
+        <span class="dash-count" id="inconsist-count-duracao">0</span>
+      </div>
+      <div id="inconsist-lista-duracao" class="dash-lista"></div>
+    </div>
+
+    <!-- FTs sem valor -->
+    <div class="dash-section" id="inconsist-sec-ftsemvalor">
+      <div class="dash-section-title saiu">
+        <span>💰 FTs validadas sem valor preenchido</span>
+        <span class="dash-count" id="inconsist-count-ftsemvalor">0</span>
+      </div>
+      <div id="inconsist-lista-ftsemvalor" class="dash-lista"></div>
+    </div>
   </section>
 
   <!-- ─── ABA: HISTÓRICO ─── -->
@@ -3155,6 +3197,7 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-dashboard').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft-validadas').style.display = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-inconsistencias').style.display = isAdmin ? '' : 'none';
 
   // Reseta seleção ao entrar
   selectedColab = null;
@@ -3177,6 +3220,15 @@ function entrarSistema(usuario) {
     window.addEventListener('firebaseReady', () => loadData(), { once: true });
     // Fallback: se Firebase não responder em 4s, usa localStorage
     setTimeout(() => { if (!window._firebaseReady) loadData(); }, 4000);
+  }
+
+  // Solicita permissão de notificação para admin (com delay suave)
+  if (isAdmin) {
+    setTimeout(function() {
+      if (typeof window.solicitarPermissaoNotificacao === 'function') {
+        window.solicitarPermissaoNotificacao();
+      }
+    }, 2000);
   }
 
   // Para colaboradores sem colaboradorId: tenta vincular automaticamente
@@ -5013,7 +5065,7 @@ window.renderFTValidadas=function(){
       : '';
     var ftId=ft.id||ft._fbId||'';
     var dtSubLabel = dtVal ? ' &nbsp;·&nbsp; <span style="color:var(--muted);font-size:10px">Validada: '+dtVal+'</span>' : '';
-    return '<div class="ft-card enviada"><div class="ft-card-top"><div><div class="ft-card-nome">'+esc(nome)+'</div><div class="ft-card-ts">📅 '+dt+dtSubLabel+'</div></div><span class="ft-card-badge enviada">✅ Validada</span></div>'
+    return '<div class="ft-card enviada" data-ftid="'+ftId+'"><div class="ft-card-top"><div><div class="ft-card-nome">'+esc(nome)+'</div><div class="ft-card-ts">📅 '+dt+dtSubLabel+'</div></div><span class="ft-card-badge enviada">✅ Validada</span></div>'
       +'<div class="ft-card-chips" style="margin-top:10px">'+chips.join('')+'</div>'
       +confBar
       +(ft.observacao?'<div class="ft-obs-wrap" style="margin-top:10px"><div class="ft-obs-textarea" style="min-height:auto">📝 '+esc(ft.observacao)+'</div></div>':'')
@@ -6927,6 +6979,10 @@ function renderAll() {
   }
   updatePostoFilter();
   _renderHistTabla();
+  // Atualiza badge de inconsistências a cada render
+  if (typeof atualizarBadgeInconsistencias === 'function') {
+    setTimeout(atualizarBadgeInconsistencias, 200);
+  }
 }
 
 // ─── SETUP WIZARD ────────────────────────────────────────────────────────────
@@ -7877,6 +7933,10 @@ function showFeedbackOffline(tipo, nome, loc, offline) {
   el.style.display = 'block';
   clearTimeout(el._timer);
   el._timer = setTimeout(()=>{ el.style.display='none'; }, 7000);
+  // 🔔 Dispara notificação push se permitida
+  if (typeof window.notificarPontoBatido === 'function') {
+    window.notificarPontoBatido(nome, tipo, (typeof selectedColab !== 'undefined' && selectedColab ? selectedColab.posto : ''));
+  }
 }
 
 // Inicializa estado de conexão ao carregar
@@ -7889,6 +7949,382 @@ function showFeedbackOffline(tipo, nome, loc, offline) {
 })();
 
 checkSession();
+
+// ══════════════════════════════════════════════════════════════════
+// 🆕 MELHORIA 1 — HISTÓRICO DE EDIÇÕES NAS FTs
+// Toda vez que uma FT validada é editada, registra quem editou,
+// quando, e o que era antes, no campo historico: []
+// ══════════════════════════════════════════════════════════════════
+(function patchFtvEditarSalvar() {
+  var _original = window.ftvEditarSalvar;
+  window.ftvEditarSalvar = function() {
+    var ftId = document.getElementById('ftv-edit-id') ? document.getElementById('ftv-edit-id').value : null;
+    if (ftId) {
+      // Captura estado ANTES da edição
+      var ftAtual = (ftS.ftFirestore && ftS.ftFirestore.length ? ftS.ftFirestore : ftS.ftsLocal)
+        .find(function(f){ return f.id === ftId || f._fbId === ftId; });
+      if (ftAtual) {
+        var entrada = {
+          editadoPor: (currentUser && (currentUser.nome || currentUser.login)) || 'Admin',
+          editadoEm: new Date().toISOString(),
+          antes: {
+            posto: ftAtual.posto || '',
+            motivo: ftAtual.motivo || '',
+            horario: ftAtual.horario || '',
+            valor: ftAtual.valor || 0,
+            observacao: ftAtual.observacao || ''
+          }
+        };
+        var hist = Array.isArray(ftAtual.historico) ? ftAtual.historico.slice() : [];
+        hist.push(entrada);
+        // Injeta historico nas estruturas em memória
+        ftS.ftsLocal = ftS.ftsLocal.map(function(f){
+          if (f.id !== ftId && f._fbId !== ftId) return f;
+          return Object.assign({}, f, { historico: hist });
+        });
+        ftS.ftFirestore = ftS.ftFirestore.map(function(f){
+          if (f.id !== ftId && f._fbId !== ftId) return f;
+          return Object.assign({}, f, { historico: hist });
+        });
+        // Persiste historico no Firebase junto com os outros campos
+        if (window._firebaseReady && window._db) {
+          window._fbUpdate(window._fbRef(window._db, 'ft_registros/' + ftId), { historico: hist })
+            .catch(function(e){ console.warn('[FT historico] Firebase err:', e.message); });
+        }
+      }
+    }
+    if (typeof _original === 'function') _original();
+  };
+})();
+
+// Exibe histórico de edições no card da FT Validada
+(function patchRenderFTValidadas() {
+  var _origRender = window.renderFTValidadas;
+  window.renderFTValidadas = function() {
+    if (typeof _origRender === 'function') _origRender();
+    // Injeta badge de histórico nos cards que têm historico
+    (ftS.ftFirestore || []).concat(ftS.ftsLocal || []).forEach(function(ft) {
+      var hist = ft.historico;
+      if (!hist || !hist.length) return;
+      var ftId = ft.id || ft._fbId;
+      var btnsEl = document.querySelector('[data-ftid="' + ftId + '"] .ftv-card-btns');
+      if (!btnsEl) return;
+      if (btnsEl.querySelector('.ftv-btn-hist')) return;
+      var btn = document.createElement('button');
+      btn.className = 'ftv-btn-edit ftv-btn-hist';
+      btn.title = hist.length + ' edição(ões) registrada(s)';
+      btn.textContent = '📜 Histórico (' + hist.length + ')';
+      btn.onclick = function(){ abrirHistoricoFT(ft); };
+      btnsEl.appendChild(btn);
+    });
+  };
+})();
+
+function abrirHistoricoFT(ft) {
+  var hist = Array.isArray(ft.historico) ? ft.historico : [];
+  if (!hist.length) { ftToast('Nenhuma edição registrada.','warn'); return; }
+  var rows = hist.map(function(h, i) {
+    var dt = new Date(h.editadoEm).toLocaleString('pt-BR');
+    return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:10px">'
+      + '<div style="font-size:12px;color:var(--accent);font-family:var(--font-mono);margin-bottom:6px">Edição ' + (i+1) + ' — ' + dt + ' por ' + esc(h.editadoPor) + '</div>'
+      + '<div style="font-size:13px;color:var(--muted);line-height:1.8">'
+      + '📍 Posto: <strong style="color:var(--text)">' + esc(h.antes.posto||'—') + '</strong> &nbsp;|&nbsp; '
+      + '🕐 Horário: <strong style="color:var(--text)">' + esc(h.antes.horario||'—') + '</strong> &nbsp;|&nbsp; '
+      + '💬 Motivo: <strong style="color:var(--text)">' + esc(h.antes.motivo||'—') + '</strong> &nbsp;|&nbsp; '
+      + '💰 Valor: <strong style="color:var(--text)">R$ ' + parseFloat(h.antes.valor||0).toFixed(2).replace('.',',') + '</strong>'
+      + (h.antes.observacao ? '<br>📝 Obs: ' + esc(h.antes.observacao) : '')
+      + '</div></div>';
+  }).join('');
+
+  var nome = ft.substituto || ft.colaboradorNome || '—';
+  var overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.style.zIndex = '9000';
+  overlay.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;max-width:520px;width:94%;max-height:80vh;overflow-y:auto;animation:slideUp .2s ease">'
+    + '<div style="font-family:var(--font-head);font-size:20px;font-weight:700;margin-bottom:4px">📜 Histórico de Edições</div>'
+    + '<div style="font-size:13px;color:var(--muted);margin-bottom:20px">FT de: <strong>' + esc(nome) + '</strong></div>'
+    + rows
+    + '<button onclick="this.closest(\'.overlay\').remove()" style="margin-top:8px;width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:12px;cursor:pointer;font-size:14px">Fechar</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🆕 MELHORIA 2 — RELATÓRIO DE INCONSISTÊNCIAS
+// ══════════════════════════════════════════════════════════════════
+function renderInconsistencias() {
+  var hoje = new Date();
+  var todayKey = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
+
+  // 1) Entrada sem saída (turno aberto há mais de 2h)
+  var porColab = {};
+  (typeof registros !== 'undefined' ? registros : []).forEach(function(r) {
+    var k = r.colaboradorId || r.colaboradorNome;
+    if (!porColab[k]) porColab[k] = { nome: r.colaboradorNome, posto: r.posto, regs: [] };
+    porColab[k].regs.push(r);
+  });
+  var semSaida = [];
+  Object.values(porColab).forEach(function(c) {
+    var sorted = c.regs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
+    var aberto = null;
+    sorted.forEach(function(r) {
+      if (r.tipo === 'entrada') aberto = r;
+      else if (r.tipo === 'saida') aberto = null;
+    });
+    if (aberto) {
+      var agoraMs = Date.now();
+      var abertoHa = (agoraMs - aberto.timestamp) / 3600000;
+      if (abertoHa >= 2) {
+        semSaida.push({ nome: c.nome, posto: c.posto, desde: aberto.timestamp, horas: abertoHa });
+      }
+    }
+  });
+
+  // 2) Duração anômala (<6h ou >14h) em turnos completos do dia
+  var duracaoAnom = [];
+  Object.values(porColab).forEach(function(c) {
+    var sorted = c.regs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
+    var entrada = null;
+    sorted.forEach(function(r) {
+      var dk = r.timestamp ? new Date(r.timestamp).toISOString().slice(0,10) : '';
+      if (r.tipo === 'entrada') { entrada = r; }
+      else if (r.tipo === 'saida' && entrada) {
+        var durH = (r.timestamp - entrada.timestamp) / 3600000;
+        if (durH < 6 || durH > 14) {
+          duracaoAnom.push({
+            nome: c.nome, posto: c.posto,
+            entrada: entrada.timestamp, saida: r.timestamp,
+            durH: durH
+          });
+        }
+        entrada = null;
+      }
+    });
+  });
+
+  // 3) FTs validadas sem valor
+  var ftSemValor = [];
+  var ftsBase = (ftS && ftS.ftFirestore && ftS.ftFirestore.length) ? ftS.ftFirestore : (ftS ? ftS.ftsLocal : []);
+  (ftsBase || []).filter(function(f){ return (f.status||'enviada')==='enviada'; }).forEach(function(f) {
+    var val = parseFloat(f.valor);
+    if (!val || val <= 0) {
+      ftSemValor.push({ nome: f.substituto||f.colaboradorNome||'—', posto: f.posto||'—', data: f.dataHora||f.criadoEm||'' });
+    }
+  });
+
+  // Atualiza badge no tab
+  var total = semSaida.length + duracaoAnom.length + ftSemValor.length;
+  var badge = document.getElementById('badge-inconsist');
+  if (badge) {
+    if (total > 0) { badge.textContent = total; badge.style.display = 'inline'; }
+    else badge.style.display = 'none';
+  }
+
+  // Cards de resumo
+  document.getElementById('inconsist-stats').innerHTML =
+    '<div class="dash-stat-card"><div class="dash-stat-num" style="color:var(--red)">' + semSaida.length + '</div><div class="dash-stat-label">Sem Saída</div></div>' +
+    '<div class="dash-stat-card"><div class="dash-stat-num" style="color:var(--gold)">' + duracaoAnom.length + '</div><div class="dash-stat-label">Duração Anômala</div></div>' +
+    '<div class="dash-stat-card"><div class="dash-stat-num" style="color:var(--accent)">' + ftSemValor.length + '</div><div class="dash-stat-label">FT Sem Valor</div></div>';
+
+  // Lista 1 — Sem saída
+  document.getElementById('inconsist-count-semsaida').textContent = semSaida.length;
+  document.getElementById('inconsist-lista-semsaida').innerHTML = semSaida.length
+    ? semSaida.map(function(x) {
+        var h = Math.floor(x.horas); var m = Math.round((x.horas - h) * 60);
+        return '<div class="dash-card" style="border-left:3px solid var(--red)">'
+          + '<div class="dash-card-avatar" style="background:var(--red-bg)">' + x.nome.charAt(0) + '</div>'
+          + '<div class="dash-card-info"><div class="dash-card-nome">' + esc(x.nome) + '</div>'
+          + '<div class="dash-card-sub">📍 ' + esc(x.posto) + ' &nbsp;·&nbsp; Desde ' + new Date(x.desde).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) + ' (' + h + 'h' + m + 'm aberto)</div></div>'
+          + '<div class="dash-card-badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red)">SEM SAÍDA</div>'
+          + '</div>';
+      }).join('')
+    : '<div class="dash-lista-vazia">✅ Nenhum turno aberto por mais de 2h</div>';
+
+  // Lista 2 — Duração anômala
+  document.getElementById('inconsist-count-duracao').textContent = duracaoAnom.length;
+  document.getElementById('inconsist-lista-duracao').innerHTML = duracaoAnom.length
+    ? duracaoAnom.map(function(x) {
+        var h = Math.floor(x.durH); var m = Math.round((x.durH - h) * 60);
+        var cor = x.durH < 6 ? 'var(--gold)' : 'var(--red)';
+        var label = x.durH < 6 ? 'CURTO (' + h + 'h' + m + 'm)' : 'LONGO (' + h + 'h' + m + 'm)';
+        return '<div class="dash-card" style="border-left:3px solid ' + cor + '">'
+          + '<div class="dash-card-avatar" style="background:var(--muted2)">' + x.nome.charAt(0) + '</div>'
+          + '<div class="dash-card-info"><div class="dash-card-nome">' + esc(x.nome) + '</div>'
+          + '<div class="dash-card-sub">📍 ' + esc(x.posto) + ' &nbsp;·&nbsp; '
+          + new Date(x.entrada).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) + ' → '
+          + new Date(x.saida).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) + '</div></div>'
+          + '<div class="dash-card-badge" style="background:var(--muted2);color:' + cor + ';border:1px solid ' + cor + '">' + label + '</div>'
+          + '</div>';
+      }).join('')
+    : '<div class="dash-lista-vazia">✅ Nenhuma duração fora do esperado</div>';
+
+  // Lista 3 — FT sem valor
+  document.getElementById('inconsist-count-ftsemvalor').textContent = ftSemValor.length;
+  document.getElementById('inconsist-lista-ftsemvalor').innerHTML = ftSemValor.length
+    ? ftSemValor.map(function(x) {
+        var dt = x.data ? new Date(x.data).toLocaleDateString('pt-BR') : '—';
+        return '<div class="dash-card" style="border-left:3px solid var(--accent)">'
+          + '<div class="dash-card-avatar" style="background:var(--muted2)">' + x.nome.charAt(0) + '</div>'
+          + '<div class="dash-card-info"><div class="dash-card-nome">' + esc(x.nome) + '</div>'
+          + '<div class="dash-card-sub">📍 ' + esc(x.posto) + ' &nbsp;·&nbsp; ' + dt + '</div></div>'
+          + '<div class="dash-card-badge" style="background:var(--muted2);color:var(--accent);border:1px solid var(--accent)">SEM VALOR</div>'
+          + '</div>';
+      }).join('')
+    : '<div class="dash-lista-vazia">✅ Todas as FTs possuem valor preenchido</div>';
+}
+
+// Atualiza badge de inconsistências sempre que dados mudam
+function atualizarBadgeInconsistencias() {
+  var semSaida = 0, duracaoAnom = 0, ftSemValor = 0;
+  var porColab = {};
+  (typeof registros !== 'undefined' ? registros : []).forEach(function(r) {
+    var k = r.colaboradorId || r.colaboradorNome;
+    if (!porColab[k]) porColab[k] = [];
+    porColab[k].push(r);
+  });
+  Object.values(porColab).forEach(function(regs) {
+    var sorted = regs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
+    var aberto = null, entAtual = null;
+    sorted.forEach(function(r) {
+      if (r.tipo === 'entrada') { aberto = r; entAtual = r; }
+      else if (r.tipo === 'saida') {
+        if (entAtual) {
+          var dh = (r.timestamp - entAtual.timestamp) / 3600000;
+          if (dh < 6 || dh > 14) duracaoAnom++;
+        }
+        aberto = null; entAtual = null;
+      }
+    });
+    if (aberto && (Date.now() - aberto.timestamp) / 3600000 >= 2) semSaida++;
+  });
+  var ftsBase = (ftS && ftS.ftFirestore && ftS.ftFirestore.length) ? ftS.ftFirestore : (ftS ? ftS.ftsLocal : []);
+  (ftsBase || []).filter(function(f){ return (f.status||'enviada')==='enviada'; }).forEach(function(f) {
+    if (!parseFloat(f.valor)) ftSemValor++;
+  });
+  var total = semSaida + duracaoAnom + ftSemValor;
+  var badge = document.getElementById('badge-inconsist');
+  if (badge) {
+    if (total > 0) { badge.textContent = total; badge.style.display = 'inline'; }
+    else badge.style.display = 'none';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🆕 MELHORIA 3 — LIMITE DE PONTO POR TURNO (mais robusto)
+// Além do cooldown de 1h, bloqueia dupla entrada no mesmo turno
+// verificando o ÚLTIMO registro e exibindo feedback claro
+// ══════════════════════════════════════════════════════════════════
+function verificarLimitePontoTurno(colabId, tipo) {
+  // Pega todos registros deste colaborador ordenados do mais recente
+  var regsColab = (typeof registros !== 'undefined' ? registros : [])
+    .filter(function(r){ return r.colaboradorId === colabId || r.colaboradorNome === colabId; })
+    .sort(function(a,b){ return b.timestamp - a.timestamp; });
+
+  if (!regsColab.length) return { ok: true };
+
+  var ultimo = regsColab[0];
+
+  if (tipo === 'entrada' && ultimo.tipo === 'entrada') {
+    var passado = (Date.now() - ultimo.timestamp) / 60000; // minutos
+    if (passado < 60) {
+      return {
+        ok: false,
+        msg: '⚠️ Já existe uma entrada registrada há ' + Math.round(passado) + ' minuto(s).\n\nAguarde a saída antes de registrar nova entrada, ou espere ' + Math.round(60 - passado) + ' minuto(s) para o bloqueio expirar.'
+      };
+    }
+  }
+
+  if (tipo === 'saida' && ultimo.tipo === 'saida') {
+    var passadoS = (Date.now() - ultimo.timestamp) / 60000;
+    if (passadoS < 10) {
+      return {
+        ok: false,
+        msg: '⚠️ Já existe uma saída registrada há ' + Math.round(passadoS) + ' minuto(s).\n\nAguarde antes de registrar outra saída.'
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
+// Patch no baterPonto para usar a verificação de limite
+(function patchBaterPonto() {
+  var _origBater = window.baterPonto;
+  window.baterPonto = async function(tipo) {
+    if (!selectedColab) return;
+    var check = verificarLimitePontoTurno(selectedColab.id || selectedColab.nome, tipo);
+    if (!check.ok) {
+      alert(check.msg);
+      return;
+    }
+    if (typeof _origBater === 'function') await _origBater(tipo);
+    // Atualiza badge de inconsistências após registrar ponto
+    setTimeout(atualizarBadgeInconsistencias, 500);
+  };
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// 🆕 MELHORIA 4 — NOTIFICAÇÃO PUSH (Web Push / FCM via VAPID)
+// Solicita permissão e exibe notificação local quando ponto é batido
+// (base para futura integração FCM com Service Worker)
+// ══════════════════════════════════════════════════════════════════
+(function initPushNotifications() {
+  // Solicita permissão ao admin ao entrar no sistema
+  window.solicitarPermissaoNotificacao = function() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(function(perm) {
+        if (perm === 'granted') {
+          mostrarSyncToast('🔔 Notificações ativadas!', 'green');
+          localStorage.setItem('ms_push_enabled', '1');
+        }
+      });
+    }
+  };
+
+  // Dispara notificação local quando um ponto é registrado
+  window.notificarPontoBatido = function(nome, tipo, posto) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    if (!localStorage.getItem('ms_push_enabled')) return;
+    var icone = tipo === 'entrada' ? '🟢' : '🔴';
+    var titulo = icone + ' ' + (tipo === 'entrada' ? 'Entrada' : 'Saída') + ' registrada';
+    var corpo = nome + ' · ' + posto + ' · ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    try {
+      new Notification(titulo, {
+        body: corpo,
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⏱️</text></svg>',
+        tag: 'ponto-' + Date.now(),
+        silent: false
+      });
+    } catch(e) { console.warn('[Push] Notification err:', e); }
+  };
+})();
+
+// Hook na registrarPonto para disparar notificação e atualizar badge
+(function patchRegistrarPonto() {
+  var _origReg = window.registrarPonto;
+  window.registrarPonto = function() {
+    if (typeof _origReg === 'function') _origReg();
+    // Dispara notificação push (se ativada)
+    if (selectedColab === null && pendingTipo === null) {
+      // selectedColab e pendingTipo já foram limpos — usa dados do último feedback
+      var fb = document.getElementById('feedback-banner');
+      if (fb && fb.style.display !== 'none') {
+        var nomeEl = fb.querySelector('.feedback-sub');
+        if (nomeEl) {
+          var txt = nomeEl.textContent || '';
+          var parts = txt.split('·');
+          var nome = (parts[0] || '').trim();
+          var tipoInf = fb.classList.contains('entrada') ? 'entrada' : 'saida';
+          window.notificarPontoBatido(nome, tipoInf, '');
+        }
+      }
+    }
+    setTimeout(atualizarBadgeInconsistencias, 500);
+  };
+})();
+
 mostrarSetupSeNecessario();
 
 // ─── AGUARDA FIREBASE ANTES DE CARREGAR DADOS ─────────────────────────────────
