@@ -41,15 +41,12 @@
     window._fbRemove = remove;
     window._fbUpdate = update;
     window._fbGet = get;
-    // FCM Messaging
     try {
       const messaging = getMessaging(app);
       window._fbMessaging = messaging;
       window._fbGetToken  = getToken;
       window._fbOnMessage = onMessage;
-    } catch(em) {
-      console.warn('FCM não disponível:', em.message);
-    }
+    } catch(em) { console.warn('FCM indisponível:', em.message); }
     console.log("✅ Firebase conectado");
   } catch(e) {
     console.warn("⚠️ Firebase não configurado, usando localStorage:", e.message);
@@ -3148,11 +3145,11 @@ function entrarSistema(usuario) {
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('main-footer').style.display = 'block';
 
-  // 🔔 Inicializa Push Notifications para admin (aguarda Firebase estar pronto)
+  // 🔔 Push notifications para admin
   if (usuario.role === 'admin') {
-    const _initPush = () => pushInicializar();
-    if (window._firebaseReady) setTimeout(_initPush, 1800);
-    else window.addEventListener('firebaseReady', () => setTimeout(_initPush, 1800), { once: true });
+    const _init = () => pushInicializar();
+    if (window._firebaseReady) setTimeout(_init, 1800);
+    else window.addEventListener('firebaseReady', () => setTimeout(_init, 1800), { once: true });
   }
 
   // Chip do usuário logado
@@ -3809,6 +3806,7 @@ function registrarPontoBase() {
   registros.unshift(reg);
   saveUmRegistro(reg); // salva somente este registro — não sobrescreve os demais
   showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao);
+  pushEnviarParaAdmins(reg); // 🔔 notifica admin
   if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
   // Marca este id como já processado nesta sessão, para o listener Firebase não regerar
   if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
@@ -7558,73 +7556,52 @@ function renderFilaOffline() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  🔔 PUSH NOTIFICATIONS — Funciona com app fechado (FCM + Service Worker)
-//
-//  ⚠️  ANTES DE USAR: No Firebase Console faça:
-//      1. Project Settings → Cloud Messaging → Web Push certificates → Generate key pair
-//      2. Copie a chave VAPID e substitua em VAPID_KEY abaixo
+//  🔔 PUSH NOTIFICATIONS — Notifica admin mesmo com app fechado (FCM + SW)
 // ══════════════════════════════════════════════════════════════════════════════
 
-// 🔑 SUBSTITUA pela sua chave VAPID do Firebase Console
-//    (Project Settings → Cloud Messaging → Web Push certificates)
 const VAPID_KEY = 'fCkRMTTqQ1vuPeX3LbsNn7Uso7t2H4_-eS_1X31aU4k';
 
-let _pushToken = null;   // Token FCM do admin logado
-let _swReg     = null;   // Service Worker registration
+let _pushToken = null;
+let _swReg     = null;
 
-// ── 1. Registra o Service Worker ─────────────────────────────────────────────
+// 1. Registra o Service Worker
 async function pushRegistrarSW() {
   if (!('serviceWorker' in navigator)) return null;
   try {
     _swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
-    console.log('[Push] Service Worker registrado:', _swReg.scope);
     return _swReg;
-  } catch(e) {
-    console.warn('[Push] Falha ao registrar SW:', e.message);
-    return null;
-  }
+  } catch(e) { console.warn('[Push] SW falhou:', e.message); return null; }
 }
 
-// ── 2. Solicita permissão + obtém token FCM ───────────────────────────────────
+// 2. Pede permissão e obtém token FCM
 async function pushSolicitarPermissao() {
   if (!window._fbMessaging || !window._fbGetToken) return;
   if (!currentUser || currentUser.role !== 'admin') return;
-
-  // Garante que o SW está registrado
   if (!_swReg) await pushRegistrarSW();
   if (!_swReg) return;
-
   try {
-    const permissao = await Notification.requestPermission();
-    if (permissao !== 'granted') {
-      mostrarSyncToast('🔕 Notificações bloqueadas. Ative nas configurações do Chrome.', 'gold');
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      mostrarSyncToast('🔕 Permissão negada. Ative nas configurações do Chrome.', 'gold');
       return;
     }
-
-    // Obtém o token FCM vinculado a este dispositivo
     _pushToken = await window._fbGetToken(window._fbMessaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: _swReg
     });
-
     if (_pushToken) {
-      // Salva o token no Firebase atrelado a este usuário admin
       await pushSalvarToken(_pushToken);
-      mostrarSyncToast('🔔 Notificações push ativadas! Você será avisado mesmo com o app fechado.', 'green');
-      console.log('[Push] Token FCM obtido e salvo.');
-
+      mostrarSyncToast('🔔 Notificações push ativadas! Funciona mesmo com app fechado.', 'green');
       // Escuta mensagens com app em FOREGROUND
       window._fbOnMessage(window._fbMessaging, payload => {
         const d = payload.data || {};
-        notifEnviarLocal(d.tipo, d.nome, d.posto);
+        pushNotifLocal(d.tipo, d.nome, d.posto);
       });
     }
-  } catch(e) {
-    console.warn('[Push] Erro ao obter token FCM:', e.message);
-  }
+  } catch(e) { console.warn('[Push] Erro token FCM:', e.message); }
 }
 
-// ── 3. Salva token no Firebase (nó fcm_tokens/<userId>) ──────────────────────
+// 3. Salva token no Firebase (nó fcm_tokens/<userId>)
 async function pushSalvarToken(token) {
   if (!window._firebaseReady || !window._db || !currentUser) return;
   try {
@@ -7632,21 +7609,13 @@ async function pushSalvarToken(token) {
       window._fbRef(window._db, 'fcm_tokens/' + currentUser.id),
       { token, userId: currentUser.id, nome: currentUser.nome || currentUser.login, ts: Date.now() }
     );
-  } catch(e) {
-    console.warn('[Push] Erro ao salvar token:', e.message);
-  }
+  } catch(e) { console.warn('[Push] Erro salvar token:', e.message); }
 }
 
-// ── 4. Envia push para TODOS os admins via Firebase → FCM HTTP API ────────────
-//    Lógica: ao registrar um ponto, grava em 'push_queue/<id>'
-//    Um Cloud Function (ou o próprio browser do admin) faz o despacho.
-//    Aqui usamos a abordagem client-side: o device que bateu o ponto
-//    busca os tokens dos admins e envia via FCM REST API.
+// 4. Grava ponto na fila push (consome pelo SW em background)
 async function pushEnviarParaAdmins(reg) {
   if (!window._firebaseReady || !window._db) return;
   try {
-    // Grava na fila de push — Cloud Function consome isso automaticamente
-    // (se você tiver Cloud Functions). Sem CF, usamos a abordagem abaixo.
     await window._fbSet(
       window._fbRef(window._db, 'push_queue/' + reg.id),
       {
@@ -7657,63 +7626,48 @@ async function pushEnviarParaAdmins(reg) {
         ts:    reg.timestamp
       }
     );
-  } catch(e) {
-    console.warn('[Push] Erro ao gravar fila push:', e.message);
-  }
+  } catch(e) { console.warn('[Push] Erro fila push:', e.message); }
 }
 
-// ── 5. Escuta a fila de push e entrega aos admins com app ABERTO ──────────────
-//    (para admins com app aberto que ainda não receberam pelo SW)
+// 5. Escuta fila e notifica admin com app ABERTO (foreground)
 function pushEscutarFila() {
   if (!window._firebaseReady || !window._db) return;
   if (!currentUser || currentUser.role !== 'admin') return;
-  if (!window._pushFilaOuvindo) {
-    window._pushFilaOuvindo = true;
-    window._fbOnValue(window._fbRef(window._db, 'push_queue'), snap => {
-      if (!snap.val()) return;
-      const itens = Object.values(snap.val());
-      if (!window._pushJaVisto) window._pushJaVisto = new Set();
-      // Só processa itens dos últimos 30s (evita histórico antigo)
-      const agora = Date.now();
-      itens.forEach(item => {
-        const chave = item.nome + '_' + item.ts;
-        if (!window._pushJaVisto.has(chave) && (agora - item.ts) < 30000) {
-          window._pushJaVisto.add(chave);
-          notifEnviarLocal(item.tipo, item.nome, item.posto);
-        }
-      });
+  if (window._pushFilaOuvindo) return;
+  window._pushFilaOuvindo = true;
+  window._fbOnValue(window._fbRef(window._db, 'push_queue'), snap => {
+    if (!snap.val()) return;
+    if (!window._pushJaVisto) window._pushJaVisto = new Set();
+    const agora = Date.now();
+    Object.values(snap.val()).forEach(item => {
+      const chave = item.nome + '_' + item.ts;
+      if (!window._pushJaVisto.has(chave) && (agora - item.ts) < 30000) {
+        window._pushJaVisto.add(chave);
+        pushNotifLocal(item.tipo, item.nome, item.posto);
+      }
     });
-  }
+  });
 }
 
-// ── 6. Notificação local (app em foreground) ──────────────────────────────────
-function notifEnviarLocal(tipo, nome, posto) {
+// 6. Exibe notificação local (app em foreground)
+function pushNotifLocal(tipo, nome, posto) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   if (!currentUser || currentUser.role !== 'admin') return;
   const isEntrada = tipo === 'entrada';
   const titulo = isEntrada ? `✅ Entrada — ${nome}` : `🚪 Saída — ${nome}`;
   const corpo  = posto
-    ? `📍 ${posto}  ·  ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-    : new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    ? `📍 ${posto}  ·  ${new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })}`
+    : new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
   try {
-    const n = new Notification(titulo, { body: corpo, tag: 'ponto-' + Date.now(), vibrate: [200, 100, 200] });
+    const n = new Notification(titulo, { body: corpo, tag: 'ponto-' + Date.now(), vibrate: [200,100,200] });
     setTimeout(() => { try { n.close(); } catch(e){} }, 10000);
   } catch(e) {}
 }
 
-// ── 7. Inicializa push ao fazer login como admin ──────────────────────────────
+// 7. Inicializa push ao fazer login como admin
 async function pushInicializar() {
   if (!currentUser || currentUser.role !== 'admin') return;
   await pushRegistrarSW();
-  // Se VAPID_KEY ainda não foi configurada, só usa notificação local
-  if (VAPID_KEY === 'COLE_SUA_CHAVE_VAPID_AQUI') {
-    if ('Notification' in window && Notification.permission === 'default') {
-      setTimeout(() => Notification.requestPermission(), 1500);
-    }
-    pushEscutarFila();
-    mostrarSyncToast('⚠️ Configure a VAPID_KEY para push com app fechado.', 'gold');
-    return;
-  }
   await pushSolicitarPermissao();
   pushEscutarFila();
 }
@@ -7816,9 +7770,7 @@ function registrarPonto() {
 
   showFeedbackOffline(pendingTipo, selectedColab.nome, pendingLocalizacao, !navigator.onLine || !window._firebaseReady);
 
-  // 🔔 Envia push para admins (funciona mesmo com app fechado)
-  pushEnviarParaAdmins(reg);
-
+  pushEnviarParaAdmins(reg); // 🔔 notifica admin
   if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
   if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
   window._ftPontosProcessados.add(reg.id);
