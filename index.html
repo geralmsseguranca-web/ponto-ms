@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Grupo M.S — Ponto Eletrônico v17</title>
+<title>Grupo M.S — Ponto Eletrônico v18</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
@@ -12,8 +12,6 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, push, set, onValue, remove, update, get }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import { getMessaging, getToken, onMessage }
-    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js";
 
   // ══════════════════════════════════════════════════════
   //  🔧 SUBSTITUA AQUI COM SUAS CREDENCIAIS DO FIREBASE
@@ -41,12 +39,6 @@
     window._fbRemove = remove;
     window._fbUpdate = update;
     window._fbGet = get;
-    try {
-      const messaging = getMessaging(app);
-      window._fbMessaging = messaging;
-      window._fbGetToken  = getToken;
-      window._fbOnMessage = onMessage;
-    } catch(em) { console.warn('FCM indisponível:', em.message); }
     console.log("✅ Firebase conectado");
   } catch(e) {
     console.warn("⚠️ Firebase não configurado, usando localStorage:", e.message);
@@ -2158,6 +2150,7 @@ footer {
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft" onclick="showTab('ft-auto',this)" style="display:none">📋 FT Automática</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft-validadas" onclick="showTab('ft-validadas',this)" style="display:none">✅ FTs Validadas</button>
+      <button class="tab-btn admin-tab" id="tab-btn-inconsistencias" onclick="showTab('inconsistencias',this);renderInconsistencias();" style="display:none">⚠️ Inconsistências <span id="badge-inconsist" style="display:none;background:var(--red);color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:4px">0</span></button>
 
     </nav>
   </div>
@@ -2246,6 +2239,47 @@ footer {
       <div id="dash-lista-saiu" class="dash-lista"></div>
     </div>
 
+  </section>
+
+  <!-- ─── ABA: INCONSISTÊNCIAS ─── -->
+  <section id="tab-inconsistencias" class="tab-content">
+    <div class="dash-header">
+      <div>
+        <h2 class="dash-title">⚠️ Relatório de Inconsistências</h2>
+        <p class="dash-sub">Cruzamento automático de pontos irregulares do dia</p>
+      </div>
+      <button class="btn-dash-refresh" onclick="renderInconsistencias()">🔄 Atualizar</button>
+    </div>
+
+    <!-- Cards de resumo -->
+    <div class="dash-stats" id="inconsist-stats" style="margin-bottom:24px"></div>
+
+    <!-- Sem saída -->
+    <div class="dash-section" id="inconsist-sec-semsaida">
+      <div class="dash-section-title ausente">
+        <span>🚪 Entrada sem saída (turno aberto)</span>
+        <span class="dash-count" id="inconsist-count-semsaida">0</span>
+      </div>
+      <div id="inconsist-lista-semsaida" class="dash-lista"></div>
+    </div>
+
+    <!-- Duração anômala -->
+    <div class="dash-section" id="inconsist-sec-duracao">
+      <div class="dash-section-title dentro">
+        <span>⏱️ Duração fora do esperado (&lt;6h ou &gt;14h)</span>
+        <span class="dash-count" id="inconsist-count-duracao">0</span>
+      </div>
+      <div id="inconsist-lista-duracao" class="dash-lista"></div>
+    </div>
+
+    <!-- FTs sem valor -->
+    <div class="dash-section" id="inconsist-sec-ftsemvalor">
+      <div class="dash-section-title saiu">
+        <span>💰 FTs validadas sem valor preenchido</span>
+        <span class="dash-count" id="inconsist-count-ftsemvalor">0</span>
+      </div>
+      <div id="inconsist-lista-ftsemvalor" class="dash-lista"></div>
+    </div>
   </section>
 
   <!-- ─── ABA: HISTÓRICO ─── -->
@@ -2949,20 +2983,28 @@ function loadData() {
       renderAll();
     });
 
+    let _u2PrimeiraLeitura = true; // flag: ignora o snapshot inicial (já processado ao registrar)
     const u2 = window._fbOnValue(window._fbRef(window._db, 'registros'), snap => {
       const data = snap.val();
       const anterior = registros.map(r => r.id);
       registros = data ? fromFirebaseObj(data).sort((a,b) => b.timestamp - a.timestamp) : [];
       localStorage.setItem('ms_registros', JSON.stringify(registros));
       renderAll();
-      // Sincronização em tempo real: gera FT para registros novos de ENTRADA
-      // que chegaram de outros dispositivos (não foram registrados nesta sessão)
-      if (typeof window.ftGerarDePonto === 'function' && anterior.length > 0) {
+      // Primeira leitura (snapshot inicial ao conectar) — todos os IDs já estão em memória
+      // ou foram registrados nesta sessão. Marca todos como processados e não gera FT aqui.
+      if (_u2PrimeiraLeitura) {
+        _u2PrimeiraLeitura = false;
+        if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
+        registros.forEach(function(r){ window._ftPontosProcessados.add(r.id); });
+        return;
+      }
+      // Atualizações subsequentes em tempo real: gera FT apenas para entradas NOVAS
+      // vindas de outro dispositivo (não registradas nesta sessão).
+      if (typeof window.ftGerarDePonto === 'function') {
         if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
         registros.forEach(function(r) {
-          // Pula entradas já processadas nesta sessão (evita reprocessar o próprio registro)
           if (r.tipo === 'entrada' && !anterior.includes(r.id) && !window._ftPontosProcessados.has(r.id)) {
-            window._ftPontosProcessados.add(r.id); // marca antes de gerar para evitar race condition
+            window._ftPontosProcessados.add(r.id);
             window.ftGerarDePonto(r);
           }
         });
@@ -3145,13 +3187,6 @@ function entrarSistema(usuario) {
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('main-footer').style.display = 'block';
 
-  // 🔔 Push notifications para admin
-  if (usuario.role === 'admin') {
-    const _init = () => pushInicializar();
-    if (window._firebaseReady) setTimeout(_init, 1800);
-    else window.addEventListener('firebaseReady', () => setTimeout(_init, 1800), { once: true });
-  }
-
   // Chip do usuário logado
   document.getElementById('chip-user-name').textContent = usuario.nome || usuario.login;
   document.getElementById('chip-user-icon').textContent = usuario.role === 'admin' ? '🛡️' : '👤';
@@ -3162,6 +3197,7 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-dashboard').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft-validadas').style.display = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-inconsistencias').style.display = isAdmin ? '' : 'none';
 
   // Reseta seleção ao entrar
   selectedColab = null;
@@ -3184,6 +3220,15 @@ function entrarSistema(usuario) {
     window.addEventListener('firebaseReady', () => loadData(), { once: true });
     // Fallback: se Firebase não responder em 4s, usa localStorage
     setTimeout(() => { if (!window._firebaseReady) loadData(); }, 4000);
+  }
+
+  // Solicita permissão de notificação para admin (com delay suave)
+  if (isAdmin) {
+    setTimeout(function() {
+      if (typeof window.solicitarPermissaoNotificacao === 'function') {
+        window.solicitarPermissaoNotificacao();
+      }
+    }, 2000);
   }
 
   // Para colaboradores sem colaboradorId: tenta vincular automaticamente
@@ -3806,11 +3851,10 @@ function registrarPontoBase() {
   registros.unshift(reg);
   saveUmRegistro(reg); // salva somente este registro — não sobrescreve os demais
   showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao);
-  pushEnviarParaAdmins(reg); // 🔔 notifica admin
-  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
-  // Marca este id como já processado nesta sessão, para o listener Firebase não regerar
+  // Marca ANTES de gerar FT: garante que o onValue do Firebase não regere em paralelo
   if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
   window._ftPontosProcessados.add(reg.id);
+  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
   selectedColab = null;
   pendingTipo = null;
   pendingLocalizacao = null;
@@ -4267,7 +4311,7 @@ var ftS={ftsLocal:[],padroes:[],ftFirestore:[],dbFT:null,sync:false};
 var LS_LOCAL='ft_auto_local',LS_PAD='ft_auto_padroes',LS_MOTIVOS='ft_motivos_lista',LS_HORARIOS='ft_horarios_lista';
 var TURNOS=[{t:'06:00 – 18:00',i:6,f:18},{t:'18:00 – 06:00',i:18,f:6},{t:'07:00 – 17:00',i:7,f:17},{t:'07:00 – 16:00',i:7,f:16},{t:'18:00 – 07:00',i:18,f:7},{t:'18:00 – 08:30',i:18,f:8},{t:'17:00 – 07:00',i:17,f:7},{t:'22:00 – 07:20',i:22,f:7}];
 
-var FT_MOTIVOS_DEFAULT=['Afastamento','Atestado','Cobertura de Férias','Extra','Falta de Efetivo','Folga do Vigia','Remanejamento Interno','Suspensão','Treinamento','Folga Trabalhada'];
+var FT_MOTIVOS_DEFAULT=['Afastamento','Atestado','Bico Fixo','Cobertura de Férias','Extra','Falta de Efetivo','Folga do Vigia','Remanejamento Interno','Suspensão','Treinamento','Folga Trabalhada'];
 var FT_HORARIOS_DEFAULT=['06:00 – 18:00','18:00 – 06:00','07:00 – 17:00','07:00 – 16:00','18:00 – 07:00','18:00 – 08:30','17:00 – 07:00','22:00 – 07:20'];
 var FT_MOTIVOS=JSON.parse(localStorage.getItem(LS_MOTIVOS)||'null')||FT_MOTIVOS_DEFAULT.slice();
 var FT_HORARIOS=JSON.parse(localStorage.getItem(LS_HORARIOS)||'null')||FT_HORARIOS_DEFAULT.slice();
@@ -4334,6 +4378,50 @@ function ftLimparFirebaseAntigos(){
 function ftInit(){
   ftS.ftsLocal=JSON.parse(localStorage.getItem(LS_LOCAL)||'[]');
   ftS.padroes=JSON.parse(localStorage.getItem(LS_PAD)||'[]');
+  // Garante que novos motivos padrão sejam adicionados sem apagar customizações existentes
+  (function _sincMotivosDefault(){
+    var novos=FT_MOTIVOS_DEFAULT.filter(function(m){return FT_MOTIVOS.indexOf(m)<0;});
+    if(novos.length){novos.forEach(function(m){FT_MOTIVOS.push(m);});ftSalvarMotivos();}
+  })();
+  // Limpeza proativa: remove do ftsLocal duplicatas pendentes cujo par
+  // já existe como status='enviada' no próprio ftsLocal (mesmo array)
+  // Cobre sessões onde o sync de status falhou em iterações anteriores
+  (function _limparPendentesJaEnviados(){
+    var enviadasIds=new Set();
+    var enviadasPontoIds=new Set();
+    var enviadasChaves=new Set();
+    ftS.ftsLocal.forEach(function(f){
+      if(f.status!=='enviada')return;
+      if(f.id)enviadasIds.add(f.id);
+      if(f._fbId)enviadasIds.add(f._fbId);
+      if(f.pontoId)enviadasPontoIds.add(f.pontoId);
+      if(f.horario&&f.posto&&f.colaboradorNome){
+        var nome=(f.colaboradorNome||'').trim().toLowerCase();
+        var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+        enviadasChaves.add(nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia);
+      }
+    });
+    var antes=ftS.ftsLocal.length;
+    ftS.ftsLocal=ftS.ftsLocal.filter(function(f){
+      if(f.status==='enviada')return true; // mantém enviadas
+      // Pendente com mesmo pontoId de uma enviada → remover
+      if(f.pontoId&&enviadasPontoIds.has(f.pontoId))return false;
+      // Pendente com mesmo _fbId de uma enviada → remover
+      if(f._fbId&&enviadasIds.has(f._fbId))return false;
+      // Pendente com mesma chave colab+posto+horário+dia de uma enviada → remover
+      if(f.horario&&f.posto&&f.colaboradorNome){
+        var nome=(f.colaboradorNome||'').trim().toLowerCase();
+        var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+        var chave=nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
+        if(enviadasChaves.has(chave))return false;
+      }
+      return true;
+    });
+    if(ftS.ftsLocal.length!==antes){
+      console.log('[FT] ftInit: '+(antes-ftS.ftsLocal.length)+' pendente(s) removida(s) por já estarem validadas.');
+      localStorage.setItem(LS_LOCAL,JSON.stringify(ftS.ftsLocal));
+    }
+  })();
   ftLimparLancamentosAntigosLocal();
   ftGerRenderMotivos();
   ftGerRenderHorarios();
@@ -4356,6 +4444,30 @@ function ftConectar(){
     window._fbOnValue(window._fbRef(window._db,'ft_registros'),function(snap){
       var data=snap.val();
       var remotas=data?Object.values(data):[];
+      // ── DEDUP ftFirestore: remove entradas duplicadas antes de usar em memória ──
+      // Mantém apenas UMA por colaborador+posto+horário+dia (a com id mais alto = mais recente)
+      var _fbVistosDedup={};
+      remotas=remotas.filter(function(r){
+        var nome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+        var dia=(r.dataHora||r.criadoEm||'').slice(0,10);
+        var hor=(r.horario||'').trim();
+        var pto=(r.posto||'').trim().toLowerCase();
+        var chave=nome+'||'+pto+'||'+hor+'||'+dia;
+        if(!hor||!pto) return true; // sem horário/posto: não deduplicar para não perder dados incompletos
+        if(_fbVistosDedup[chave]){
+          // Mantém o mais recente (id lexicograficamente maior = gerado depois)
+          if((r.id||'')>(_fbVistosDedup[chave].id||'')){
+            _fbVistosDedup[chave]=r;
+          }
+          return false;
+        }
+        _fbVistosDedup[chave]=r;
+        return true;
+      });
+      // Re-adiciona os "vencedores" que substituíram duplicatas
+      Object.values(_fbVistosDedup).forEach(function(v){
+        if(!remotas.some(function(r){return r.id===v.id;})) remotas.push(v);
+      });
       ftS.ftFirestore=remotas;
       // Merge: incorpora no ftsLocal qualquer FT remota (pendente ou enviada) ainda não conhecida
       // Isso garante que todos os dispositivos vejam FTs pendentes geradas em outros celulares
@@ -4364,7 +4476,11 @@ function ftConectar(){
         // Bloqueia por ID
         if(idsLocais.includes(r.id)||idsLocais.includes(r._fbId||'__'))return false;
         // Bloqueia por pontoId (mesmo ponto registrado localmente com outro ID de FT)
-        if(r.pontoId&&ftS.ftsLocal.some(function(l){return l.pontoId===r.pontoId;}))return false;
+        // Inclui proteção contra pontoId undefined/null
+        if(r.pontoId&&ftS.ftsLocal.some(function(l){return l.pontoId&&l.pontoId===r.pontoId;}))return false;
+        // Também bloqueia se o ID do registro remoto já está em _ftPontosProcessados com FT local
+        if(r.pontoId&&window._ftPontosProcessados&&window._ftPontosProcessados.has(r.pontoId)
+           &&ftS.ftsLocal.some(function(l){return l.pontoId&&l.pontoId===r.pontoId;}))return false;
         // Bloqueia por colab+horario+dia se já há FT local para o mesmo turno do mesmo dia
         var rNome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
         var rDia=(r.dataHora||r.criadoEm||'').slice(0,10);
@@ -4383,13 +4499,43 @@ function ftConectar(){
         ftSalvarLocal();
       }
       // Atualiza status local de FTs que foram validadas em outro dispositivo
+      // Match ampliado: cobre id, _fbId, pontoId ↔ _pontoId (todos os casos de cross-referência)
       ftS.ftsLocal=ftS.ftsLocal.map(function(f){
-        var remota=remotas.find(function(r){return r.id===f.id||r.id===f._fbId||r._pontoId===f.pontoId;});
+        var remota=remotas.find(function(r){
+          if(r.id===f.id||r.id===f._fbId)return true;
+          if(f.pontoId&&r._pontoId&&r._pontoId===f.pontoId)return true;
+          if(f.pontoId&&r.pontoId&&r.pontoId===f.pontoId)return true;
+          if(f._fbId&&r.id===f._fbId)return true;
+          return false;
+        });
         if(remota&&remota.status==='enviada'&&f.status==='pendente'){
           return Object.assign({},f,{status:'enviada',enviadoEm:remota.enviadoEm,_fbId:remota.id,validadoPor:remota.validadoPor||'adm'});
         }
         return f;
       });
+      // Limpeza final: remove do ftsLocal qualquer pendente que já consta como enviada no Firebase
+      // Cobre o caso onde o match de status acima não encontrou correspondência por diferença de IDs
+      var _fbEnviadasPontoIds=new Set(remotas.filter(function(r){return (r.status||'enviada')==='enviada';}).map(function(r){return r._pontoId||r.pontoId||'__';}));
+      var _fbEnviadasChaves=new Set(remotas.filter(function(r){return (r.status||'enviada')==='enviada';}).map(function(r){
+        var nome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+        var dia=(r.dataHora||r.criadoEm||'').slice(0,10);
+        return nome+'||'+(r.posto||'').trim().toLowerCase()+'||'+(r.horario||'').trim()+'||'+dia;
+      }));
+      var antesFinal=ftS.ftsLocal.length;
+      ftS.ftsLocal=ftS.ftsLocal.filter(function(f){
+        if(f.status==='enviada')return true;
+        if(f.pontoId&&_fbEnviadasPontoIds.has(f.pontoId))return false;
+        if(f.horario&&f.posto&&f.colaboradorNome){
+          var nome=(f.colaboradorNome||'').trim().toLowerCase();
+          var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+          var chave=nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
+          if(_fbEnviadasChaves.has(chave))return false;
+        }
+        return true;
+      });
+      if(ftS.ftsLocal.length!==antesFinal){
+        console.log('[FT] ftConectar sync-final: '+(antesFinal-ftS.ftsLocal.length)+' pendente(s) removida(s) por já estarem no Firebase como enviadas.');
+      }
       ftSalvarLocal();
       ftAprenderComHistorico(ftS.ftFirestore);
       ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
@@ -4470,6 +4616,13 @@ window.ftGerarDePonto=function(reg){
   if(!ftDentroPeriodoFT(ftDataDoRegistro(reg)))return;
 
   function _gerar(){
+    // Dedup 0: checa _ftPontosProcessados (registro batido nesta sessão ou já sincronizado)
+    // Só bloqueia aqui se já existe FT gerada para ele (evita bloquear o próprio registro)
+    if(window._ftPontosProcessados&&window._ftPontosProcessados.has(reg.id)){
+      var jaTemFT=ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;})
+        ||ftS.ftFirestore.some(function(f){return f.pontoId===reg.id||f._pontoId===reg.id;});
+      if(jaTemFT){console.warn('[FT] Dedup 0 (_ftPontosProcessados + FT existente): ignorando pontoId='+reg.id);return;}
+    }
     // Dedup 1: checa ftsLocal E ftFirestore pelo pontoId (evita regerar FT já existente)
     var jaExiste=ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;})
       ||ftS.ftFirestore.some(function(f){return f.pontoId===reg.id||f._pontoId===reg.id;});
@@ -4649,11 +4802,64 @@ window.ftRenderLista=function(){
   var selC=document.getElementById('ft-filter-colab');
   if(selC){var ns=[...new Set(ftS.ftsLocal.map(function(f){return f.colaboradorNome;}))].sort(),cv=selC.value;
     selC.innerHTML='<option value="">Todos os colaboradores</option>'+ns.map(function(n){return '<option value="'+esc(n)+'"'+(n===cv?' selected':'')+'>'+esc(n)+'</option>';}).join('');}
+  // Conjunto de chaves de FTs já validadas no Firebase (enviada)
+  // Usado para remover da aba FT Automático qualquer pendente que já foi validada
+  var _validadasFirebase=(ftS.ftFirestore||[]).filter(function(r){return (r.status||'enviada')==='enviada';});
+  var _validadasPontoIds=new Set(_validadasFirebase.map(function(r){return r._pontoId||r.pontoId||'__';}));
+  var _validadasChaves=new Set(_validadasFirebase.map(function(r){
+    var nome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+    var dia=(r.dataHora||r.criadoEm||'').slice(0,10);
+    var hor=(r.horario||'').trim();
+    var pto=(r.posto||'').trim().toLowerCase();
+    return nome+'||'+pto+'||'+hor+'||'+dia;
+  }));
+  function _jaValidadaNoFirebase(f){
+    // Match por pontoId
+    if(f.pontoId&&_validadasPontoIds.has(f.pontoId))return true;
+    // Match por _fbId (FT já enviada cujo id remoto é conhecido)
+    if(f._fbId&&_validadasFirebase.some(function(r){return r.id===f._fbId;}))return true;
+    // Match por colab+posto+horário+dia (fallback para FTs sem pontoId)
+    if(f.horario&&f.posto&&f.colaboradorNome){
+      var nome=(f.colaboradorNome||'').trim().toLowerCase();
+      var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+      var chave=nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
+      if(_validadasChaves.has(chave))return true;
+    }
+    return false;
+  }
+
   var lf=ftS.ftsLocal.filter(function(f){
     var d=ftDataDoRegistro(f);
     if(!ftDentroPeriodoFT(d))return false;
-    // FTs validadas/enviadas não aparecem aqui — ficam apenas na aba FTs Validadas
+    // FTs com status=enviada ficam só na aba FTs Validadas
     if(f.status==='enviada')return false;
+    // FTs pendentes localmente mas já validadas no Firebase: remover da aba FT Automático
+    // e atualizar o status em memória (lazy sync)
+    if(_jaValidadaNoFirebase(f)){
+      // Corrige status em memória sem precisar esperar o próximo onValue
+      var remota=_validadasFirebase.find(function(r){
+        if(f.pontoId&&(r._pontoId===f.pontoId||r.pontoId===f.pontoId))return true;
+        if(f._fbId&&r.id===f._fbId)return true;
+        if(f.horario&&f.posto&&f.colaboradorNome){
+          var nome=(f.colaboradorNome||'').trim().toLowerCase();
+          var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+          var chave=nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
+          var rNome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+          var rChave=rNome+'||'+(r.posto||'').trim().toLowerCase()+'||'+(r.horario||'').trim()+'||'+(r.dataHora||r.criadoEm||'').slice(0,10);
+          return chave===rChave;
+        }
+        return false;
+      });
+      if(remota){
+        // Atualiza status no ftsLocal em memória (será persistido no próximo ftSalvarLocal)
+        ftS.ftsLocal=ftS.ftsLocal.map(function(x){
+          if(x.id!==f.id)return x;
+          return Object.assign({},x,{status:'enviada',enviadoEm:remota.enviadoEm||remota.validadoEm,_fbId:remota.id,validadoPor:remota.validadoPor||'adm'});
+        });
+        setTimeout(function(){ftSalvarLocal();},0); // persiste async para não travar o render
+      }
+      return false; // não exibe na aba FT Automático
+    }
     if(fStatus&&f.status!==fStatus)return false;
     if(fColab&&f.colaboradorNome!==fColab)return false;
     if(fDtIni&&d<fDtIni)return false;
@@ -4775,6 +4981,25 @@ window.renderFTValidadas=function(){
     var ns=[...new Set(base.map(function(f){return f.substituto||f.colaboradorNome||'';}).filter(Boolean))].sort(),cv=selC.value;
     selC.innerHTML='<option value="">Todos os colaboradores</option>'+ns.map(function(n){return '<option value="'+esc(n)+'"'+(n===cv?' selected':'')+'>'+esc(n)+'</option>';}).join('');
   }
+  // ── DEDUP VISUAL: remove duplicatas do Firebase antes de exibir ──────────────
+  // Mantém apenas UMA FT por combinação colaborador+posto+horário+dia (a mais recente)
+  var _vistosValidadas={};
+  base=base.filter(function(ft){
+    var nome=(ft.substituto||ft.colaboradorNome||'').trim().toLowerCase();
+    var dia=(ft.dataHora||ft.criadoEm||'').slice(0,10);
+    var hor=(ft.horario||'').trim();
+    var pto=(ft.posto||'').trim().toLowerCase();
+    var chave=nome+'||'+pto+'||'+hor+'||'+dia;
+    // Se sem horário ou posto, usa só nome+dia (mais permissivo)
+    if(!hor||!pto) chave=nome+'||'+dia+'||'+ft.id;
+    if(_vistosValidadas[chave]){
+      console.warn('[FT] renderFTValidadas: dedup visual removeu duplicata',ft.id,'chave=',chave);
+      return false;
+    }
+    _vistosValidadas[chave]=true;
+    return true;
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
   var lf=base.filter(function(ft){
     var nome=ft.substituto||ft.colaboradorNome||'';
     var origem=ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm');
@@ -4840,7 +5065,7 @@ window.renderFTValidadas=function(){
       : '';
     var ftId=ft.id||ft._fbId||'';
     var dtSubLabel = dtVal ? ' &nbsp;·&nbsp; <span style="color:var(--muted);font-size:10px">Validada: '+dtVal+'</span>' : '';
-    return '<div class="ft-card enviada"><div class="ft-card-top"><div><div class="ft-card-nome">'+esc(nome)+'</div><div class="ft-card-ts">📅 '+dt+dtSubLabel+'</div></div><span class="ft-card-badge enviada">✅ Validada</span></div>'
+    return '<div class="ft-card enviada" data-ftid="'+ftId+'"><div class="ft-card-top"><div><div class="ft-card-nome">'+esc(nome)+'</div><div class="ft-card-ts">📅 '+dt+dtSubLabel+'</div></div><span class="ft-card-badge enviada">✅ Validada</span></div>'
       +'<div class="ft-card-chips" style="margin-top:10px">'+chips.join('')+'</div>'
       +confBar
       +(ft.observacao?'<div class="ft-obs-wrap" style="margin-top:10px"><div class="ft-obs-textarea" style="min-height:auto">📝 '+esc(ft.observacao)+'</div></div>':'')
@@ -4871,6 +5096,20 @@ function ftvGetListaFiltrada(){
       return b.id===f.id || b.id===f._fbId || (f._fbId && b._fbId===f._fbId) || b._pontoId===f.pontoId;
     });
     if(!jaNoFirebase) base.push(f);
+  });
+
+  // Dedup antes de filtrar (garante PDF/Excel sem duplicatas)
+  var _expVistosDedup={};
+  base=base.filter(function(ft){
+    var nome=(ft.substituto||ft.colaboradorNome||'').trim().toLowerCase();
+    var dia=(ft.dataHora||ft.criadoEm||'').slice(0,10);
+    var hor=(ft.horario||'').trim();
+    var pto=(ft.posto||'').trim().toLowerCase();
+    var chave=nome+'||'+pto+'||'+hor+'||'+dia;
+    if(!hor||!pto) chave=nome+'||'+dia+'||'+ft.id;
+    if(_expVistosDedup[chave]) return false;
+    _expVistosDedup[chave]=true;
+    return true;
   });
 
   return base.filter(function(ft){
@@ -5376,12 +5615,14 @@ function ftSalvarLocal(){
       }
       vistos.pontoIds[f.pontoId]=true;
     }
-    // Chave por colab+horario+dia (só para FTs com horário definido)
+    // Chave por colab+posto+horario+dia (cobre FTs sem pontoId vindas de merge ou Firebase)
     if(f.horario&&f.colaboradorNome){
       var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
-      var chave=(f.colaboradorNome||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
+      var chave=(f.colaboradorNome||'').trim().toLowerCase()+'||'
+               +(f.posto||'').trim().toLowerCase()+'||'
+               +(f.horario||'').trim()+'||'+dia;
       if(vistos.chaveDia[chave]){
-        console.warn('[FT] ftSalvarLocal: duplicata por colab+horario+dia removida:',f.id,chave);
+        console.warn('[FT] ftSalvarLocal: duplicata por colab+posto+horario+dia removida:',f.id,chave);
         return;
       }
       vistos.chaveDia[chave]=true;
@@ -6738,6 +6979,10 @@ function renderAll() {
   }
   updatePostoFilter();
   _renderHistTabla();
+  // Atualiza badge de inconsistências a cada render
+  if (typeof atualizarBadgeInconsistencias === 'function') {
+    setTimeout(atualizarBadgeInconsistencias, 200);
+  }
 }
 
 // ─── SETUP WIZARD ────────────────────────────────────────────────────────────
@@ -7486,6 +7731,9 @@ async function sincronizarFilaOffline() {
         registros.unshift(regLimpo);
       }
       offlineQueueRemove(regLimpo.id);
+      // Garante que o onValue do Firebase não regere FT para este registro
+      if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
+      window._ftPontosProcessados.add(regLimpo.id);
       ok++;
     } catch(e) {
       err++;
@@ -7553,114 +7801,6 @@ function renderFilaOffline() {
       <div style="font-size:11px;color:var(--muted2);font-family:var(--font-mono)">⏳ ${esperando}min atrás</div>
     </div>`;
   }).join('');
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-//  🔔 PUSH NOTIFICATIONS — SW escuta Firebase diretamente (sem Cloud Function)
-//  Funciona com Chrome fechado no Android após o admin abrir o app uma vez.
-// ══════════════════════════════════════════════════════════════════════════════
-
-let _swReg          = null;
-let _keepAliveTimer = null;
-
-// 1. Registra o Service Worker e inicia escuta
-async function pushRegistrarSW() {
-  if (!('serviceWorker' in navigator)) return null;
-  try {
-    _swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
-    await navigator.serviceWorker.ready;
-    // Pede ao SW para iniciar a escuta do Firebase
-    if (_swReg.active) {
-      _swReg.active.postMessage({ tipo: 'INIT_ESCUTA' });
-    }
-    console.log('[Push] SW registrado e escuta iniciada.');
-    return _swReg;
-  } catch(e) { console.warn('[Push] SW falhou:', e.message); return null; }
-}
-
-// 2. Pede permissão de notificação ao admin
-async function pushSolicitarPermissao() {
-  if (!('Notification' in window)) return false;
-  if (Notification.permission === 'granted') return true;
-  const perm = await Notification.requestPermission();
-  if (perm !== 'granted') {
-    mostrarSyncToast('🔕 Permissão negada. Ative nas configurações do Chrome.', 'gold');
-    return false;
-  }
-  return true;
-}
-
-// 3. Keep-alive: manda ping ao SW a cada 20s para mantê-lo vivo no Android
-function pushIniciarKeepAlive() {
-  if (_keepAliveTimer) clearInterval(_keepAliveTimer);
-  _keepAliveTimer = setInterval(async () => {
-    if (!_swReg || !_swReg.active) return;
-    try {
-      const mc = new MessageChannel();
-      _swReg.active.postMessage({ tipo: 'KEEP_ALIVE' }, [mc.port2]);
-    } catch(e) {}
-  }, 20000);
-}
-
-// 4. Grava ponto na push_queue — o SW escuta e exibe a notificação
-async function pushEnviarParaAdmins(reg) {
-  if (!window._firebaseReady || !window._db) return;
-  try {
-    await window._fbSet(
-      window._fbRef(window._db, 'push_queue/' + reg.id),
-      {
-        tipo:  reg.tipo,
-        nome:  reg.colaboradorNome,
-        posto: reg.posto || '',
-        hora:  new Date(reg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        ts:    reg.timestamp
-      }
-    );
-  } catch(e) { console.warn('[Push] Erro fila push:', e.message); }
-}
-
-// 5. Escuta fila também com app em FOREGROUND (para exibir notificação local)
-function pushEscutarFilaForeground() {
-  if (!window._firebaseReady || !window._db) return;
-  if (!currentUser || currentUser.role !== 'admin') return;
-  if (window._pushFilaOuvindo) return;
-  window._pushFilaOuvindo = true;
-  if (!window._pushJaVisto) window._pushJaVisto = new Set();
-  window._fbOnValue(window._fbRef(window._db, 'push_queue'), snap => {
-    if (!snap.val()) return;
-    const agora = Date.now();
-    Object.values(snap.val()).forEach(item => {
-      const chave = item.nome + '_' + item.ts;
-      if (!window._pushJaVisto.has(chave) && (agora - item.ts) < 30000) {
-        window._pushJaVisto.add(chave);
-        pushNotifLocal(item.tipo, item.nome, item.posto, item.hora);
-      }
-    });
-  });
-}
-
-// 6. Exibe notificação local (app em foreground)
-function pushNotifLocal(tipo, nome, posto, hora) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  if (!currentUser || currentUser.role !== 'admin') return;
-  const isEntrada = tipo === 'entrada';
-  const titulo = isEntrada ? `✅ Entrada — ${nome}` : `🚪 Saída — ${nome}`;
-  const corpo  = posto ? `📍 ${posto}  ·  ${hora || ''}` : (hora || '');
-  try {
-    const n = new Notification(titulo, { body: corpo, tag: 'ponto-' + Date.now(), vibrate: [200, 100, 200] });
-    setTimeout(() => { try { n.close(); } catch(e){} }, 10000);
-  } catch(e) {}
-}
-
-// 7. Inicializa tudo ao fazer login como admin
-async function pushInicializar() {
-  if (!currentUser || currentUser.role !== 'admin') return;
-  const permitido = await pushSolicitarPermissao();
-  if (!permitido) return;
-  await pushRegistrarSW();
-  pushIniciarKeepAlive();
-  pushEscutarFilaForeground();
-  mostrarSyncToast('🔔 Notificações ativadas! Funciona mesmo com o Chrome fechado.', 'green');
 }
 
 // ── DETECÇÃO DE ONLINE/OFFLINE ─────────────────────────────────────────────────
@@ -7761,10 +7901,10 @@ function registrarPonto() {
 
   showFeedbackOffline(pendingTipo, selectedColab.nome, pendingLocalizacao, !navigator.onLine || !window._firebaseReady);
 
-  pushEnviarParaAdmins(reg); // 🔔 notifica admin
-  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
+  // Marca ANTES de gerar FT para bloquear race condition com onValue Firebase
   if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
   window._ftPontosProcessados.add(reg.id);
+  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
 
   selectedColab = null;
   pendingTipo = null;
@@ -7793,6 +7933,10 @@ function showFeedbackOffline(tipo, nome, loc, offline) {
   el.style.display = 'block';
   clearTimeout(el._timer);
   el._timer = setTimeout(()=>{ el.style.display='none'; }, 7000);
+  // 🔔 Dispara notificação push se permitida
+  if (typeof window.notificarPontoBatido === 'function') {
+    window.notificarPontoBatido(nome, tipo, (typeof selectedColab !== 'undefined' && selectedColab ? selectedColab.posto : ''));
+  }
 }
 
 // Inicializa estado de conexão ao carregar
@@ -7805,6 +7949,382 @@ function showFeedbackOffline(tipo, nome, loc, offline) {
 })();
 
 checkSession();
+
+// ══════════════════════════════════════════════════════════════════
+// 🆕 MELHORIA 1 — HISTÓRICO DE EDIÇÕES NAS FTs
+// Toda vez que uma FT validada é editada, registra quem editou,
+// quando, e o que era antes, no campo historico: []
+// ══════════════════════════════════════════════════════════════════
+(function patchFtvEditarSalvar() {
+  var _original = window.ftvEditarSalvar;
+  window.ftvEditarSalvar = function() {
+    var ftId = document.getElementById('ftv-edit-id') ? document.getElementById('ftv-edit-id').value : null;
+    if (ftId) {
+      // Captura estado ANTES da edição
+      var ftAtual = (ftS.ftFirestore && ftS.ftFirestore.length ? ftS.ftFirestore : ftS.ftsLocal)
+        .find(function(f){ return f.id === ftId || f._fbId === ftId; });
+      if (ftAtual) {
+        var entrada = {
+          editadoPor: (currentUser && (currentUser.nome || currentUser.login)) || 'Admin',
+          editadoEm: new Date().toISOString(),
+          antes: {
+            posto: ftAtual.posto || '',
+            motivo: ftAtual.motivo || '',
+            horario: ftAtual.horario || '',
+            valor: ftAtual.valor || 0,
+            observacao: ftAtual.observacao || ''
+          }
+        };
+        var hist = Array.isArray(ftAtual.historico) ? ftAtual.historico.slice() : [];
+        hist.push(entrada);
+        // Injeta historico nas estruturas em memória
+        ftS.ftsLocal = ftS.ftsLocal.map(function(f){
+          if (f.id !== ftId && f._fbId !== ftId) return f;
+          return Object.assign({}, f, { historico: hist });
+        });
+        ftS.ftFirestore = ftS.ftFirestore.map(function(f){
+          if (f.id !== ftId && f._fbId !== ftId) return f;
+          return Object.assign({}, f, { historico: hist });
+        });
+        // Persiste historico no Firebase junto com os outros campos
+        if (window._firebaseReady && window._db) {
+          window._fbUpdate(window._fbRef(window._db, 'ft_registros/' + ftId), { historico: hist })
+            .catch(function(e){ console.warn('[FT historico] Firebase err:', e.message); });
+        }
+      }
+    }
+    if (typeof _original === 'function') _original();
+  };
+})();
+
+// Exibe histórico de edições no card da FT Validada
+(function patchRenderFTValidadas() {
+  var _origRender = window.renderFTValidadas;
+  window.renderFTValidadas = function() {
+    if (typeof _origRender === 'function') _origRender();
+    // Injeta badge de histórico nos cards que têm historico
+    (ftS.ftFirestore || []).concat(ftS.ftsLocal || []).forEach(function(ft) {
+      var hist = ft.historico;
+      if (!hist || !hist.length) return;
+      var ftId = ft.id || ft._fbId;
+      var btnsEl = document.querySelector('[data-ftid="' + ftId + '"] .ftv-card-btns');
+      if (!btnsEl) return;
+      if (btnsEl.querySelector('.ftv-btn-hist')) return;
+      var btn = document.createElement('button');
+      btn.className = 'ftv-btn-edit ftv-btn-hist';
+      btn.title = hist.length + ' edição(ões) registrada(s)';
+      btn.textContent = '📜 Histórico (' + hist.length + ')';
+      btn.onclick = function(){ abrirHistoricoFT(ft); };
+      btnsEl.appendChild(btn);
+    });
+  };
+})();
+
+function abrirHistoricoFT(ft) {
+  var hist = Array.isArray(ft.historico) ? ft.historico : [];
+  if (!hist.length) { ftToast('Nenhuma edição registrada.','warn'); return; }
+  var rows = hist.map(function(h, i) {
+    var dt = new Date(h.editadoEm).toLocaleString('pt-BR');
+    return '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:10px">'
+      + '<div style="font-size:12px;color:var(--accent);font-family:var(--font-mono);margin-bottom:6px">Edição ' + (i+1) + ' — ' + dt + ' por ' + esc(h.editadoPor) + '</div>'
+      + '<div style="font-size:13px;color:var(--muted);line-height:1.8">'
+      + '📍 Posto: <strong style="color:var(--text)">' + esc(h.antes.posto||'—') + '</strong> &nbsp;|&nbsp; '
+      + '🕐 Horário: <strong style="color:var(--text)">' + esc(h.antes.horario||'—') + '</strong> &nbsp;|&nbsp; '
+      + '💬 Motivo: <strong style="color:var(--text)">' + esc(h.antes.motivo||'—') + '</strong> &nbsp;|&nbsp; '
+      + '💰 Valor: <strong style="color:var(--text)">R$ ' + parseFloat(h.antes.valor||0).toFixed(2).replace('.',',') + '</strong>'
+      + (h.antes.observacao ? '<br>📝 Obs: ' + esc(h.antes.observacao) : '')
+      + '</div></div>';
+  }).join('');
+
+  var nome = ft.substituto || ft.colaboradorNome || '—';
+  var overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.style.zIndex = '9000';
+  overlay.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;max-width:520px;width:94%;max-height:80vh;overflow-y:auto;animation:slideUp .2s ease">'
+    + '<div style="font-family:var(--font-head);font-size:20px;font-weight:700;margin-bottom:4px">📜 Histórico de Edições</div>'
+    + '<div style="font-size:13px;color:var(--muted);margin-bottom:20px">FT de: <strong>' + esc(nome) + '</strong></div>'
+    + rows
+    + '<button onclick="this.closest(\'.overlay\').remove()" style="margin-top:8px;width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:12px;cursor:pointer;font-size:14px">Fechar</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🆕 MELHORIA 2 — RELATÓRIO DE INCONSISTÊNCIAS
+// ══════════════════════════════════════════════════════════════════
+function renderInconsistencias() {
+  var hoje = new Date();
+  var todayKey = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
+
+  // 1) Entrada sem saída (turno aberto há mais de 2h)
+  var porColab = {};
+  (typeof registros !== 'undefined' ? registros : []).forEach(function(r) {
+    var k = r.colaboradorId || r.colaboradorNome;
+    if (!porColab[k]) porColab[k] = { nome: r.colaboradorNome, posto: r.posto, regs: [] };
+    porColab[k].regs.push(r);
+  });
+  var semSaida = [];
+  Object.values(porColab).forEach(function(c) {
+    var sorted = c.regs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
+    var aberto = null;
+    sorted.forEach(function(r) {
+      if (r.tipo === 'entrada') aberto = r;
+      else if (r.tipo === 'saida') aberto = null;
+    });
+    if (aberto) {
+      var agoraMs = Date.now();
+      var abertoHa = (agoraMs - aberto.timestamp) / 3600000;
+      if (abertoHa >= 2) {
+        semSaida.push({ nome: c.nome, posto: c.posto, desde: aberto.timestamp, horas: abertoHa });
+      }
+    }
+  });
+
+  // 2) Duração anômala (<6h ou >14h) em turnos completos do dia
+  var duracaoAnom = [];
+  Object.values(porColab).forEach(function(c) {
+    var sorted = c.regs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
+    var entrada = null;
+    sorted.forEach(function(r) {
+      var dk = r.timestamp ? new Date(r.timestamp).toISOString().slice(0,10) : '';
+      if (r.tipo === 'entrada') { entrada = r; }
+      else if (r.tipo === 'saida' && entrada) {
+        var durH = (r.timestamp - entrada.timestamp) / 3600000;
+        if (durH < 6 || durH > 14) {
+          duracaoAnom.push({
+            nome: c.nome, posto: c.posto,
+            entrada: entrada.timestamp, saida: r.timestamp,
+            durH: durH
+          });
+        }
+        entrada = null;
+      }
+    });
+  });
+
+  // 3) FTs validadas sem valor
+  var ftSemValor = [];
+  var ftsBase = (ftS && ftS.ftFirestore && ftS.ftFirestore.length) ? ftS.ftFirestore : (ftS ? ftS.ftsLocal : []);
+  (ftsBase || []).filter(function(f){ return (f.status||'enviada')==='enviada'; }).forEach(function(f) {
+    var val = parseFloat(f.valor);
+    if (!val || val <= 0) {
+      ftSemValor.push({ nome: f.substituto||f.colaboradorNome||'—', posto: f.posto||'—', data: f.dataHora||f.criadoEm||'' });
+    }
+  });
+
+  // Atualiza badge no tab
+  var total = semSaida.length + duracaoAnom.length + ftSemValor.length;
+  var badge = document.getElementById('badge-inconsist');
+  if (badge) {
+    if (total > 0) { badge.textContent = total; badge.style.display = 'inline'; }
+    else badge.style.display = 'none';
+  }
+
+  // Cards de resumo
+  document.getElementById('inconsist-stats').innerHTML =
+    '<div class="dash-stat-card"><div class="dash-stat-num" style="color:var(--red)">' + semSaida.length + '</div><div class="dash-stat-label">Sem Saída</div></div>' +
+    '<div class="dash-stat-card"><div class="dash-stat-num" style="color:var(--gold)">' + duracaoAnom.length + '</div><div class="dash-stat-label">Duração Anômala</div></div>' +
+    '<div class="dash-stat-card"><div class="dash-stat-num" style="color:var(--accent)">' + ftSemValor.length + '</div><div class="dash-stat-label">FT Sem Valor</div></div>';
+
+  // Lista 1 — Sem saída
+  document.getElementById('inconsist-count-semsaida').textContent = semSaida.length;
+  document.getElementById('inconsist-lista-semsaida').innerHTML = semSaida.length
+    ? semSaida.map(function(x) {
+        var h = Math.floor(x.horas); var m = Math.round((x.horas - h) * 60);
+        return '<div class="dash-card" style="border-left:3px solid var(--red)">'
+          + '<div class="dash-card-avatar" style="background:var(--red-bg)">' + x.nome.charAt(0) + '</div>'
+          + '<div class="dash-card-info"><div class="dash-card-nome">' + esc(x.nome) + '</div>'
+          + '<div class="dash-card-sub">📍 ' + esc(x.posto) + ' &nbsp;·&nbsp; Desde ' + new Date(x.desde).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) + ' (' + h + 'h' + m + 'm aberto)</div></div>'
+          + '<div class="dash-card-badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red)">SEM SAÍDA</div>'
+          + '</div>';
+      }).join('')
+    : '<div class="dash-lista-vazia">✅ Nenhum turno aberto por mais de 2h</div>';
+
+  // Lista 2 — Duração anômala
+  document.getElementById('inconsist-count-duracao').textContent = duracaoAnom.length;
+  document.getElementById('inconsist-lista-duracao').innerHTML = duracaoAnom.length
+    ? duracaoAnom.map(function(x) {
+        var h = Math.floor(x.durH); var m = Math.round((x.durH - h) * 60);
+        var cor = x.durH < 6 ? 'var(--gold)' : 'var(--red)';
+        var label = x.durH < 6 ? 'CURTO (' + h + 'h' + m + 'm)' : 'LONGO (' + h + 'h' + m + 'm)';
+        return '<div class="dash-card" style="border-left:3px solid ' + cor + '">'
+          + '<div class="dash-card-avatar" style="background:var(--muted2)">' + x.nome.charAt(0) + '</div>'
+          + '<div class="dash-card-info"><div class="dash-card-nome">' + esc(x.nome) + '</div>'
+          + '<div class="dash-card-sub">📍 ' + esc(x.posto) + ' &nbsp;·&nbsp; '
+          + new Date(x.entrada).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) + ' → '
+          + new Date(x.saida).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) + '</div></div>'
+          + '<div class="dash-card-badge" style="background:var(--muted2);color:' + cor + ';border:1px solid ' + cor + '">' + label + '</div>'
+          + '</div>';
+      }).join('')
+    : '<div class="dash-lista-vazia">✅ Nenhuma duração fora do esperado</div>';
+
+  // Lista 3 — FT sem valor
+  document.getElementById('inconsist-count-ftsemvalor').textContent = ftSemValor.length;
+  document.getElementById('inconsist-lista-ftsemvalor').innerHTML = ftSemValor.length
+    ? ftSemValor.map(function(x) {
+        var dt = x.data ? new Date(x.data).toLocaleDateString('pt-BR') : '—';
+        return '<div class="dash-card" style="border-left:3px solid var(--accent)">'
+          + '<div class="dash-card-avatar" style="background:var(--muted2)">' + x.nome.charAt(0) + '</div>'
+          + '<div class="dash-card-info"><div class="dash-card-nome">' + esc(x.nome) + '</div>'
+          + '<div class="dash-card-sub">📍 ' + esc(x.posto) + ' &nbsp;·&nbsp; ' + dt + '</div></div>'
+          + '<div class="dash-card-badge" style="background:var(--muted2);color:var(--accent);border:1px solid var(--accent)">SEM VALOR</div>'
+          + '</div>';
+      }).join('')
+    : '<div class="dash-lista-vazia">✅ Todas as FTs possuem valor preenchido</div>';
+}
+
+// Atualiza badge de inconsistências sempre que dados mudam
+function atualizarBadgeInconsistencias() {
+  var semSaida = 0, duracaoAnom = 0, ftSemValor = 0;
+  var porColab = {};
+  (typeof registros !== 'undefined' ? registros : []).forEach(function(r) {
+    var k = r.colaboradorId || r.colaboradorNome;
+    if (!porColab[k]) porColab[k] = [];
+    porColab[k].push(r);
+  });
+  Object.values(porColab).forEach(function(regs) {
+    var sorted = regs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
+    var aberto = null, entAtual = null;
+    sorted.forEach(function(r) {
+      if (r.tipo === 'entrada') { aberto = r; entAtual = r; }
+      else if (r.tipo === 'saida') {
+        if (entAtual) {
+          var dh = (r.timestamp - entAtual.timestamp) / 3600000;
+          if (dh < 6 || dh > 14) duracaoAnom++;
+        }
+        aberto = null; entAtual = null;
+      }
+    });
+    if (aberto && (Date.now() - aberto.timestamp) / 3600000 >= 2) semSaida++;
+  });
+  var ftsBase = (ftS && ftS.ftFirestore && ftS.ftFirestore.length) ? ftS.ftFirestore : (ftS ? ftS.ftsLocal : []);
+  (ftsBase || []).filter(function(f){ return (f.status||'enviada')==='enviada'; }).forEach(function(f) {
+    if (!parseFloat(f.valor)) ftSemValor++;
+  });
+  var total = semSaida + duracaoAnom + ftSemValor;
+  var badge = document.getElementById('badge-inconsist');
+  if (badge) {
+    if (total > 0) { badge.textContent = total; badge.style.display = 'inline'; }
+    else badge.style.display = 'none';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// 🆕 MELHORIA 3 — LIMITE DE PONTO POR TURNO (mais robusto)
+// Além do cooldown de 1h, bloqueia dupla entrada no mesmo turno
+// verificando o ÚLTIMO registro e exibindo feedback claro
+// ══════════════════════════════════════════════════════════════════
+function verificarLimitePontoTurno(colabId, tipo) {
+  // Pega todos registros deste colaborador ordenados do mais recente
+  var regsColab = (typeof registros !== 'undefined' ? registros : [])
+    .filter(function(r){ return r.colaboradorId === colabId || r.colaboradorNome === colabId; })
+    .sort(function(a,b){ return b.timestamp - a.timestamp; });
+
+  if (!regsColab.length) return { ok: true };
+
+  var ultimo = regsColab[0];
+
+  if (tipo === 'entrada' && ultimo.tipo === 'entrada') {
+    var passado = (Date.now() - ultimo.timestamp) / 60000; // minutos
+    if (passado < 60) {
+      return {
+        ok: false,
+        msg: '⚠️ Já existe uma entrada registrada há ' + Math.round(passado) + ' minuto(s).\n\nAguarde a saída antes de registrar nova entrada, ou espere ' + Math.round(60 - passado) + ' minuto(s) para o bloqueio expirar.'
+      };
+    }
+  }
+
+  if (tipo === 'saida' && ultimo.tipo === 'saida') {
+    var passadoS = (Date.now() - ultimo.timestamp) / 60000;
+    if (passadoS < 10) {
+      return {
+        ok: false,
+        msg: '⚠️ Já existe uma saída registrada há ' + Math.round(passadoS) + ' minuto(s).\n\nAguarde antes de registrar outra saída.'
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
+// Patch no baterPonto para usar a verificação de limite
+(function patchBaterPonto() {
+  var _origBater = window.baterPonto;
+  window.baterPonto = async function(tipo) {
+    if (!selectedColab) return;
+    var check = verificarLimitePontoTurno(selectedColab.id || selectedColab.nome, tipo);
+    if (!check.ok) {
+      alert(check.msg);
+      return;
+    }
+    if (typeof _origBater === 'function') await _origBater(tipo);
+    // Atualiza badge de inconsistências após registrar ponto
+    setTimeout(atualizarBadgeInconsistencias, 500);
+  };
+})();
+
+// ══════════════════════════════════════════════════════════════════
+// 🆕 MELHORIA 4 — NOTIFICAÇÃO PUSH (Web Push / FCM via VAPID)
+// Solicita permissão e exibe notificação local quando ponto é batido
+// (base para futura integração FCM com Service Worker)
+// ══════════════════════════════════════════════════════════════════
+(function initPushNotifications() {
+  // Solicita permissão ao admin ao entrar no sistema
+  window.solicitarPermissaoNotificacao = function() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(function(perm) {
+        if (perm === 'granted') {
+          mostrarSyncToast('🔔 Notificações ativadas!', 'green');
+          localStorage.setItem('ms_push_enabled', '1');
+        }
+      });
+    }
+  };
+
+  // Dispara notificação local quando um ponto é registrado
+  window.notificarPontoBatido = function(nome, tipo, posto) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    if (!localStorage.getItem('ms_push_enabled')) return;
+    var icone = tipo === 'entrada' ? '🟢' : '🔴';
+    var titulo = icone + ' ' + (tipo === 'entrada' ? 'Entrada' : 'Saída') + ' registrada';
+    var corpo = nome + ' · ' + posto + ' · ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    try {
+      new Notification(titulo, {
+        body: corpo,
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⏱️</text></svg>',
+        tag: 'ponto-' + Date.now(),
+        silent: false
+      });
+    } catch(e) { console.warn('[Push] Notification err:', e); }
+  };
+})();
+
+// Hook na registrarPonto para disparar notificação e atualizar badge
+(function patchRegistrarPonto() {
+  var _origReg = window.registrarPonto;
+  window.registrarPonto = function() {
+    if (typeof _origReg === 'function') _origReg();
+    // Dispara notificação push (se ativada)
+    if (selectedColab === null && pendingTipo === null) {
+      // selectedColab e pendingTipo já foram limpos — usa dados do último feedback
+      var fb = document.getElementById('feedback-banner');
+      if (fb && fb.style.display !== 'none') {
+        var nomeEl = fb.querySelector('.feedback-sub');
+        if (nomeEl) {
+          var txt = nomeEl.textContent || '';
+          var parts = txt.split('·');
+          var nome = (parts[0] || '').trim();
+          var tipoInf = fb.classList.contains('entrada') ? 'entrada' : 'saida';
+          window.notificarPontoBatido(nome, tipoInf, '');
+        }
+      }
+    }
+    setTimeout(atualizarBadgeInconsistencias, 500);
+  };
+})();
+
 mostrarSetupSeNecessario();
 
 // ─── AGUARDA FIREBASE ANTES DE CARREGAR DADOS ─────────────────────────────────
