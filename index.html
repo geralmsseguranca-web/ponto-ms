@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Grupo M.S — Ponto Eletrônico v17</title>
+<title>Grupo M.S — Ponto Eletrônico v18</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
@@ -2941,20 +2941,28 @@ function loadData() {
       renderAll();
     });
 
+    let _u2PrimeiraLeitura = true; // flag: ignora o snapshot inicial (já processado ao registrar)
     const u2 = window._fbOnValue(window._fbRef(window._db, 'registros'), snap => {
       const data = snap.val();
       const anterior = registros.map(r => r.id);
       registros = data ? fromFirebaseObj(data).sort((a,b) => b.timestamp - a.timestamp) : [];
       localStorage.setItem('ms_registros', JSON.stringify(registros));
       renderAll();
-      // Sincronização em tempo real: gera FT para registros novos de ENTRADA
-      // que chegaram de outros dispositivos (não foram registrados nesta sessão)
-      if (typeof window.ftGerarDePonto === 'function' && anterior.length > 0) {
+      // Primeira leitura (snapshot inicial ao conectar) — todos os IDs já estão em memória
+      // ou foram registrados nesta sessão. Marca todos como processados e não gera FT aqui.
+      if (_u2PrimeiraLeitura) {
+        _u2PrimeiraLeitura = false;
+        if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
+        registros.forEach(function(r){ window._ftPontosProcessados.add(r.id); });
+        return;
+      }
+      // Atualizações subsequentes em tempo real: gera FT apenas para entradas NOVAS
+      // vindas de outro dispositivo (não registradas nesta sessão).
+      if (typeof window.ftGerarDePonto === 'function') {
         if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
         registros.forEach(function(r) {
-          // Pula entradas já processadas nesta sessão (evita reprocessar o próprio registro)
           if (r.tipo === 'entrada' && !anterior.includes(r.id) && !window._ftPontosProcessados.has(r.id)) {
-            window._ftPontosProcessados.add(r.id); // marca antes de gerar para evitar race condition
+            window._ftPontosProcessados.add(r.id);
             window.ftGerarDePonto(r);
           }
         });
@@ -3791,10 +3799,10 @@ function registrarPontoBase() {
   registros.unshift(reg);
   saveUmRegistro(reg); // salva somente este registro — não sobrescreve os demais
   showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao);
-  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
-  // Marca este id como já processado nesta sessão, para o listener Firebase não regerar
+  // Marca ANTES de gerar FT: garante que o onValue do Firebase não regere em paralelo
   if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
   window._ftPontosProcessados.add(reg.id);
+  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
   selectedColab = null;
   pendingTipo = null;
   pendingLocalizacao = null;
@@ -4251,7 +4259,7 @@ var ftS={ftsLocal:[],padroes:[],ftFirestore:[],dbFT:null,sync:false};
 var LS_LOCAL='ft_auto_local',LS_PAD='ft_auto_padroes',LS_MOTIVOS='ft_motivos_lista',LS_HORARIOS='ft_horarios_lista';
 var TURNOS=[{t:'06:00 – 18:00',i:6,f:18},{t:'18:00 – 06:00',i:18,f:6},{t:'07:00 – 17:00',i:7,f:17},{t:'07:00 – 16:00',i:7,f:16},{t:'18:00 – 07:00',i:18,f:7},{t:'18:00 – 08:30',i:18,f:8},{t:'17:00 – 07:00',i:17,f:7},{t:'22:00 – 07:20',i:22,f:7}];
 
-var FT_MOTIVOS_DEFAULT=['Afastamento','Atestado','Cobertura de Férias','Extra','Falta de Efetivo','Folga do Vigia','Remanejamento Interno','Suspensão','Treinamento','Folga Trabalhada'];
+var FT_MOTIVOS_DEFAULT=['Afastamento','Atestado','Bico Fixo','Cobertura de Férias','Extra','Falta de Efetivo','Folga do Vigia','Remanejamento Interno','Suspensão','Treinamento','Folga Trabalhada'];
 var FT_HORARIOS_DEFAULT=['06:00 – 18:00','18:00 – 06:00','07:00 – 17:00','07:00 – 16:00','18:00 – 07:00','18:00 – 08:30','17:00 – 07:00','22:00 – 07:20'];
 var FT_MOTIVOS=JSON.parse(localStorage.getItem(LS_MOTIVOS)||'null')||FT_MOTIVOS_DEFAULT.slice();
 var FT_HORARIOS=JSON.parse(localStorage.getItem(LS_HORARIOS)||'null')||FT_HORARIOS_DEFAULT.slice();
@@ -4318,6 +4326,50 @@ function ftLimparFirebaseAntigos(){
 function ftInit(){
   ftS.ftsLocal=JSON.parse(localStorage.getItem(LS_LOCAL)||'[]');
   ftS.padroes=JSON.parse(localStorage.getItem(LS_PAD)||'[]');
+  // Garante que novos motivos padrão sejam adicionados sem apagar customizações existentes
+  (function _sincMotivosDefault(){
+    var novos=FT_MOTIVOS_DEFAULT.filter(function(m){return FT_MOTIVOS.indexOf(m)<0;});
+    if(novos.length){novos.forEach(function(m){FT_MOTIVOS.push(m);});ftSalvarMotivos();}
+  })();
+  // Limpeza proativa: remove do ftsLocal duplicatas pendentes cujo par
+  // já existe como status='enviada' no próprio ftsLocal (mesmo array)
+  // Cobre sessões onde o sync de status falhou em iterações anteriores
+  (function _limparPendentesJaEnviados(){
+    var enviadasIds=new Set();
+    var enviadasPontoIds=new Set();
+    var enviadasChaves=new Set();
+    ftS.ftsLocal.forEach(function(f){
+      if(f.status!=='enviada')return;
+      if(f.id)enviadasIds.add(f.id);
+      if(f._fbId)enviadasIds.add(f._fbId);
+      if(f.pontoId)enviadasPontoIds.add(f.pontoId);
+      if(f.horario&&f.posto&&f.colaboradorNome){
+        var nome=(f.colaboradorNome||'').trim().toLowerCase();
+        var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+        enviadasChaves.add(nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia);
+      }
+    });
+    var antes=ftS.ftsLocal.length;
+    ftS.ftsLocal=ftS.ftsLocal.filter(function(f){
+      if(f.status==='enviada')return true; // mantém enviadas
+      // Pendente com mesmo pontoId de uma enviada → remover
+      if(f.pontoId&&enviadasPontoIds.has(f.pontoId))return false;
+      // Pendente com mesmo _fbId de uma enviada → remover
+      if(f._fbId&&enviadasIds.has(f._fbId))return false;
+      // Pendente com mesma chave colab+posto+horário+dia de uma enviada → remover
+      if(f.horario&&f.posto&&f.colaboradorNome){
+        var nome=(f.colaboradorNome||'').trim().toLowerCase();
+        var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+        var chave=nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
+        if(enviadasChaves.has(chave))return false;
+      }
+      return true;
+    });
+    if(ftS.ftsLocal.length!==antes){
+      console.log('[FT] ftInit: '+(antes-ftS.ftsLocal.length)+' pendente(s) removida(s) por já estarem validadas.');
+      localStorage.setItem(LS_LOCAL,JSON.stringify(ftS.ftsLocal));
+    }
+  })();
   ftLimparLancamentosAntigosLocal();
   ftGerRenderMotivos();
   ftGerRenderHorarios();
@@ -4340,6 +4392,30 @@ function ftConectar(){
     window._fbOnValue(window._fbRef(window._db,'ft_registros'),function(snap){
       var data=snap.val();
       var remotas=data?Object.values(data):[];
+      // ── DEDUP ftFirestore: remove entradas duplicadas antes de usar em memória ──
+      // Mantém apenas UMA por colaborador+posto+horário+dia (a com id mais alto = mais recente)
+      var _fbVistosDedup={};
+      remotas=remotas.filter(function(r){
+        var nome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+        var dia=(r.dataHora||r.criadoEm||'').slice(0,10);
+        var hor=(r.horario||'').trim();
+        var pto=(r.posto||'').trim().toLowerCase();
+        var chave=nome+'||'+pto+'||'+hor+'||'+dia;
+        if(!hor||!pto) return true; // sem horário/posto: não deduplicar para não perder dados incompletos
+        if(_fbVistosDedup[chave]){
+          // Mantém o mais recente (id lexicograficamente maior = gerado depois)
+          if((r.id||'')>(_fbVistosDedup[chave].id||'')){
+            _fbVistosDedup[chave]=r;
+          }
+          return false;
+        }
+        _fbVistosDedup[chave]=r;
+        return true;
+      });
+      // Re-adiciona os "vencedores" que substituíram duplicatas
+      Object.values(_fbVistosDedup).forEach(function(v){
+        if(!remotas.some(function(r){return r.id===v.id;})) remotas.push(v);
+      });
       ftS.ftFirestore=remotas;
       // Merge: incorpora no ftsLocal qualquer FT remota (pendente ou enviada) ainda não conhecida
       // Isso garante que todos os dispositivos vejam FTs pendentes geradas em outros celulares
@@ -4348,7 +4424,11 @@ function ftConectar(){
         // Bloqueia por ID
         if(idsLocais.includes(r.id)||idsLocais.includes(r._fbId||'__'))return false;
         // Bloqueia por pontoId (mesmo ponto registrado localmente com outro ID de FT)
-        if(r.pontoId&&ftS.ftsLocal.some(function(l){return l.pontoId===r.pontoId;}))return false;
+        // Inclui proteção contra pontoId undefined/null
+        if(r.pontoId&&ftS.ftsLocal.some(function(l){return l.pontoId&&l.pontoId===r.pontoId;}))return false;
+        // Também bloqueia se o ID do registro remoto já está em _ftPontosProcessados com FT local
+        if(r.pontoId&&window._ftPontosProcessados&&window._ftPontosProcessados.has(r.pontoId)
+           &&ftS.ftsLocal.some(function(l){return l.pontoId&&l.pontoId===r.pontoId;}))return false;
         // Bloqueia por colab+horario+dia se já há FT local para o mesmo turno do mesmo dia
         var rNome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
         var rDia=(r.dataHora||r.criadoEm||'').slice(0,10);
@@ -4367,13 +4447,43 @@ function ftConectar(){
         ftSalvarLocal();
       }
       // Atualiza status local de FTs que foram validadas em outro dispositivo
+      // Match ampliado: cobre id, _fbId, pontoId ↔ _pontoId (todos os casos de cross-referência)
       ftS.ftsLocal=ftS.ftsLocal.map(function(f){
-        var remota=remotas.find(function(r){return r.id===f.id||r.id===f._fbId||r._pontoId===f.pontoId;});
+        var remota=remotas.find(function(r){
+          if(r.id===f.id||r.id===f._fbId)return true;
+          if(f.pontoId&&r._pontoId&&r._pontoId===f.pontoId)return true;
+          if(f.pontoId&&r.pontoId&&r.pontoId===f.pontoId)return true;
+          if(f._fbId&&r.id===f._fbId)return true;
+          return false;
+        });
         if(remota&&remota.status==='enviada'&&f.status==='pendente'){
           return Object.assign({},f,{status:'enviada',enviadoEm:remota.enviadoEm,_fbId:remota.id,validadoPor:remota.validadoPor||'adm'});
         }
         return f;
       });
+      // Limpeza final: remove do ftsLocal qualquer pendente que já consta como enviada no Firebase
+      // Cobre o caso onde o match de status acima não encontrou correspondência por diferença de IDs
+      var _fbEnviadasPontoIds=new Set(remotas.filter(function(r){return (r.status||'enviada')==='enviada';}).map(function(r){return r._pontoId||r.pontoId||'__';}));
+      var _fbEnviadasChaves=new Set(remotas.filter(function(r){return (r.status||'enviada')==='enviada';}).map(function(r){
+        var nome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+        var dia=(r.dataHora||r.criadoEm||'').slice(0,10);
+        return nome+'||'+(r.posto||'').trim().toLowerCase()+'||'+(r.horario||'').trim()+'||'+dia;
+      }));
+      var antesFinal=ftS.ftsLocal.length;
+      ftS.ftsLocal=ftS.ftsLocal.filter(function(f){
+        if(f.status==='enviada')return true;
+        if(f.pontoId&&_fbEnviadasPontoIds.has(f.pontoId))return false;
+        if(f.horario&&f.posto&&f.colaboradorNome){
+          var nome=(f.colaboradorNome||'').trim().toLowerCase();
+          var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+          var chave=nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
+          if(_fbEnviadasChaves.has(chave))return false;
+        }
+        return true;
+      });
+      if(ftS.ftsLocal.length!==antesFinal){
+        console.log('[FT] ftConectar sync-final: '+(antesFinal-ftS.ftsLocal.length)+' pendente(s) removida(s) por já estarem no Firebase como enviadas.');
+      }
       ftSalvarLocal();
       ftAprenderComHistorico(ftS.ftFirestore);
       ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
@@ -4454,6 +4564,13 @@ window.ftGerarDePonto=function(reg){
   if(!ftDentroPeriodoFT(ftDataDoRegistro(reg)))return;
 
   function _gerar(){
+    // Dedup 0: checa _ftPontosProcessados (registro batido nesta sessão ou já sincronizado)
+    // Só bloqueia aqui se já existe FT gerada para ele (evita bloquear o próprio registro)
+    if(window._ftPontosProcessados&&window._ftPontosProcessados.has(reg.id)){
+      var jaTemFT=ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;})
+        ||ftS.ftFirestore.some(function(f){return f.pontoId===reg.id||f._pontoId===reg.id;});
+      if(jaTemFT){console.warn('[FT] Dedup 0 (_ftPontosProcessados + FT existente): ignorando pontoId='+reg.id);return;}
+    }
     // Dedup 1: checa ftsLocal E ftFirestore pelo pontoId (evita regerar FT já existente)
     var jaExiste=ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;})
       ||ftS.ftFirestore.some(function(f){return f.pontoId===reg.id||f._pontoId===reg.id;});
@@ -4633,11 +4750,64 @@ window.ftRenderLista=function(){
   var selC=document.getElementById('ft-filter-colab');
   if(selC){var ns=[...new Set(ftS.ftsLocal.map(function(f){return f.colaboradorNome;}))].sort(),cv=selC.value;
     selC.innerHTML='<option value="">Todos os colaboradores</option>'+ns.map(function(n){return '<option value="'+esc(n)+'"'+(n===cv?' selected':'')+'>'+esc(n)+'</option>';}).join('');}
+  // Conjunto de chaves de FTs já validadas no Firebase (enviada)
+  // Usado para remover da aba FT Automático qualquer pendente que já foi validada
+  var _validadasFirebase=(ftS.ftFirestore||[]).filter(function(r){return (r.status||'enviada')==='enviada';});
+  var _validadasPontoIds=new Set(_validadasFirebase.map(function(r){return r._pontoId||r.pontoId||'__';}));
+  var _validadasChaves=new Set(_validadasFirebase.map(function(r){
+    var nome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+    var dia=(r.dataHora||r.criadoEm||'').slice(0,10);
+    var hor=(r.horario||'').trim();
+    var pto=(r.posto||'').trim().toLowerCase();
+    return nome+'||'+pto+'||'+hor+'||'+dia;
+  }));
+  function _jaValidadaNoFirebase(f){
+    // Match por pontoId
+    if(f.pontoId&&_validadasPontoIds.has(f.pontoId))return true;
+    // Match por _fbId (FT já enviada cujo id remoto é conhecido)
+    if(f._fbId&&_validadasFirebase.some(function(r){return r.id===f._fbId;}))return true;
+    // Match por colab+posto+horário+dia (fallback para FTs sem pontoId)
+    if(f.horario&&f.posto&&f.colaboradorNome){
+      var nome=(f.colaboradorNome||'').trim().toLowerCase();
+      var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+      var chave=nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
+      if(_validadasChaves.has(chave))return true;
+    }
+    return false;
+  }
+
   var lf=ftS.ftsLocal.filter(function(f){
     var d=ftDataDoRegistro(f);
     if(!ftDentroPeriodoFT(d))return false;
-    // FTs validadas/enviadas não aparecem aqui — ficam apenas na aba FTs Validadas
+    // FTs com status=enviada ficam só na aba FTs Validadas
     if(f.status==='enviada')return false;
+    // FTs pendentes localmente mas já validadas no Firebase: remover da aba FT Automático
+    // e atualizar o status em memória (lazy sync)
+    if(_jaValidadaNoFirebase(f)){
+      // Corrige status em memória sem precisar esperar o próximo onValue
+      var remota=_validadasFirebase.find(function(r){
+        if(f.pontoId&&(r._pontoId===f.pontoId||r.pontoId===f.pontoId))return true;
+        if(f._fbId&&r.id===f._fbId)return true;
+        if(f.horario&&f.posto&&f.colaboradorNome){
+          var nome=(f.colaboradorNome||'').trim().toLowerCase();
+          var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+          var chave=nome+'||'+(f.posto||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
+          var rNome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+          var rChave=rNome+'||'+(r.posto||'').trim().toLowerCase()+'||'+(r.horario||'').trim()+'||'+(r.dataHora||r.criadoEm||'').slice(0,10);
+          return chave===rChave;
+        }
+        return false;
+      });
+      if(remota){
+        // Atualiza status no ftsLocal em memória (será persistido no próximo ftSalvarLocal)
+        ftS.ftsLocal=ftS.ftsLocal.map(function(x){
+          if(x.id!==f.id)return x;
+          return Object.assign({},x,{status:'enviada',enviadoEm:remota.enviadoEm||remota.validadoEm,_fbId:remota.id,validadoPor:remota.validadoPor||'adm'});
+        });
+        setTimeout(function(){ftSalvarLocal();},0); // persiste async para não travar o render
+      }
+      return false; // não exibe na aba FT Automático
+    }
     if(fStatus&&f.status!==fStatus)return false;
     if(fColab&&f.colaboradorNome!==fColab)return false;
     if(fDtIni&&d<fDtIni)return false;
@@ -4759,6 +4929,25 @@ window.renderFTValidadas=function(){
     var ns=[...new Set(base.map(function(f){return f.substituto||f.colaboradorNome||'';}).filter(Boolean))].sort(),cv=selC.value;
     selC.innerHTML='<option value="">Todos os colaboradores</option>'+ns.map(function(n){return '<option value="'+esc(n)+'"'+(n===cv?' selected':'')+'>'+esc(n)+'</option>';}).join('');
   }
+  // ── DEDUP VISUAL: remove duplicatas do Firebase antes de exibir ──────────────
+  // Mantém apenas UMA FT por combinação colaborador+posto+horário+dia (a mais recente)
+  var _vistosValidadas={};
+  base=base.filter(function(ft){
+    var nome=(ft.substituto||ft.colaboradorNome||'').trim().toLowerCase();
+    var dia=(ft.dataHora||ft.criadoEm||'').slice(0,10);
+    var hor=(ft.horario||'').trim();
+    var pto=(ft.posto||'').trim().toLowerCase();
+    var chave=nome+'||'+pto+'||'+hor+'||'+dia;
+    // Se sem horário ou posto, usa só nome+dia (mais permissivo)
+    if(!hor||!pto) chave=nome+'||'+dia+'||'+ft.id;
+    if(_vistosValidadas[chave]){
+      console.warn('[FT] renderFTValidadas: dedup visual removeu duplicata',ft.id,'chave=',chave);
+      return false;
+    }
+    _vistosValidadas[chave]=true;
+    return true;
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
   var lf=base.filter(function(ft){
     var nome=ft.substituto||ft.colaboradorNome||'';
     var origem=ft.validadoPor||((ft.confianca>=80&&ft.autoPosto&&ft.autoHorario&&ft.autoMotivo&&ft.autoValor)?'inteligencia':'adm');
@@ -4855,6 +5044,20 @@ function ftvGetListaFiltrada(){
       return b.id===f.id || b.id===f._fbId || (f._fbId && b._fbId===f._fbId) || b._pontoId===f.pontoId;
     });
     if(!jaNoFirebase) base.push(f);
+  });
+
+  // Dedup antes de filtrar (garante PDF/Excel sem duplicatas)
+  var _expVistosDedup={};
+  base=base.filter(function(ft){
+    var nome=(ft.substituto||ft.colaboradorNome||'').trim().toLowerCase();
+    var dia=(ft.dataHora||ft.criadoEm||'').slice(0,10);
+    var hor=(ft.horario||'').trim();
+    var pto=(ft.posto||'').trim().toLowerCase();
+    var chave=nome+'||'+pto+'||'+hor+'||'+dia;
+    if(!hor||!pto) chave=nome+'||'+dia+'||'+ft.id;
+    if(_expVistosDedup[chave]) return false;
+    _expVistosDedup[chave]=true;
+    return true;
   });
 
   return base.filter(function(ft){
@@ -5360,12 +5563,14 @@ function ftSalvarLocal(){
       }
       vistos.pontoIds[f.pontoId]=true;
     }
-    // Chave por colab+horario+dia (só para FTs com horário definido)
+    // Chave por colab+posto+horario+dia (cobre FTs sem pontoId vindas de merge ou Firebase)
     if(f.horario&&f.colaboradorNome){
       var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
-      var chave=(f.colaboradorNome||'').trim().toLowerCase()+'||'+(f.horario||'').trim()+'||'+dia;
+      var chave=(f.colaboradorNome||'').trim().toLowerCase()+'||'
+               +(f.posto||'').trim().toLowerCase()+'||'
+               +(f.horario||'').trim()+'||'+dia;
       if(vistos.chaveDia[chave]){
-        console.warn('[FT] ftSalvarLocal: duplicata por colab+horario+dia removida:',f.id,chave);
+        console.warn('[FT] ftSalvarLocal: duplicata por colab+posto+horario+dia removida:',f.id,chave);
         return;
       }
       vistos.chaveDia[chave]=true;
@@ -7470,6 +7675,9 @@ async function sincronizarFilaOffline() {
         registros.unshift(regLimpo);
       }
       offlineQueueRemove(regLimpo.id);
+      // Garante que o onValue do Firebase não regere FT para este registro
+      if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
+      window._ftPontosProcessados.add(regLimpo.id);
       ok++;
     } catch(e) {
       err++;
@@ -7637,9 +7845,10 @@ function registrarPonto() {
 
   showFeedbackOffline(pendingTipo, selectedColab.nome, pendingLocalizacao, !navigator.onLine || !window._firebaseReady);
 
-  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
+  // Marca ANTES de gerar FT para bloquear race condition com onValue Firebase
   if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
   window._ftPontosProcessados.add(reg.id);
+  if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
 
   selectedColab = null;
   pendingTipo = null;
