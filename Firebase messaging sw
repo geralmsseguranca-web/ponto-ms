@@ -1,0 +1,69 @@
+// ══════════════════════════════════════════════════════════════════════════════
+//  firebase-messaging-sw.js — Service Worker para Push Notifications (FCM)
+//  Grupo M.S — Ponto Eletrônico
+//
+//  ⚠️  OBRIGATÓRIO: Este arquivo deve ficar na RAIZ do repositório GitHub Pages
+//      (mesma pasta que o index.html / arquivo HTML do ponto)
+//
+//  ⚠️  SUBSTITUA a variável VAPID_KEY abaixo com a sua chave VAPID do Firebase
+//      Console → Project Settings → Cloud Messaging → Web Push certificates
+// ══════════════════════════════════════════════════════════════════════════════
+
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAuOPQPjV4K25iBvEhDBYt6qh3j8o7SjGU",
+  authDomain: "grupo-ms-ponto.firebaseapp.com",
+  databaseURL: "https://grupo-ms-ponto-default-rtdb.firebaseio.com",
+  projectId: "grupo-ms-ponto",
+  storageBucket: "grupo-ms-ponto.firebasestorage.app",
+  messagingSenderId: "177148492322",
+  appId: "1:177148492322:web:74335b5e953493a799687b"
+};
+
+firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
+
+// ── Recebe push com app em BACKGROUND / FECHADO ───────────────────────────────
+messaging.onBackgroundMessage(function(payload) {
+  console.log('[SW] Push recebido em background:', payload);
+
+  const data        = payload.data || {};
+  const tipo        = data.tipo    || 'entrada';
+  const nome        = data.nome    || 'Colaborador';
+  const posto       = data.posto   || '';
+  const hora        = data.hora    || new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const isEntrada   = tipo === 'entrada';
+
+  const titulo = isEntrada
+    ? `✅ Entrada — ${nome}`
+    : `🚪 Saída — ${nome}`;
+
+  const corpo = posto
+    ? `📍 ${posto}  ·  ${hora}`
+    : hora;
+
+  return self.registration.showNotification(titulo, {
+    body:    corpo,
+    icon:    '/icon-192.png',   // coloque um ícone 192x192 na raiz do repo (opcional)
+    badge:   '/badge-72.png',   // ícone pequeno na barra de status (opcional)
+    tag:     'ponto-' + Date.now(),
+    vibrate: [200, 100, 200],
+    data:    { url: self.location.origin }
+  });
+});
+
+// ── Clique na notificação abre o app ─────────────────────────────────────────
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || self.location.origin;
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(list) {
+      for (const client of list) {
+        if (client.url.startsWith(url) && 'focus' in client) return client.focus();
+      }
+      return clients.openWindow(url);
+    })
+  );
+});
