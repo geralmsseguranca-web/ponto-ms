@@ -7556,63 +7556,53 @@ function renderFilaOffline() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-//  🔔 PUSH NOTIFICATIONS — Notifica admin mesmo com app fechado (FCM + SW)
+//  🔔 PUSH NOTIFICATIONS — SW escuta Firebase diretamente (sem Cloud Function)
+//  Funciona com Chrome fechado no Android após o admin abrir o app uma vez.
 // ══════════════════════════════════════════════════════════════════════════════
 
-const VAPID_KEY = 'fCkRMTTqQ1vuPeX3LbsNn7Uso7t2H4_-eS_1X31aU4k';
+let _swReg          = null;
+let _keepAliveTimer = null;
 
-let _pushToken = null;
-let _swReg     = null;
-
-// 1. Registra o Service Worker
+// 1. Registra o Service Worker e inicia escuta
 async function pushRegistrarSW() {
   if (!('serviceWorker' in navigator)) return null;
   try {
     _swReg = await navigator.serviceWorker.register('./firebase-messaging-sw.js');
+    await navigator.serviceWorker.ready;
+    // Pede ao SW para iniciar a escuta do Firebase
+    if (_swReg.active) {
+      _swReg.active.postMessage({ tipo: 'INIT_ESCUTA' });
+    }
+    console.log('[Push] SW registrado e escuta iniciada.');
     return _swReg;
   } catch(e) { console.warn('[Push] SW falhou:', e.message); return null; }
 }
 
-// 2. Pede permissão e obtém token FCM
+// 2. Pede permissão de notificação ao admin
 async function pushSolicitarPermissao() {
-  if (!window._fbMessaging || !window._fbGetToken) return;
-  if (!currentUser || currentUser.role !== 'admin') return;
-  if (!_swReg) await pushRegistrarSW();
-  if (!_swReg) return;
-  try {
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') {
-      mostrarSyncToast('🔕 Permissão negada. Ative nas configurações do Chrome.', 'gold');
-      return;
-    }
-    _pushToken = await window._fbGetToken(window._fbMessaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: _swReg
-    });
-    if (_pushToken) {
-      await pushSalvarToken(_pushToken);
-      mostrarSyncToast('🔔 Notificações push ativadas! Funciona mesmo com app fechado.', 'green');
-      // Escuta mensagens com app em FOREGROUND
-      window._fbOnMessage(window._fbMessaging, payload => {
-        const d = payload.data || {};
-        pushNotifLocal(d.tipo, d.nome, d.posto);
-      });
-    }
-  } catch(e) { console.warn('[Push] Erro token FCM:', e.message); }
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') {
+    mostrarSyncToast('🔕 Permissão negada. Ative nas configurações do Chrome.', 'gold');
+    return false;
+  }
+  return true;
 }
 
-// 3. Salva token no Firebase (nó fcm_tokens/<userId>)
-async function pushSalvarToken(token) {
-  if (!window._firebaseReady || !window._db || !currentUser) return;
-  try {
-    await window._fbSet(
-      window._fbRef(window._db, 'fcm_tokens/' + currentUser.id),
-      { token, userId: currentUser.id, nome: currentUser.nome || currentUser.login, ts: Date.now() }
-    );
-  } catch(e) { console.warn('[Push] Erro salvar token:', e.message); }
+// 3. Keep-alive: manda ping ao SW a cada 20s para mantê-lo vivo no Android
+function pushIniciarKeepAlive() {
+  if (_keepAliveTimer) clearInterval(_keepAliveTimer);
+  _keepAliveTimer = setInterval(async () => {
+    if (!_swReg || !_swReg.active) return;
+    try {
+      const mc = new MessageChannel();
+      _swReg.active.postMessage({ tipo: 'KEEP_ALIVE' }, [mc.port2]);
+    } catch(e) {}
+  }, 20000);
 }
 
-// 4. Grava ponto na fila push (consome pelo SW em background)
+// 4. Grava ponto na push_queue — o SW escuta e exibe a notificação
 async function pushEnviarParaAdmins(reg) {
   if (!window._firebaseReady || !window._db) return;
   try {
@@ -7629,47 +7619,48 @@ async function pushEnviarParaAdmins(reg) {
   } catch(e) { console.warn('[Push] Erro fila push:', e.message); }
 }
 
-// 5. Escuta fila e notifica admin com app ABERTO (foreground)
-function pushEscutarFila() {
+// 5. Escuta fila também com app em FOREGROUND (para exibir notificação local)
+function pushEscutarFilaForeground() {
   if (!window._firebaseReady || !window._db) return;
   if (!currentUser || currentUser.role !== 'admin') return;
   if (window._pushFilaOuvindo) return;
   window._pushFilaOuvindo = true;
+  if (!window._pushJaVisto) window._pushJaVisto = new Set();
   window._fbOnValue(window._fbRef(window._db, 'push_queue'), snap => {
     if (!snap.val()) return;
-    if (!window._pushJaVisto) window._pushJaVisto = new Set();
     const agora = Date.now();
     Object.values(snap.val()).forEach(item => {
       const chave = item.nome + '_' + item.ts;
       if (!window._pushJaVisto.has(chave) && (agora - item.ts) < 30000) {
         window._pushJaVisto.add(chave);
-        pushNotifLocal(item.tipo, item.nome, item.posto);
+        pushNotifLocal(item.tipo, item.nome, item.posto, item.hora);
       }
     });
   });
 }
 
 // 6. Exibe notificação local (app em foreground)
-function pushNotifLocal(tipo, nome, posto) {
+function pushNotifLocal(tipo, nome, posto, hora) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   if (!currentUser || currentUser.role !== 'admin') return;
   const isEntrada = tipo === 'entrada';
   const titulo = isEntrada ? `✅ Entrada — ${nome}` : `🚪 Saída — ${nome}`;
-  const corpo  = posto
-    ? `📍 ${posto}  ·  ${new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })}`
-    : new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  const corpo  = posto ? `📍 ${posto}  ·  ${hora || ''}` : (hora || '');
   try {
-    const n = new Notification(titulo, { body: corpo, tag: 'ponto-' + Date.now(), vibrate: [200,100,200] });
+    const n = new Notification(titulo, { body: corpo, tag: 'ponto-' + Date.now(), vibrate: [200, 100, 200] });
     setTimeout(() => { try { n.close(); } catch(e){} }, 10000);
   } catch(e) {}
 }
 
-// 7. Inicializa push ao fazer login como admin
+// 7. Inicializa tudo ao fazer login como admin
 async function pushInicializar() {
   if (!currentUser || currentUser.role !== 'admin') return;
+  const permitido = await pushSolicitarPermissao();
+  if (!permitido) return;
   await pushRegistrarSW();
-  await pushSolicitarPermissao();
-  pushEscutarFila();
+  pushIniciarKeepAlive();
+  pushEscutarFilaForeground();
+  mostrarSyncToast('🔔 Notificações ativadas! Funciona mesmo com o Chrome fechado.', 'green');
 }
 
 // ── DETECÇÃO DE ONLINE/OFFLINE ─────────────────────────────────────────────────
