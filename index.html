@@ -2150,7 +2150,6 @@ footer {
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft" onclick="showTab('ft-auto',this)" style="display:none">📋 FT Automática</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft-validadas" onclick="showTab('ft-validadas',this)" style="display:none">✅ FTs Validadas</button>
-      <button class="tab-btn admin-tab" id="tab-btn-inconsistencias" onclick="showTab('inconsistencias',this);renderInconsistencias();" style="display:none">⚠️ Inconsistências <span id="badge-inconsist" style="display:none;background:var(--red);color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:4px">0</span></button>
 
     </nav>
   </div>
@@ -2239,47 +2238,6 @@ footer {
       <div id="dash-lista-saiu" class="dash-lista"></div>
     </div>
 
-  </section>
-
-  <!-- ─── ABA: INCONSISTÊNCIAS ─── -->
-  <section id="tab-inconsistencias" class="tab-content">
-    <div class="dash-header">
-      <div>
-        <h2 class="dash-title">⚠️ Relatório de Inconsistências</h2>
-        <p class="dash-sub">Cruzamento automático de pontos irregulares do dia</p>
-      </div>
-      <button class="btn-dash-refresh" onclick="renderInconsistencias()">🔄 Atualizar</button>
-    </div>
-
-    <!-- Cards de resumo -->
-    <div class="dash-stats" id="inconsist-stats" style="margin-bottom:24px"></div>
-
-    <!-- Sem saída -->
-    <div class="dash-section" id="inconsist-sec-semsaida">
-      <div class="dash-section-title ausente">
-        <span>🚪 Entrada sem saída (turno aberto)</span>
-        <span class="dash-count" id="inconsist-count-semsaida">0</span>
-      </div>
-      <div id="inconsist-lista-semsaida" class="dash-lista"></div>
-    </div>
-
-    <!-- Duração anômala -->
-    <div class="dash-section" id="inconsist-sec-duracao">
-      <div class="dash-section-title dentro">
-        <span>⏱️ Duração fora do esperado (&lt;6h ou &gt;14h)</span>
-        <span class="dash-count" id="inconsist-count-duracao">0</span>
-      </div>
-      <div id="inconsist-lista-duracao" class="dash-lista"></div>
-    </div>
-
-    <!-- FTs sem valor -->
-    <div class="dash-section" id="inconsist-sec-ftsemvalor">
-      <div class="dash-section-title saiu">
-        <span>💰 FTs validadas sem valor preenchido</span>
-        <span class="dash-count" id="inconsist-count-ftsemvalor">0</span>
-      </div>
-      <div id="inconsist-lista-ftsemvalor" class="dash-lista"></div>
-    </div>
   </section>
 
   <!-- ─── ABA: HISTÓRICO ─── -->
@@ -3197,7 +3155,7 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-dashboard').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft-validadas').style.display = isAdmin ? '' : 'none';
-  document.getElementById('tab-btn-inconsistencias').style.display = isAdmin ? '' : 'none';
+
 
   // Reseta seleção ao entrar
   selectedColab = null;
@@ -4528,21 +4486,19 @@ function ftConectar(){
       // ─────────────────────────────────────────────────────────────────────────
 
       // ── ftsLocal é espelho do Firebase, preservando optimistic updates locais ──
-      // FIX: se uma FT foi marcada como 'enviada' localmente (optimistic update)
-      // mas o Firebase ainda não confirmou (chegou como 'pendente'), mantém o status local
-      // para evitar que a FT reapareça na aba FT Automática durante a gravação.
-      var _localEnviadasIds=new Set();
+      // Se uma FT foi marcada como 'enviada' localmente mas Firebase ainda retornou
+      // como 'pendente' (delay de sync), mantém status local.
+      var _localEnviadasNodeKeys=new Set();
       (ftS.ftsLocal||[]).forEach(function(f){
         if(f.status==='enviada'){
-          if(f.id)_localEnviadasIds.add(f.id);
-          if(f._fbId)_localEnviadasIds.add(f._fbId);
-          if(f.pontoId)_localEnviadasIds.add('pontoId:'+f.pontoId);
+          if(f._fbNodeKey)_localEnviadasNodeKeys.add(f._fbNodeKey);
+          if(f.id)_localEnviadasNodeKeys.add(f.id);
         }
       });
       remotas=remotas.map(function(r){
         if((r.status||'enviada')==='pendente'){
-          var rPontoId=r.pontoId||r._pontoId||'';
-          if(_localEnviadasIds.has(r.id)||_localEnviadasIds.has('pontoId:'+rPontoId)){
+          var nodeKey=r._fbNodeKey||r.id||'';
+          if(_localEnviadasNodeKeys.has(nodeKey)){
             return Object.assign({},r,{status:'enviada'});
           }
         }
@@ -4844,6 +4800,10 @@ function ftEnviarParaFirestore(ftId){
     window._fbUpdate(window._fbRef(window._db,'ft_registros/'+fbKey), patchValidacao)
       .then(function(){
         ftToast('✅ FT validada e salva no Firebase!','success');
+        // Re-render forçado após confirmação do Firebase
+        ftRenderLista();
+        if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();
+        ftUpdateStats();
         // Se a chave mudou (fbKey !== ftId), remove o nó pendente antigo
         if(fbKey!==ftId){
           window._fbRemove(window._fbRef(window._db,'ft_registros/'+ftId))
@@ -4856,6 +4816,10 @@ function ftEnviarParaFirestore(ftId){
         window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey), fullPayload)
           .then(function(){
             ftToast('✅ FT validada e salva no Firebase!','success');
+            // Re-render forçado após confirmação do Firebase (fallback)
+            ftRenderLista();
+            if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();
+            ftUpdateStats();
             if(fbKey!==ftId){
               window._fbRemove(window._fbRef(window._db,'ft_registros/'+ftId))
                 .catch(function(er){console.warn('[FT] Aviso limpeza:',er);});
@@ -5647,45 +5611,46 @@ window.ftModalSalvar=function(){
 
   ftModalFechar();
 
-  // Optimistic update imediato em memória
-  ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===id?Object.assign({},f,fullPayload):f;});
-  ftS.ftFirestore=ftS.ftFirestore.map(function(f){return (f.id===fbKey||f.id===id)?Object.assign({},f,fullPayload):f;});
-  // Se não existia no ftFirestore ainda, adiciona
-  if(!ftS.ftFirestore.some(function(f){return f.id===fbKey||f.id===id;})){
-    ftS.ftFirestore.unshift(Object.assign({},ftOrig,fullPayload));
-  }
-  ftSalvarLocal();ftRenderLista();
-  if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();
+  // Chave real do nó no Firebase: prioridade _fbNodeKey > id local
+  // _fbNodeKey é a chave exata com que o nó foi criado no Firebase
+  var fbNodeKeyReal = ftOrig._fbNodeKey || ftOrig._fbId || id;
+
+  // Atualiza fullPayload com a chave correta
+  fullPayload.id = fbNodeKeyReal;
+  patchValidacao.id = fbNodeKeyReal;
+
+  // Optimistic update imediato em memória — remove o pendente e insere o validado
+  ftS.ftsLocal = ftS.ftsLocal.filter(function(f){ return f.id !== id && f._fbNodeKey !== fbNodeKeyReal; });
+  ftS.ftsLocal.unshift(Object.assign({}, ftOrig, fullPayload));
+  ftS.ftFirestore = ftS.ftFirestore.filter(function(f){ return f.id !== id && f._fbNodeKey !== fbNodeKeyReal; });
+  ftS.ftFirestore.unshift(Object.assign({}, ftOrig, fullPayload));
+
+  ftSalvarLocal(); ftRenderLista();
+  if(typeof window.renderFTValidadas==='function') window.renderFTValidadas();
   ftUpdateStats();
 
-  // Função auxiliar de limpeza do nó pendente antigo
-  function _limparPendenteAntigo(){
-    if(fbKey!==id){
-      window._fbRemove(window._fbRef(window._db,'ft_registros/'+id))
-        .catch(function(e){console.warn('[FT] Aviso limpeza nó pendente antigo (modal):',e);});
-    }
-  }
-
-  // ── SOLUÇÃO DEFINITIVA: _fbUpdate (PATCH) + fallback _fbSet ──────────────────
-  window._fbUpdate(window._fbRef(window._db,'ft_registros/'+fbKey), patchValidacao)
+  // Grava no nó REAL do Firebase (sobrescreve o pendente existente)
+  window._fbSet(window._fbRef(window._db,'ft_registros/'+fbNodeKeyReal), fullPayload)
     .then(function(){
       ftToast('✅ FT validada e salva no Firebase!','success');
-      _limparPendenteAntigo();
+      // Se fbKey (calculado por pontoId) for diferente do nó real, limpa o nó fbKey caso tenha sido criado
+      if(fbKey !== fbNodeKeyReal){
+        window._fbRemove(window._fbRef(window._db,'ft_registros/'+fbKey))
+          .catch(function(){});
+      }
+      ftRenderLista();
+      if(typeof window.renderFTValidadas==='function') window.renderFTValidadas();
+      ftUpdateStats();
     })
     .catch(function(e){
-      console.error('[FT] Erro no _fbUpdate (modal), tentando _fbSet:',e);
-      window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey), fullPayload)
-        .then(function(){
-          ftToast('✅ FT validada e salva no Firebase!','success');
-          _limparPendenteAntigo();
-        })
-        .catch(function(e2){
-          console.error('[FT] Erro definitivo ao gravar (modal):',e2);
-          ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===id?Object.assign({},f,{status:'pendente',enviadoEm:null,validadoPor:null}):f;});
-          ftS.ftFirestore=ftS.ftFirestore.map(function(f){return f.id===fbKey?ftOrig:f;});
-          ftSalvarLocal();ftRenderLista();ftUpdateStats();
-          ftToast('❌ Erro ao salvar no Firebase: '+e2.message,'error');
-        });
+      console.error('[FT] Erro ao gravar no Firebase (modal):',e);
+      // Reverte o optimistic update
+      ftS.ftsLocal = ftS.ftsLocal.filter(function(f){ return f.id !== fbNodeKeyReal; });
+      ftS.ftsLocal.unshift(Object.assign({}, ftOrig));
+      ftS.ftFirestore = ftS.ftFirestore.filter(function(f){ return f.id !== fbNodeKeyReal; });
+      ftS.ftFirestore.unshift(Object.assign({}, ftOrig));
+      ftSalvarLocal(); ftRenderLista(); ftUpdateStats();
+      ftToast('❌ Erro ao salvar no Firebase: '+e.message,'error');
     });
 };
 window.ftDeletar=function(id){
@@ -7314,10 +7279,6 @@ function renderAll() {
   }
   updatePostoFilter();
   _renderHistTabla();
-  // Atualiza badge de inconsistências a cada render
-  if (typeof atualizarBadgeInconsistencias === 'function') {
-    setTimeout(atualizarBadgeInconsistencias, 200);
-  }
 }
 
 // Atualiza os cards de resumo do dashboard com contagem atual (sem re-renderizar tudo)
@@ -8404,164 +8365,6 @@ function abrirHistoricoFT(ft) {
 // ══════════════════════════════════════════════════════════════════
 // 🆕 MELHORIA 2 — RELATÓRIO DE INCONSISTÊNCIAS
 // ══════════════════════════════════════════════════════════════════
-function renderInconsistencias() {
-  var hoje = new Date();
-  var todayKey = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
-
-  // 1) Entrada sem saída (turno aberto há mais de 2h)
-  var porColab = {};
-  (typeof registros !== 'undefined' ? registros : []).forEach(function(r) {
-    var k = r.colaboradorId || r.colaboradorNome;
-    if (!porColab[k]) porColab[k] = { nome: r.colaboradorNome, posto: r.posto, regs: [] };
-    porColab[k].regs.push(r);
-  });
-  var semSaida = [];
-  Object.values(porColab).forEach(function(c) {
-    var sorted = c.regs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
-    var aberto = null;
-    sorted.forEach(function(r) {
-      if (r.tipo === 'entrada') aberto = r;
-      else if (r.tipo === 'saida') aberto = null;
-    });
-    if (aberto) {
-      var agoraMs = Date.now();
-      var abertoHa = (agoraMs - aberto.timestamp) / 3600000;
-      if (abertoHa >= 2) {
-        semSaida.push({ nome: c.nome, posto: c.posto, desde: aberto.timestamp, horas: abertoHa });
-      }
-    }
-  });
-
-  // 2) Duração anômala (<6h ou >14h) em turnos completos do dia
-  var duracaoAnom = [];
-  Object.values(porColab).forEach(function(c) {
-    var sorted = c.regs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
-    var entrada = null;
-    sorted.forEach(function(r) {
-      var dk = r.timestamp ? new Date(r.timestamp).toISOString().slice(0,10) : '';
-      if (r.tipo === 'entrada') { entrada = r; }
-      else if (r.tipo === 'saida' && entrada) {
-        var durH = (r.timestamp - entrada.timestamp) / 3600000;
-        if (durH < 6 || durH > 14) {
-          duracaoAnom.push({
-            nome: c.nome, posto: c.posto,
-            entrada: entrada.timestamp, saida: r.timestamp,
-            durH: durH
-          });
-        }
-        entrada = null;
-      }
-    });
-  });
-
-  // 3) FTs validadas sem valor
-  var ftSemValor = [];
-  var ftsBase = (ftS && ftS.ftFirestore && ftS.ftFirestore.length) ? ftS.ftFirestore : (ftS ? ftS.ftsLocal : []);
-  (ftsBase || []).filter(function(f){ return (f.status||'enviada')==='enviada'; }).forEach(function(f) {
-    var val = parseFloat(f.valor);
-    if (!val || val <= 0) {
-      ftSemValor.push({ nome: f.substituto||f.colaboradorNome||'—', posto: f.posto||'—', data: f.dataHora||f.criadoEm||'' });
-    }
-  });
-
-  // Atualiza badge no tab
-  var total = semSaida.length + duracaoAnom.length + ftSemValor.length;
-  var badge = document.getElementById('badge-inconsist');
-  if (badge) {
-    if (total > 0) { badge.textContent = total; badge.style.display = 'inline'; }
-    else badge.style.display = 'none';
-  }
-
-  // Cards de resumo
-  document.getElementById('inconsist-stats').innerHTML =
-    '<div class="dash-stat-card"><div class="dash-stat-num" style="color:var(--red)">' + semSaida.length + '</div><div class="dash-stat-label">Sem Saída</div></div>' +
-    '<div class="dash-stat-card"><div class="dash-stat-num" style="color:var(--gold)">' + duracaoAnom.length + '</div><div class="dash-stat-label">Duração Anômala</div></div>' +
-    '<div class="dash-stat-card"><div class="dash-stat-num" style="color:var(--accent)">' + ftSemValor.length + '</div><div class="dash-stat-label">FT Sem Valor</div></div>';
-
-  // Lista 1 — Sem saída
-  document.getElementById('inconsist-count-semsaida').textContent = semSaida.length;
-  document.getElementById('inconsist-lista-semsaida').innerHTML = semSaida.length
-    ? semSaida.map(function(x) {
-        var h = Math.floor(x.horas); var m = Math.round((x.horas - h) * 60);
-        return '<div class="dash-card" style="border-left:3px solid var(--red)">'
-          + '<div class="dash-card-avatar" style="background:var(--red-bg)">' + x.nome.charAt(0) + '</div>'
-          + '<div class="dash-card-info"><div class="dash-card-nome">' + esc(x.nome) + '</div>'
-          + '<div class="dash-card-sub">📍 ' + esc(x.posto) + ' &nbsp;·&nbsp; Desde ' + new Date(x.desde).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) + ' (' + h + 'h' + m + 'm aberto)</div></div>'
-          + '<div class="dash-card-badge" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red)">SEM SAÍDA</div>'
-          + '</div>';
-      }).join('')
-    : '<div class="dash-lista-vazia">✅ Nenhum turno aberto por mais de 2h</div>';
-
-  // Lista 2 — Duração anômala
-  document.getElementById('inconsist-count-duracao').textContent = duracaoAnom.length;
-  document.getElementById('inconsist-lista-duracao').innerHTML = duracaoAnom.length
-    ? duracaoAnom.map(function(x) {
-        var h = Math.floor(x.durH); var m = Math.round((x.durH - h) * 60);
-        var cor = x.durH < 6 ? 'var(--gold)' : 'var(--red)';
-        var label = x.durH < 6 ? 'CURTO (' + h + 'h' + m + 'm)' : 'LONGO (' + h + 'h' + m + 'm)';
-        return '<div class="dash-card" style="border-left:3px solid ' + cor + '">'
-          + '<div class="dash-card-avatar" style="background:var(--muted2)">' + x.nome.charAt(0) + '</div>'
-          + '<div class="dash-card-info"><div class="dash-card-nome">' + esc(x.nome) + '</div>'
-          + '<div class="dash-card-sub">📍 ' + esc(x.posto) + ' &nbsp;·&nbsp; '
-          + new Date(x.entrada).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) + ' → '
-          + new Date(x.saida).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) + '</div></div>'
-          + '<div class="dash-card-badge" style="background:var(--muted2);color:' + cor + ';border:1px solid ' + cor + '">' + label + '</div>'
-          + '</div>';
-      }).join('')
-    : '<div class="dash-lista-vazia">✅ Nenhuma duração fora do esperado</div>';
-
-  // Lista 3 — FT sem valor
-  document.getElementById('inconsist-count-ftsemvalor').textContent = ftSemValor.length;
-  document.getElementById('inconsist-lista-ftsemvalor').innerHTML = ftSemValor.length
-    ? ftSemValor.map(function(x) {
-        var dt = x.data ? new Date(x.data).toLocaleDateString('pt-BR') : '—';
-        return '<div class="dash-card" style="border-left:3px solid var(--accent)">'
-          + '<div class="dash-card-avatar" style="background:var(--muted2)">' + x.nome.charAt(0) + '</div>'
-          + '<div class="dash-card-info"><div class="dash-card-nome">' + esc(x.nome) + '</div>'
-          + '<div class="dash-card-sub">📍 ' + esc(x.posto) + ' &nbsp;·&nbsp; ' + dt + '</div></div>'
-          + '<div class="dash-card-badge" style="background:var(--muted2);color:var(--accent);border:1px solid var(--accent)">SEM VALOR</div>'
-          + '</div>';
-      }).join('')
-    : '<div class="dash-lista-vazia">✅ Todas as FTs possuem valor preenchido</div>';
-}
-
-// Atualiza badge de inconsistências sempre que dados mudam
-function atualizarBadgeInconsistencias() {
-  var semSaida = 0, duracaoAnom = 0, ftSemValor = 0;
-  var porColab = {};
-  (typeof registros !== 'undefined' ? registros : []).forEach(function(r) {
-    var k = r.colaboradorId || r.colaboradorNome;
-    if (!porColab[k]) porColab[k] = [];
-    porColab[k].push(r);
-  });
-  Object.values(porColab).forEach(function(regs) {
-    var sorted = regs.slice().sort(function(a,b){ return a.timestamp - b.timestamp; });
-    var aberto = null, entAtual = null;
-    sorted.forEach(function(r) {
-      if (r.tipo === 'entrada') { aberto = r; entAtual = r; }
-      else if (r.tipo === 'saida') {
-        if (entAtual) {
-          var dh = (r.timestamp - entAtual.timestamp) / 3600000;
-          if (dh < 6 || dh > 14) duracaoAnom++;
-        }
-        aberto = null; entAtual = null;
-      }
-    });
-    if (aberto && (Date.now() - aberto.timestamp) / 3600000 >= 2) semSaida++;
-  });
-  var ftsBase = (ftS && ftS.ftFirestore && ftS.ftFirestore.length) ? ftS.ftFirestore : (ftS ? ftS.ftsLocal : []);
-  (ftsBase || []).filter(function(f){ return (f.status||'enviada')==='enviada'; }).forEach(function(f) {
-    if (!parseFloat(f.valor)) ftSemValor++;
-  });
-  var total = semSaida + duracaoAnom + ftSemValor;
-  var badge = document.getElementById('badge-inconsist');
-  if (badge) {
-    if (total > 0) { badge.textContent = total; badge.style.display = 'inline'; }
-    else badge.style.display = 'none';
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════
 // 🆕 MELHORIA 3 — LIMITE DE PONTO POR TURNO (mais robusto)
 // Além do cooldown de 1h, bloqueia dupla entrada no mesmo turno
 // verificando o ÚLTIMO registro e exibindo feedback claro
@@ -8610,8 +8413,6 @@ function verificarLimitePontoTurno(colabId, tipo) {
       return;
     }
     if (typeof _origBater === 'function') await _origBater(tipo);
-    // Atualiza badge de inconsistências após registrar ponto
-    setTimeout(atualizarBadgeInconsistencias, 500);
   };
 })();
 
@@ -8673,7 +8474,6 @@ function verificarLimitePontoTurno(colabId, tipo) {
         }
       }
     }
-    setTimeout(atualizarBadgeInconsistencias, 500);
   };
 })();
 
