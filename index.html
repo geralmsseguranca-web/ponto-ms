@@ -4413,7 +4413,7 @@ function ftConectar(){
       });
       ftSalvarLocal();
       ftAprenderComHistorico(ftS.ftFirestore);
-      ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
+      ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();if(typeof window.pgRender==='function'&&document.getElementById('tab-pagamentos')&&document.getElementById('tab-pagamentos').classList.contains('active'))window.pgRender();ftUpdateStats();
       console.log('[FT] Firebase sync: '+remotas.length+' registros ('+novas.length+' novos incorporados)');
     },function(e){console.warn('[FT] onValue err',e);});
   }
@@ -4607,7 +4607,7 @@ function ftEnviarParaFirestore(ftId){
   });
   ftSalvarLocal();
   ftRenderLista();
-  if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();
+  if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();if(typeof window.pgRender==='function'&&document.getElementById('tab-pagamentos')&&document.getElementById('tab-pagamentos').classList.contains('active'))window.pgRender();
   ftUpdateStats();
 
   // Envia ao Firebase (sem bloquear a UI)
@@ -4636,7 +4636,7 @@ window.ftSyncFirestore=function(){
       var data=snap.val();
       ftS.ftFirestore=data?Object.values(data):[];
       ftAprenderComHistorico(ftS.ftFirestore);
-      ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
+      ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();if(typeof window.pgRender==='function'&&document.getElementById('tab-pagamentos')&&document.getElementById('tab-pagamentos').classList.contains('active'))window.pgRender();ftUpdateStats();
       ftToast('🔄 '+ftS.padroes.length+' padrões aprendidos','success');
     })
     .catch(function(e){ftToast('❌ Erro na sincronização: '+e.message,'error');})
@@ -5256,7 +5256,7 @@ window.ftDeletar=function(id){
   } else {
     ftToast('🗑️ FT removida.','success');
   }
-  ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
+  ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();if(typeof window.pgRender==='function'&&document.getElementById('tab-pagamentos')&&document.getElementById('tab-pagamentos').classList.contains('active'))window.pgRender();ftUpdateStats();
 };
 
 // ── EDITAR / EXCLUIR FT VALIDADA ──────────────────────────────────────────────
@@ -5336,7 +5336,7 @@ window.ftvEditarSalvar=function(){
     ftToast('✅ FT atualizada localmente.','success');
   }
   ftvEditarFechar();
-  ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
+  ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();if(typeof window.pgRender==='function'&&document.getElementById('tab-pagamentos')&&document.getElementById('tab-pagamentos').classList.contains('active'))window.pgRender();ftUpdateStats();
 };
 window.ftvDeletar=function(ftId){
   if(!confirm('Excluir esta FT validada? Esta ação não pode ser desfeita.')){return;}
@@ -5352,7 +5352,7 @@ window.ftvDeletar=function(ftId){
   } else {
     ftToast('🗑️ FT removida localmente.','success');
   }
-  ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
+  ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();if(typeof window.pgRender==='function'&&document.getElementById('tab-pagamentos')&&document.getElementById('tab-pagamentos').classList.contains('active'))window.pgRender();ftUpdateStats();
 };
 
 window.ftSalvarObs=function(ftId){
@@ -5654,13 +5654,14 @@ window.ftvExportarExcel    = ftvExportarExcel;
   'use strict';
 
   // Retorna a lista de FTs validadas (ftFirestore + ftsLocal enviadas)
+  // Retorna FTs validadas usando a mesma logica exata de renderFTValidadas
   function pgGetFTs(){
     if(typeof ftS === 'undefined') return [];
-    var lista = (ftS.ftFirestore && ftS.ftFirestore.length ? ftS.ftFirestore : []);
-    if(!lista.length){
-      lista = (ftS.ftsLocal||[]).filter(function(f){ return f.status==='enviada'; });
-    }
-    return lista;
+    var base = (ftS.ftFirestore && ftS.ftFirestore.length ? ftS.ftFirestore : ftS.ftsLocal);
+    return (base||[]).filter(function(f){
+      return (f.status||'enviada')==='enviada' &&
+             (typeof ftFTDentroPeriodo === 'function' ? ftFTDentroPeriodo(f) : true);
+    });
   }
 
   // Popula os selects de filtro — mesmas fontes das outras abas:
@@ -5684,17 +5685,24 @@ window.ftvExportarExcel    = ftvExportarExcel;
       todosPostos.map(function(p){ return '<option value="'+esc(p)+'"'+(valP===p?' selected':'')+'>'+esc(p)+'</option>'; }).join('');
   }
 
-  // Filtra a lista
+  // Filtra a lista — mesma logica de data de renderFTValidadas
   function pgFiltrar(lista){
     var fColab = (document.getElementById('pg-filter-colab')||{}).value||'';
     var fPosto = (document.getElementById('pg-filter-posto')||{}).value||'';
     var fIni   = (document.getElementById('pg-filter-ini')||{}).value||'';
     var fFim   = (document.getElementById('pg-filter-fim')||{}).value||'';
     return lista.filter(function(ft){
+      // Nome: igual a renderFTValidadas (substituto tem prioridade)
       var nome = ft.substituto||ft.colaboradorNome||'';
       if(fColab && nome !== fColab) return false;
       if(fPosto && (ft.posto||'') !== fPosto) return false;
-      var dia = (ft.dataHora||ft.criadoEm||'').slice(0,10);
+      // Data: usa timestamp original do ponto quando disponivel (igual renderFTValidadas)
+      var regOrig = (typeof registros !== 'undefined' && ft._pontoId)
+        ? registros.find(function(r){ return r.id === ft._pontoId; })
+        : null;
+      var dia = regOrig && typeof ftLocalISO === 'function'
+        ? ftLocalISO(regOrig.timestamp).slice(0,10)
+        : (ft.dataHora||ft.criadoEm||'').slice(0,10);
       if(fIni && dia < fIni) return false;
       if(fFim && dia > fFim) return false;
       return true;
