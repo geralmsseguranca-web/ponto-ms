@@ -5663,23 +5663,25 @@ window.ftvExportarExcel    = ftvExportarExcel;
     return lista;
   }
 
-  // Popula os selects de filtro
-  function pgPopularFiltros(lista){
+  // Popula os selects de filtro — mesmas fontes das outras abas:
+  // colaboradores (array global) para nomes e listaPostosLimpa() para postos
+  function pgPopularFiltros(){
     var selC = document.getElementById('pg-filter-colab');
     var selP = document.getElementById('pg-filter-posto');
     if(!selC||!selP) return;
     var valC = selC.value, valP = selP.value;
-    var nomes = {}, postos = {};
-    lista.forEach(function(ft){
-      var n = ft.substituto||ft.colaboradorNome||'';
-      var p = ft.posto||'';
-      if(n) nomes[n]=1;
-      if(p) postos[p]=1;
-    });
+
+    // Nomes: colaboradores ativos, igual ao Historico e Colaboradores
+    var ativos = (typeof colaboradores !== 'undefined' ? colaboradores : [])
+      .filter(function(c){ return c.ativo !== false; })
+      .sort(function(a,b){ return (a.nome||'').localeCompare(b.nome||'','pt-BR',{sensitivity:'base'}); });
     selC.innerHTML = '<option value="">Todos os colaboradores</option>' +
-      Object.keys(nomes).sort().map(function(n){ return '<option value="'+esc(n)+'"'+(valC===n?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
+      ativos.map(function(c){ return '<option value="'+esc(c.nome)+'"'+(valC===c.nome?' selected':'')+'>'+esc(c.nome)+'</option>'; }).join('');
+
+    // Postos: listaPostosLimpa() — exata funcao usada pelo Historico e FT Automatica
+    var todosPostos = typeof listaPostosLimpa === 'function' ? listaPostosLimpa() : [];
     selP.innerHTML = '<option value="">Todos os postos</option>' +
-      Object.keys(postos).sort().map(function(p){ return '<option value="'+esc(p)+'"'+(valP===p?' selected':'')+'>'+esc(p)+'</option>'; }).join('');
+      todosPostos.map(function(p){ return '<option value="'+esc(p)+'"'+(valP===p?' selected':'')+'>'+esc(p)+'</option>'; }).join('');
   }
 
   // Filtra a lista
@@ -5706,7 +5708,7 @@ window.ftvExportarExcel    = ftvExportarExcel;
   // Renderiza a lista consolidada na tela
   window.pgRender = function(){
     var todos = pgGetFTs();
-    pgPopularFiltros(todos);
+    pgPopularFiltros();
     var lista = pgFiltrar(todos);
 
     var emptyEl = document.getElementById('pg-empty-msg');
