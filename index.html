@@ -4660,20 +4660,23 @@ window.ftGerarDePonto=function(reg){
     });
     if(jaExisteMesmoDia){console.warn('[FT] Dedup 3 (mesmo dia/turno): FT já existe para '+reg.colaboradorNome+' em '+regDia+'. Ignorando.');return;}
     var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
-    var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',colaboradorNome:reg.colaboradorNome||'',
+    // CHAVE ESTÁVEL: usa "ft_"+pontoId como chave do nó Firebase.
+    // Assim o mesmo ponto sempre grava no mesmo nó — nunca cria órfãos.
+    var ftNodeKey='ft_'+reg.id;
+    var ft={id:ftNodeKey,pontoId:reg.id,colaboradorId:reg.colaboradorId||'',colaboradorNome:reg.colaboradorNome||'',
       posto:(pad&&pad.posto)||reg.posto||'',horario:(pad&&pad.horario)||(turno?turno.t:''),
       motivo:(pad&&pad.motivo)||'',valor:(pad&&pad.valorMedio)||0,observacao:'',
       dataHora:ftLocalISO(reg.timestamp),confianca:pad?pad.confianca:0,
       status:'pendente',criadoEm:new Date().toISOString(),
       autoNome:!!reg.colaboradorNome,autoPosto:!!(pad&&pad.posto),
       autoHorario:!!(pad&&pad.horario)||!!turno,autoMotivo:!!(pad&&pad.motivo),autoValor:!!(pad&&pad.valorMedio)};
-    ft._fbNodeKey=ft.id; // chave do nó Firebase = mesmo id gerado localmente
+    ft._fbNodeKey=ftNodeKey;
     ftS.ftsLocal.unshift(ft);ftSalvarLocal();ftRenderLista();ftUpdateStats();
     var ok=ft.posto&&ft.horario&&ft.motivo&&ft.valor;
     ftToast(ft.confianca>=80&&ok?'🤖 FT gerada: '+ft.colaboradorNome:'📋 FT pendente: '+ft.colaboradorNome,ft.confianca>=80&&ok?'success':'warn');
-    // Persiste FT pendente no Firebase para que outros dispositivos vejam em tempo real
+    // _fbSet com chave estável: idempotente, sobrescreve o mesmo nó sempre
     if(window._firebaseReady&&window._db){
-      window._fbSet(window._fbRef(window._db,'ft_registros/'+ft.id),ft)
+      window._fbSet(window._fbRef(window._db,'ft_registros/'+ftNodeKey),ft)
         .catch(function(e){console.warn('[FT] Erro ao salvar pendente no Firebase:',e);});
     }
   }
@@ -4757,7 +4760,8 @@ function ftEnviarParaFirestore(ftId){
   // ─────────────────────────────────────────────────────────────────────────────
 
   // Usa a chave real do nó Firebase — prioridade: _fbNodeKey > _fbId > id
-  var fbKey = ft._fbNodeKey || ft._fbId || ft.id;
+  // CHAVE ESTÁVEL: pontoId é a fonte de verdade.
+  var fbKey = ft.pontoId ? ('ft_'+ft.pontoId) : (ft._fbNodeKey || ft._fbId || ft.id);
 
   // Objeto COMPLETO para caso o nó não exista (fallback _fbSet)
   var fullPayload={
@@ -5534,7 +5538,8 @@ window.ftModalSalvar=function(){
                     &&(ftOrig.autoMotivo&&motivo===ftOrig.motivo)
                     &&!!ftOrig.autoValor;
   var origemValidacao=(ftOrig.confianca>=80&&todosCamposAuto)?'inteligencia':'adm';
-  var fbKey=ftOrig._fbNodeKey||ftOrig._fbId||ftOrig.id;
+  // CHAVE ESTÁVEL: pontoId é a fonte de verdade.
+  var fbKey=ftOrig.pontoId?('ft_'+ftOrig.pontoId):(ftOrig._fbNodeKey||ftOrig._fbId||ftOrig.id);
 
   // Verifica duplicidade antes de enviar
   var nomeNorm=(ftOrig.colaboradorNome||'').trim().toLowerCase();
@@ -5631,7 +5636,7 @@ window.ftDeletar=function(id){
   ftS.ftFirestore=ftS.ftFirestore.filter(function(f){return f.id!==id&&f._fbId!==id;});
   ftSalvarLocal();
   // Remove do Firebase: usa chave real do nó (_fbNodeKey), senão _fbId, senão id
-  var fbKey=(ft&&ft._fbNodeKey)||(ft&&ft._fbId)||(ft&&ft.id)||null;
+  var fbKey=(ft&&ft.pontoId)?('ft_'+ft.pontoId):((ft&&ft._fbNodeKey)||(ft&&ft._fbId)||(ft&&ft.id)||null);
   if(fbKey&&window._firebaseReady&&window._db){
     window._fbRemove(window._fbRef(window._db,'ft_registros/'+fbKey))
       .then(function(){ftToast('🗑️ FT excluída permanentemente.','success');})
@@ -5676,7 +5681,7 @@ window.ftvEditarSalvar=function(){
   // Resolve chave real do nó Firebase
   var ftOrig=ftS.ftFirestore.find(function(f){return f.id===ftId||f._fbId===ftId;})
            ||ftS.ftsLocal.find(function(f){return f.id===ftId||f._fbId===ftId;});
-  var fbKey=(ftOrig&&ftOrig._fbNodeKey)||(ftOrig&&ftOrig._fbId)||ftId;
+  var fbKey=(ftOrig&&ftOrig.pontoId)?('ft_'+(ftOrig.pontoId)):((ftOrig&&ftOrig._fbNodeKey)||(ftOrig&&ftOrig._fbId)||ftId);
   var upd={posto:posto,motivo:motivo,horario:horario,
     valor:parseFloat(valor)||0,observacao:obs||null,
     autoPosto:false,autoMotivo:false,autoHorario:false,
@@ -5706,7 +5711,7 @@ window.ftvDeletar=function(ftId){
   if(!confirm('Excluir esta FT validada? Esta ação não pode ser desfeita.')){return;}
   var ftOrig=ftS.ftFirestore.find(function(f){return f.id===ftId||f._fbId===ftId;})
            ||ftS.ftsLocal.find(function(f){return f.id===ftId||f._fbId===ftId;});
-  var fbKey=(ftOrig&&ftOrig._fbNodeKey)||(ftOrig&&ftOrig._fbId)||ftId;
+  var fbKey=(ftOrig&&ftOrig.pontoId)?('ft_'+(ftOrig.pontoId)):((ftOrig&&ftOrig._fbNodeKey)||(ftOrig&&ftOrig._fbId)||ftId);
   ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==ftId&&f._fbId!==ftId;});
   ftS.ftFirestore=ftS.ftFirestore.filter(function(f){return f.id!==ftId&&f._fbId!==ftId;});
   ftSalvarLocal();
@@ -5725,7 +5730,7 @@ window.ftSalvarObs=function(ftId){
   if(!el)return;
   var val=el.value.trim();
   var ftRef=ftS.ftsLocal.find(function(f){return f.id===ftId;})||ftS.ftFirestore.find(function(f){return f.id===ftId;});
-  var fbKey=(ftRef&&ftRef._fbNodeKey)||(ftRef&&ftRef._fbId)||ftId;
+  var fbKey=(ftRef&&ftRef.pontoId)?('ft_'+(ftRef.pontoId)):((ftRef&&ftRef._fbNodeKey)||(ftRef&&ftRef._fbId)||ftId);
   ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===ftId?Object.assign({},f,{observacao:val}):f;});
   ftSalvarLocal();
   if(window._firebaseReady&&window._db){
@@ -5761,7 +5766,7 @@ window.ftQuickEditSalvar=function(ftId){
   var campo=qe.dataset.campo;
   // Resolve chave real do nó Firebase
   var ftRef=ftS.ftsLocal.find(function(f){return f.id===ftId;})||ftS.ftFirestore.find(function(f){return f.id===ftId;});
-  var fbKey=(ftRef&&ftRef._fbNodeKey)||(ftRef&&ftRef._fbId)||ftId;
+  var fbKey=(ftRef&&ftRef.pontoId)?('ft_'+(ftRef.pontoId)):((ftRef&&ftRef._fbNodeKey)||(ftRef&&ftRef._fbId)||ftId);
   // Edição de data tem fluxo próprio
   if(campo==='data'){
     var inp=document.getElementById('ft-qe-inp-data-'+ftId);
@@ -6049,8 +6054,9 @@ window.ftRecuperarDoHistorico=function(){
   if(btn){btn.textContent='⏳ Recuperando...';btn.disabled=true;}
   pendentes.forEach(function(reg){
     var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
-    var ftId=ftUid();
-    var ft={id:ftId,pontoId:reg.id,colaboradorId:reg.colaboradorId||'',
+    // CHAVE ESTÁVEL: mesma lógica do ftGerarFT — "ft_"+pontoId
+    var ftNodeKey='ft_'+reg.id;
+    var ft={id:ftNodeKey,pontoId:reg.id,colaboradorId:reg.colaboradorId||'',
       colaboradorNome:reg.colaboradorNome||'',
       posto:(pad&&pad.posto)||reg.posto||'',
       horario:(pad&&pad.horario)||(turno?turno.t:''),
@@ -6065,11 +6071,10 @@ window.ftRecuperarDoHistorico=function(){
       autoMotivo:!!(pad&&pad.motivo),
       autoValor:!!(pad&&pad.valorMedio),
       _recuperada:true,
-      _fbNodeKey:ftId}; // garante que _fbNodeKey = id desde a criação
+      _fbNodeKey:ftNodeKey};
     ftS.ftsLocal.unshift(ft);
-    // Persiste imediatamente no Firebase para que a validação posterior use o nó correto
     if(window._firebaseReady&&window._db){
-      window._fbSet(window._fbRef(window._db,'ft_registros/'+ftId),ft)
+      window._fbSet(window._fbRef(window._db,'ft_registros/'+ftNodeKey),ft)
         .catch(function(e){console.warn('[FT] Erro ao salvar FT recuperada no Firebase:',e);});
     }
   });
