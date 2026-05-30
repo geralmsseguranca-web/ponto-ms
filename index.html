@@ -4496,6 +4496,37 @@ function ftConectar(){
         if(!remotas.some(function(r){return r.id===v.id;})) remotas.push(v);
       });
 
+      // ── FIX: limpa nós pendentes órfãos no Firebase ──────────────────────────
+      // Se existir um nó com status='pendente' cujo _pontoId (ou id) já tem um par
+      // com status='enviada', o nó pendente é um fantasma — remove do Firebase silenciosamente.
+      var _enviadasPontoIds=new Set();
+      remotas.forEach(function(r){
+        if((r.status||'enviada')==='enviada'){
+          if(r._pontoId) _enviadasPontoIds.add(r._pontoId);
+          if(r.pontoId)  _enviadasPontoIds.add(r.pontoId);
+        }
+      });
+      remotas.forEach(function(r){
+        if((r.status||'enviada')==='pendente'){
+          var pontoRef=r.pontoId||r._pontoId||'';
+          if(pontoRef&&_enviadasPontoIds.has(pontoRef)){
+            // Nó pendente órfão — remove do Firebase
+            var chaveOrfao=r._fbNodeKey||r.id;
+            if(chaveOrfao&&window._firebaseReady&&window._db){
+              window._fbRemove(window._fbRef(window._db,'ft_registros/'+chaveOrfao))
+                .catch(function(e){console.warn('[FT] Erro ao remover órfão pendente:',e);});
+            }
+          }
+        }
+      });
+      // Filtra os pendentes órfãos da lista local também
+      remotas=remotas.filter(function(r){
+        if((r.status||'enviada')!=='pendente') return true;
+        var pontoRef=r.pontoId||r._pontoId||'';
+        return !(pontoRef&&_enviadasPontoIds.has(pontoRef));
+      });
+      // ─────────────────────────────────────────────────────────────────────────
+
       // ── ftsLocal é espelho direto do Firebase ──
       ftS.ftFirestore=remotas;
       ftS.ftsLocal=remotas.slice();
@@ -4749,21 +4780,33 @@ function ftEnviarParaFirestore(ftId){
   if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();
   ftUpdateStats();
 
-  // Persiste no Firebase — o onValue vai confirmar e re-renderizar
-  window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey), updates)
-    .then(function(){
-      ftToast('✅ FT validada e salva no Firebase!','success');
-    })
-    .catch(function(e){
-      console.error('[FT] Erro ao gravar no Firebase:',e);
-      // Reverte o optimistic update em caso de erro
-      ftS.ftsLocal=ftS.ftsLocal.map(function(f){
-        if(f.id!==ftId)return f;
-        return Object.assign({},f,{status:'pendente',enviadoEm:null,validadoPor:null,validadoEm:null});
+  // FIX: Se a chave do nó Firebase (fbKey) difere do id local da FT (ftId),
+  // o nó antigo com status='pendente' pode sobreviver no Firebase e reaparecer
+  // no reload. Removemos o nó órfão antes de gravar o atualizado.
+  var _gravarAtualizado=function(){
+    window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey), updates)
+      .then(function(){
+        ftToast('✅ FT validada e salva no Firebase!','success');
+      })
+      .catch(function(e){
+        console.error('[FT] Erro ao gravar no Firebase:',e);
+        // Reverte o optimistic update em caso de erro
+        ftS.ftsLocal=ftS.ftsLocal.map(function(f){
+          if(f.id!==ftId)return f;
+          return Object.assign({},f,{status:'pendente',enviadoEm:null,validadoPor:null,validadoEm:null});
+        });
+        ftSalvarLocal();ftRenderLista();ftUpdateStats();
+        ftToast('❌ Erro ao salvar no Firebase: '+e.message,'error');
       });
-      ftSalvarLocal();ftRenderLista();ftUpdateStats();
-      ftToast('❌ Erro ao salvar no Firebase: '+e.message,'error');
-    });
+  };
+  if(fbKey!==ftId){
+    // Remove o nó pendente antigo (chave=ftId) para evitar fantasma no reload
+    window._fbRemove(window._fbRef(window._db,'ft_registros/'+ftId))
+      .catch(function(e){console.warn('[FT] Aviso ao remover nó pendente antigo:',e);})
+      .then(_gravarAtualizado);
+  } else {
+    _gravarAtualizado();
+  }
 }
 
 window.ftSyncFirestore=function(){
@@ -5501,17 +5544,28 @@ window.ftModalSalvar=function(){
   if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();
   ftUpdateStats();
 
-  // Grava no Firebase — o onValue vai confirmar e re-renderizar
-  window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey), payload)
-    .then(function(){ftToast('✅ FT validada e salva no Firebase!','success');})
-    .catch(function(e){
-      console.error('[FT] Erro ao gravar no Firebase:',e);
-      // Reverte optimistic update
-      ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===id?Object.assign({},f,{status:'pendente',enviadoEm:null,validadoPor:null}):f;});
-      ftS.ftFirestore=ftS.ftFirestore.map(function(f){return f.id===fbKey?ftOrig:f;});
-      ftSalvarLocal();ftRenderLista();ftUpdateStats();
-      ftToast('❌ Erro ao salvar no Firebase: '+e.message,'error');
-    });
+  // FIX: Se a chave do nó Firebase (fbKey) difere do id local (id),
+  // o nó pendente antigo (chave=id) sobrevive no Firebase e reaparece no reload.
+  // Removemos o nó órfão antes de gravar o atualizado.
+  var _gravarPayload=function(){
+    window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey), payload)
+      .then(function(){ftToast('✅ FT validada e salva no Firebase!','success');})
+      .catch(function(e){
+        console.error('[FT] Erro ao gravar no Firebase:',e);
+        // Reverte optimistic update
+        ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===id?Object.assign({},f,{status:'pendente',enviadoEm:null,validadoPor:null}):f;});
+        ftS.ftFirestore=ftS.ftFirestore.map(function(f){return f.id===fbKey?ftOrig:f;});
+        ftSalvarLocal();ftRenderLista();ftUpdateStats();
+        ftToast('❌ Erro ao salvar no Firebase: '+e.message,'error');
+      });
+  };
+  if(fbKey!==id){
+    window._fbRemove(window._fbRef(window._db,'ft_registros/'+id))
+      .catch(function(e){console.warn('[FT] Aviso ao remover nó pendente antigo (modal):',e);})
+      .then(_gravarPayload);
+  } else {
+    _gravarPayload();
+  }
 };
 window.ftDeletar=function(id){
   if(!confirm('Excluir esta FT? Esta ação não pode ser desfeita.'))return;
