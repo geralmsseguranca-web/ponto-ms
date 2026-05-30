@@ -2149,7 +2149,7 @@ footer {
       <button class="tab-btn" onclick="showTab('historico',this)">📋 Histórico</button>
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft" onclick="showTab('ft-auto',this)" style="display:none">📋 FT Automática</button>
-      <button class="tab-btn admin-tab" id="tab-btn-ft-validadas" onclick="showTab('ft-validadas',this)" style="display:none">✅ FTs Validadas</button>
+      <button class="tab-btn admin-tab" id="tab-btn-ft-validadas" onclick="showTab('ft-validadas',this)" style="display:none">✅ FTs Validadas <span id="badge-ft-validadas" style="display:none;background:var(--green);color:#000;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:4px;font-weight:700">0</span></button>
       <button class="tab-btn admin-tab" id="tab-btn-inconsistencias" onclick="showTab('inconsistencias',this);renderInconsistencias();" style="display:none">⚠️ Inconsistências <span id="badge-inconsist" style="display:none;background:var(--red);color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:4px">0</span></button>
 
     </nav>
@@ -5071,6 +5071,8 @@ window.renderFTValidadas=function(){
   if(elTotal)elTotal.textContent=total;
   if(elAdm)elAdm.textContent=adm;
   if(elIa)elIa.textContent=ia;
+  var badgeFtV=document.getElementById('badge-ft-validadas');
+  if(badgeFtV){if(total>0){badgeFtV.textContent=total;badgeFtV.style.display='inline';}else{badgeFtV.style.display='none';}}
 
   if(!lf.length){if(emEl)emEl.style.display='flex';lista.innerHTML='';return;}
   if(emEl)emEl.style.display='none';
