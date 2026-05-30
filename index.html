@@ -2150,7 +2150,7 @@ footer {
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft" onclick="showTab('ft-auto',this)" style="display:none">📋 FT Automática</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft-validadas" onclick="showTab('ft-validadas',this)" style="display:none">✅ FTs Validadas</button>
-      <button class="tab-btn admin-tab" id="tab-btn-pagamentos" onclick="showTab('pagamentos',this);pgRender()" style="display:none">💰 Pagamentos</button>
+      <button class="tab-btn admin-tab" id="tab-btn-pagamentos" onclick="showTab('pagamentos',this)" style="display:none">💰 Pagamentos</button>
 
     </nav>
   </div>
@@ -3494,6 +3494,7 @@ function showTab(id, btn) {
     setTimeout(window.ftRenderLista, 80);
   }
   if (id === 'ft-validadas' && typeof window.renderFTValidadas === 'function') setTimeout(window.renderFTValidadas, 80);
+  if (id === 'pagamentos' && typeof window.pgRender === 'function') setTimeout(window.pgRender, 80);
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
   if (id==='historico')  { updatePostoFilter(); renderHistorico(); }
