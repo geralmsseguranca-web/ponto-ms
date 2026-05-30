@@ -4745,11 +4745,22 @@ function ftEnviarParaFirestore(ftId){
   var origemValidacao=(ft.confianca>=80&&todosCamposAuto)?'inteligencia':'adm';
   var agora=new Date().toISOString();
 
-  // ── ESTRATÉGIA: update no ID original da FT pendente (não cria novo ID) ──
-  // A FT pendente já existe no Firebase com ft.id. Atualizamos o mesmo nó
-  // para status='enviada'. O onValue dispara automaticamente e atualiza a UI.
-  var fbKey = ft._fbNodeKey || ft._fbId || ft.id; // usa chave real do nó Firebase
-  var updates={
+  // ── SOLUÇÃO DEFINITIVA ────────────────────────────────────────────────────────
+  // Usa _fbUpdate (PATCH atômico) para atualizar APENAS os campos de validação
+  // no nó que JÁ EXISTE no Firebase. Isso é seguro porque:
+  //   1. Não sobrescreve campos que não foram incluídos (evita corrupção)
+  //   2. É uma operação idempotente — pode ser repetida sem efeito colateral
+  //   3. O onValue listener confirma e sincroniza a UI automaticamente
+  //
+  // Se o nó não existir ainda (FT local nunca gravada no Firebase),
+  // o _fbUpdate cria o nó com o objeto completo como fallback.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // Usa a chave real do nó Firebase — prioridade: _fbNodeKey > _fbId > id
+  var fbKey = ft._fbNodeKey || ft._fbId || ft.id;
+
+  // Objeto COMPLETO para caso o nó não exista (fallback _fbSet)
+  var fullPayload={
     id:fbKey,
     posto:ft.posto, motivo:ft.motivo, horario:ft.horario,
     substituto:ft.colaboradorNome, colaboradorNome:ft.colaboradorNome,
@@ -4763,50 +4774,74 @@ function ftEnviarParaFirestore(ftId){
     autoNome:!!ft.autoNome, autoPosto:!!ft.autoPosto,
     autoHorario:!!ft.autoHorario, autoMotivo:!!ft.autoMotivo, autoValor:!!ft.autoValor,
     validadoPor:origemValidacao, validadoEm:agora,
-    _origem:'ponto-automatico', _pontoId:ft.pontoId||ft.id
+    _origem:'ponto-automatico', _pontoId:ft.pontoId||ft.id,
+    pontoId:ft.pontoId||ft.id, criadoEm:ft.criadoEm||agora
   };
 
-  // Optimistic update imediato em memória para resposta visual instantânea
+  // Patch mínimo para update atômico (não toca campos que não precisam mudar)
+  var patchValidacao={
+    status:'enviada', enviadoEm:agora,
+    validadoPor:origemValidacao, validadoEm:agora,
+    posto:ft.posto, motivo:ft.motivo, horario:ft.horario,
+    valor:parseFloat(ft.valor)||0,
+    observacao:ft.observacao||null,
+    id:fbKey
+  };
+
+  // Optimistic update imediato em memória
   ftS.ftsLocal=ftS.ftsLocal.map(function(f){
     if(f.id!==ftId)return f;
     return Object.assign({},f,{status:'enviada',enviadoEm:agora,validadoPor:origemValidacao,validadoEm:agora});
   });
   ftS.ftFirestore=ftS.ftFirestore.map(function(f){
-    if(f.id!==fbKey)return f;
-    return Object.assign({},f,updates);
+    if(f.id!==fbKey&&f.id!==ftId)return f;
+    return Object.assign({},f,fullPayload);
   });
-  ftSalvarLocal();
-  ftRenderLista();
+  // Se ftFirestore não tinha o item (FT só local), adiciona
+  if(!ftS.ftFirestore.some(function(f){return f.id===fbKey||f.id===ftId;})){
+    ftS.ftFirestore.unshift(Object.assign({},ft,fullPayload));
+  }
+  ftSalvarLocal();ftRenderLista();
   if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();
   ftUpdateStats();
 
-  // FIX: Se a chave do nó Firebase (fbKey) difere do id local da FT (ftId),
-  // o nó antigo com status='pendente' pode sobreviver no Firebase e reaparecer
-  // no reload. Removemos o nó órfão antes de gravar o atualizado.
-  var _gravarAtualizado=function(){
-    window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey), updates)
+  // Função de gravação com retry automático
+  function _persistirValidacao(){
+    // Tenta update (PATCH) primeiro — se o nó existe, apenas muda os campos necessários
+    window._fbUpdate(window._fbRef(window._db,'ft_registros/'+fbKey), patchValidacao)
       .then(function(){
         ftToast('✅ FT validada e salva no Firebase!','success');
+        // Se a chave mudou (fbKey !== ftId), remove o nó pendente antigo
+        if(fbKey!==ftId){
+          window._fbRemove(window._fbRef(window._db,'ft_registros/'+ftId))
+            .catch(function(e){console.warn('[FT] Aviso ao limpar nó pendente antigo:',e);});
+        }
       })
       .catch(function(e){
-        console.error('[FT] Erro ao gravar no Firebase:',e);
-        // Reverte o optimistic update em caso de erro
-        ftS.ftsLocal=ftS.ftsLocal.map(function(f){
-          if(f.id!==ftId)return f;
-          return Object.assign({},f,{status:'pendente',enviadoEm:null,validadoPor:null,validadoEm:null});
-        });
-        ftSalvarLocal();ftRenderLista();ftUpdateStats();
-        ftToast('❌ Erro ao salvar no Firebase: '+e.message,'error');
+        console.error('[FT] Erro no _fbUpdate, tentando _fbSet completo:',e);
+        // Fallback: grava o objeto completo se o update falhou
+        window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey), fullPayload)
+          .then(function(){
+            ftToast('✅ FT validada e salva no Firebase!','success');
+            if(fbKey!==ftId){
+              window._fbRemove(window._fbRef(window._db,'ft_registros/'+ftId))
+                .catch(function(er){console.warn('[FT] Aviso limpeza:',er);});
+            }
+          })
+          .catch(function(e2){
+            console.error('[FT] Erro definitivo ao gravar no Firebase:',e2);
+            // Reverte o optimistic update
+            ftS.ftsLocal=ftS.ftsLocal.map(function(f){
+              if(f.id!==ftId)return f;
+              return Object.assign({},f,{status:'pendente',enviadoEm:null,validadoPor:null,validadoEm:null});
+            });
+            ftS.ftFirestore=ftS.ftFirestore.filter(function(f){return f.id!==fbKey||f.pontoId||f._pontoId;});
+            ftSalvarLocal();ftRenderLista();ftUpdateStats();
+            ftToast('❌ Erro ao salvar no Firebase: '+e2.message,'error');
+          });
       });
-  };
-  if(fbKey!==ftId){
-    // Remove o nó pendente antigo (chave=ftId) para evitar fantasma no reload
-    window._fbRemove(window._fbRef(window._db,'ft_registros/'+ftId))
-      .catch(function(e){console.warn('[FT] Aviso ao remover nó pendente antigo:',e);})
-      .then(_gravarAtualizado);
-  } else {
-    _gravarAtualizado();
   }
+  _persistirValidacao();
 }
 
 window.ftSyncFirestore=function(){
@@ -5522,7 +5557,8 @@ window.ftModalSalvar=function(){
     return;
   }
 
-  var payload=Object.assign({},ftOrig,{
+  // Objeto completo para fallback _fbSet (caso o nó não exista no Firebase)
+  var fullPayload=Object.assign({},ftOrig,{
     id:fbKey,
     posto:posto, motivo:motivo, horario:horario,
     valor:parseFloat(valor)||0, observacao:obs||null,
@@ -5531,41 +5567,61 @@ window.ftModalSalvar=function(){
     autoHorario:(ftOrig.autoHorario&&horario===ftOrig.horario),
     status:'enviada', enviadoEm:agora,
     validadoPor:origemValidacao, validadoEm:agora,
-    _origem:'ponto-automatico', _pontoId:ftOrig.pontoId||ftOrig.id
+    _origem:'ponto-automatico', _pontoId:ftOrig.pontoId||ftOrig.id,
+    pontoId:ftOrig.pontoId||ftOrig.id, criadoEm:ftOrig.criadoEm||agora
   });
+
+  // Patch mínimo para _fbUpdate atômico
+  var patchValidacao={
+    status:'enviada', enviadoEm:agora,
+    validadoPor:origemValidacao, validadoEm:agora,
+    posto:posto, motivo:motivo, horario:horario,
+    valor:parseFloat(valor)||0,
+    observacao:obs||null, id:fbKey
+  };
 
   ftModalFechar();
 
   // Optimistic update imediato em memória
-  ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===id?Object.assign({},f,payload):f;});
-  ftS.ftFirestore=ftS.ftFirestore.map(function(f){return f.id===fbKey?Object.assign({},f,payload):f;});
-  ftSalvarLocal();
-  ftRenderLista();
+  ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===id?Object.assign({},f,fullPayload):f;});
+  ftS.ftFirestore=ftS.ftFirestore.map(function(f){return (f.id===fbKey||f.id===id)?Object.assign({},f,fullPayload):f;});
+  // Se não existia no ftFirestore ainda, adiciona
+  if(!ftS.ftFirestore.some(function(f){return f.id===fbKey||f.id===id;})){
+    ftS.ftFirestore.unshift(Object.assign({},ftOrig,fullPayload));
+  }
+  ftSalvarLocal();ftRenderLista();
   if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();
   ftUpdateStats();
 
-  // FIX: Se a chave do nó Firebase (fbKey) difere do id local (id),
-  // o nó pendente antigo (chave=id) sobrevive no Firebase e reaparece no reload.
-  // Removemos o nó órfão antes de gravar o atualizado.
-  var _gravarPayload=function(){
-    window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey), payload)
-      .then(function(){ftToast('✅ FT validada e salva no Firebase!','success');})
-      .catch(function(e){
-        console.error('[FT] Erro ao gravar no Firebase:',e);
-        // Reverte optimistic update
-        ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===id?Object.assign({},f,{status:'pendente',enviadoEm:null,validadoPor:null}):f;});
-        ftS.ftFirestore=ftS.ftFirestore.map(function(f){return f.id===fbKey?ftOrig:f;});
-        ftSalvarLocal();ftRenderLista();ftUpdateStats();
-        ftToast('❌ Erro ao salvar no Firebase: '+e.message,'error');
-      });
-  };
-  if(fbKey!==id){
-    window._fbRemove(window._fbRef(window._db,'ft_registros/'+id))
-      .catch(function(e){console.warn('[FT] Aviso ao remover nó pendente antigo (modal):',e);})
-      .then(_gravarPayload);
-  } else {
-    _gravarPayload();
+  // Função auxiliar de limpeza do nó pendente antigo
+  function _limparPendenteAntigo(){
+    if(fbKey!==id){
+      window._fbRemove(window._fbRef(window._db,'ft_registros/'+id))
+        .catch(function(e){console.warn('[FT] Aviso limpeza nó pendente antigo (modal):',e);});
+    }
   }
+
+  // ── SOLUÇÃO DEFINITIVA: _fbUpdate (PATCH) + fallback _fbSet ──────────────────
+  window._fbUpdate(window._fbRef(window._db,'ft_registros/'+fbKey), patchValidacao)
+    .then(function(){
+      ftToast('✅ FT validada e salva no Firebase!','success');
+      _limparPendenteAntigo();
+    })
+    .catch(function(e){
+      console.error('[FT] Erro no _fbUpdate (modal), tentando _fbSet:',e);
+      window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey), fullPayload)
+        .then(function(){
+          ftToast('✅ FT validada e salva no Firebase!','success');
+          _limparPendenteAntigo();
+        })
+        .catch(function(e2){
+          console.error('[FT] Erro definitivo ao gravar (modal):',e2);
+          ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===id?Object.assign({},f,{status:'pendente',enviadoEm:null,validadoPor:null}):f;});
+          ftS.ftFirestore=ftS.ftFirestore.map(function(f){return f.id===fbKey?ftOrig:f;});
+          ftSalvarLocal();ftRenderLista();ftUpdateStats();
+          ftToast('❌ Erro ao salvar no Firebase: '+e2.message,'error');
+        });
+    });
 };
 window.ftDeletar=function(id){
   if(!confirm('Excluir esta FT? Esta ação não pode ser desfeita.'))return;
@@ -5993,7 +6049,8 @@ window.ftRecuperarDoHistorico=function(){
   if(btn){btn.textContent='⏳ Recuperando...';btn.disabled=true;}
   pendentes.forEach(function(reg){
     var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
-    var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',
+    var ftId=ftUid();
+    var ft={id:ftId,pontoId:reg.id,colaboradorId:reg.colaboradorId||'',
       colaboradorNome:reg.colaboradorNome||'',
       posto:(pad&&pad.posto)||reg.posto||'',
       horario:(pad&&pad.horario)||(turno?turno.t:''),
@@ -6007,8 +6064,14 @@ window.ftRecuperarDoHistorico=function(){
       autoHorario:!!(pad&&pad.horario)||!!turno,
       autoMotivo:!!(pad&&pad.motivo),
       autoValor:!!(pad&&pad.valorMedio),
-      _recuperada:true};
+      _recuperada:true,
+      _fbNodeKey:ftId}; // garante que _fbNodeKey = id desde a criação
     ftS.ftsLocal.unshift(ft);
+    // Persiste imediatamente no Firebase para que a validação posterior use o nó correto
+    if(window._firebaseReady&&window._db){
+      window._fbSet(window._fbRef(window._db,'ft_registros/'+ftId),ft)
+        .catch(function(e){console.warn('[FT] Erro ao salvar FT recuperada no Firebase:',e);});
+    }
   });
   ftS.ftsLocal.sort(function(a,b){return new Date(b.dataHora)-new Date(a.dataHora);});
   ftSalvarLocal();ftRenderLista();ftUpdateStats();
