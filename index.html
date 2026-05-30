@@ -2149,7 +2149,7 @@ footer {
       <button class="tab-btn" onclick="showTab('historico',this)">📋 Histórico</button>
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft" onclick="showTab('ft-auto',this)" style="display:none">📋 FT Automática</button>
-      <button class="tab-btn admin-tab" id="tab-btn-ft-validadas" onclick="showTab('ft-validadas',this)" style="display:none">✅ FTs Validadas <span id="badge-ft-validadas" style="display:none;background:var(--green);color:#000;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:4px;font-weight:700">0</span></button>
+      <button class="tab-btn admin-tab" id="tab-btn-ft-validadas" onclick="showTab('ft-validadas',this)" style="display:none">✅ FTs Validadas</button>
       <button class="tab-btn admin-tab" id="tab-btn-inconsistencias" onclick="showTab('inconsistencias',this);renderInconsistencias();" style="display:none">⚠️ Inconsistências <span id="badge-inconsist" style="display:none;background:var(--red);color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;margin-left:4px">0</span></button>
 
     </nav>
@@ -3861,6 +3861,12 @@ function registrarPontoBase() {
   document.getElementById('ponto-btns').style.display = 'none';
   document.getElementById('posto-selector').style.display = 'none';
   renderColabPonto();
+  // Atualiza dashboard e histórico imediatamente após bater ponto
+  if (currentUser?.role === 'admin' &&
+      document.getElementById('tab-dashboard')?.classList.contains('active')) {
+    renderDashboard();
+  }
+  _renderHistTabla();
 }
 
 function showFeedback(tipo, nome, loc) {
@@ -4673,14 +4679,20 @@ window.ftGerarDePonto=function(reg){
     // Cobre casos onde o cooldown expirou mas o ponto é do mesmo turno do mesmo dia
     var turnoDedup=detectarTurno(reg.timestamp);
     var horarioDedup=turnoDedup?turnoDedup.t:'';
+    var colabIdDedup=reg.colaboradorId||'';
     var jaExisteMesmoDia=ftS.ftsLocal.some(function(f){
-      if((f.colaboradorNome||'').trim().toLowerCase()!==colabNomeLower)return false;
+      // Match por ID do colaborador (mais confiável) ou por nome normalizado
+      var mesmoColab = (colabIdDedup && f.colaboradorId && f.colaboradorId===colabIdDedup)
+        || (f.colaboradorNome||'').trim().toLowerCase()===colabNomeLower;
+      if(!mesmoColab)return false;
       if((f.dataHora||f.criadoEm||'').slice(0,10)!==regDia)return false;
       if(horarioDedup&&f.horario&&f.horario!==horarioDedup)return false; // turnos diferentes OK
       return true;
     })||ftS.ftFirestore.some(function(f){
       var fNome=(f.substituto||f.colaboradorNome||'').trim().toLowerCase();
-      if(fNome!==colabNomeLower)return false;
+      var fId=f.colaboradorId||'';
+      var mesmoColab=(colabIdDedup&&fId&&fId===colabIdDedup)||fNome===colabNomeLower;
+      if(!mesmoColab)return false;
       if((f.dataHora||f.criadoEm||'').slice(0,10)!==regDia)return false;
       if(horarioDedup&&f.horario&&f.horario!==horarioDedup)return false;
       return true;
@@ -4741,15 +4753,19 @@ function ftEnviarParaFirestore(ftId){
   // Impede validação se já existe FT validada com mesmo colaborador + posto + horário no mesmo dia
   var ftDiaKey = (ft.dataHora||ft.criadoEm||'').slice(0,10); // yyyy-mm-dd
   var nomeNorm = (ft.colaboradorNome||'').trim().toLowerCase();
+  var colabIdNorm = ft.colaboradorId||'';
   var postoNorm = (ft.posto||'').trim().toLowerCase();
   var horarioNorm = (ft.horario||'').trim();
   var duplicada = ftS.ftFirestore.find(function(f){
     if((f.status||'enviada')!=='enviada') return false;
     var fDia = (f.dataHora||f.criadoEm||'').slice(0,10);
     var fNome = (f.substituto||f.colaboradorNome||'').trim().toLowerCase();
+    var fId = f.colaboradorId||'';
     var fPosto = (f.posto||'').trim().toLowerCase();
     var fHorario = (f.horario||'').trim();
-    return fDia===ftDiaKey && fNome===nomeNorm && fPosto===postoNorm && fHorario===horarioNorm;
+    // Match por ID (mais preciso) ou por nome normalizado
+    var mesmoColab = (colabIdNorm&&fId&&fId===colabIdNorm)||(fNome===nomeNorm);
+    return fDia===ftDiaKey && mesmoColab && fPosto===postoNorm && fHorario===horarioNorm;
   });
   if(duplicada){
     var dtDup = duplicada.dataHora||duplicada.criadoEm||'';
@@ -5071,8 +5087,6 @@ window.renderFTValidadas=function(){
   if(elTotal)elTotal.textContent=total;
   if(elAdm)elAdm.textContent=adm;
   if(elIa)elIa.textContent=ia;
-  var badgeFtV=document.getElementById('badge-ft-validadas');
-  if(badgeFtV){if(total>0){badgeFtV.textContent=total;badgeFtV.style.display='inline';}else{badgeFtV.style.display='none';}}
 
   if(!lf.length){if(emEl)emEl.style.display='flex';lista.innerHTML='';return;}
   if(emEl)emEl.style.display='none';
@@ -5659,9 +5673,11 @@ function ftSalvarLocal(){
       vistos.pontoIds[f.pontoId]=true;
     }
     // Chave por colab+posto+horario+dia (cobre FTs sem pontoId vindas de merge ou Firebase)
-    if(f.horario&&f.colaboradorNome){
+    // Usa colaboradorId quando disponível (mais confiável que nome)
+    if(f.horario&&(f.colaboradorNome||f.colaboradorId)){
       var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
-      var chave=(f.colaboradorNome||'').trim().toLowerCase()+'||'
+      var colabKey=f.colaboradorId||(f.colaboradorNome||'').trim().toLowerCase();
+      var chave=colabKey+'||'
                +(f.posto||'').trim().toLowerCase()+'||'
                +(f.horario||'').trim()+'||'+dia;
       if(vistos.chaveDia[chave]){
@@ -6891,13 +6907,16 @@ function renderDashboard() {
   const ordenadosHoje = [...regsHoje].sort((a, b) => a.timestamp - b.timestamp);
   ordenadosHoje.forEach(r => {
     const id = r.colaboradorId;
-    if (!mapaHoje[id]) mapaHoje[id] = { entrada: null, saida: null, nome: r.colaboradorNome, posto: r.posto, turnos: 0 };
+    if (!mapaHoje[id]) mapaHoje[id] = { entrada: null, saida: null, nome: r.colaboradorNome, posto: r.posto, turnos: 0, ultimaSaida: null };
     if (r.tipo === 'entrada') {
       mapaHoje[id].entrada  = r.timestamp;
-      mapaHoje[id].saida    = null; // nova entrada zera saída anterior
+      mapaHoje[id].saida    = null; // nova entrada zera saída — turno aberto novamente
       mapaHoje[id].turnos++;
-    } else {
-      if (mapaHoje[id].entrada) mapaHoje[id].saida = r.timestamp;
+    } else if (r.tipo === 'saida') {
+      if (mapaHoje[id].entrada) {
+        mapaHoje[id].saida = r.timestamp;
+        mapaHoje[id].ultimaSaida = r.timestamp;
+      }
     }
   });
 
@@ -7019,12 +7038,29 @@ function renderAll() {
   if (currentUser?.role === 'admin') {
     renderColaboradores();
     if (document.getElementById('sub-relatorio')?.classList.contains('active')) renderRelatorio();
+    // Atualiza dashboard em tempo real sempre que os dados mudarem
+    if (document.getElementById('tab-dashboard')?.classList.contains('active')) {
+      renderDashboard();
+    }
+    // Atualiza contagem de FTs nos cards do dashboard mesmo sem a aba ativa
+    _atualizarCardsFTDashboard();
   }
   updatePostoFilter();
   _renderHistTabla();
   // Atualiza badge de inconsistências a cada render
   if (typeof atualizarBadgeInconsistencias === 'function') {
     setTimeout(atualizarBadgeInconsistencias, 200);
+  }
+}
+
+// Atualiza os cards de resumo do dashboard com contagem atual (sem re-renderizar tudo)
+function _atualizarCardsFTDashboard() {
+  // Atualiza contagem de FTs pendentes no stat card se existir
+  const elPend = document.getElementById('ft-stat-pendentes');
+  const elEnv  = document.getElementById('ft-stat-enviadas');
+  if (elPend || elEnv) {
+    // Os stats de FT são atualizados pelo módulo FT via ftUpdateStats
+    if (typeof window.ftUpdateStats === 'function') window.ftUpdateStats();
   }
 }
 
@@ -7955,6 +7991,12 @@ function registrarPonto() {
   document.getElementById('ponto-btns').style.display = 'none';
   document.getElementById('posto-selector').style.display = 'none';
   renderColabPonto();
+  // Atualiza dashboard e histórico em tempo real após registrar ponto
+  if (currentUser?.role === 'admin' &&
+      document.getElementById('tab-dashboard')?.classList.contains('active')) {
+    renderDashboard();
+  }
+  _renderHistTabla();
 }
 
 // Versão do feedback que indica modo offline
