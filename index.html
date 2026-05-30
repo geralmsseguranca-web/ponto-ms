@@ -2573,9 +2573,11 @@ footer {
       <div class="ft-field"><label>📍 Posto <span class="ft-req">*</span></label>
         <select id="ft-modal-posto"><option value="">-- Selecione --</option></select></div>
       <div class="ft-field"><label>💬 Motivo <span class="ft-req">*</span></label>
-        <select id="ft-modal-motivo">
+        <select id="ft-modal-motivo" onchange="ftModalMotivoChange()">
           <option value="">-- Selecione --</option>
         </select></div>
+      <div class="ft-field" id="ft-modal-colab-ausente-wrap" style="display:none"><label>👤 Colaborador Ausente <span class="ft-req">*</span></label>
+        <select id="ft-modal-colab-ausente"><option value="">-- Selecione --</option></select></div>
       <div class="ft-field"><label>🕐 Horário <span class="ft-req">*</span></label>
         <select id="ft-modal-horario">
           <option value="">-- Selecione --</option>
@@ -2603,7 +2605,9 @@ footer {
       <div class="ft-field"><label>📍 Posto <span class="ft-req">*</span></label>
         <select id="ftv-edit-posto"><option value="">-- Selecione --</option></select></div>
       <div class="ft-field"><label>💬 Motivo <span class="ft-req">*</span></label>
-        <select id="ftv-edit-motivo"><option value="">-- Selecione --</option></select></div>
+        <select id="ftv-edit-motivo" onchange="ftvEditMotivoChange()"><option value="">-- Selecione --</option></select></div>
+      <div class="ft-field" id="ftv-edit-colab-ausente-wrap" style="display:none"><label>👤 Colaborador Ausente <span class="ft-req">*</span></label>
+        <select id="ftv-edit-colab-ausente"><option value="">-- Selecione --</option></select></div>
       <div class="ft-field"><label>🕐 Horário <span class="ft-req">*</span></label>
         <select id="ftv-edit-horario"><option value="">-- Selecione --</option></select></div>
       <div class="ft-field"><label>💰 Valor (R$)</label>
@@ -4536,7 +4540,7 @@ function ftEnviarParaFirestore(ftId){
   var payload={
     id:fbId,
     posto:ft.posto,motivo:ft.motivo,horario:ft.horario,
-    substituto:ft.colaboradorNome,quemFaltou:null,
+    substituto:ft.colaboradorNome,quemFaltou:ft.colaboradorAusente||null,
     observacao:ft.observacao||null,
     valor:parseFloat(ft.valor)||0,
     dataHora:ft.dataHora,
@@ -5111,6 +5115,14 @@ window.ftModalAbrir=function(ftId){
   selP.innerHTML='<option value="">-- Selecione --</option>'+allP.map(function(p){return '<option value="'+esc(p)+'"'+(ft.posto===p?' selected':'')+'>'+esc(p)+'</option>';}).join('');
   var selM=document.getElementById('ft-modal-motivo');
   selM.innerHTML='<option value="">-- Selecione --</option>'+FT_MOTIVOS.map(function(m){return '<option value="'+esc(m)+'"'+(ft.motivo===m?' selected':'')+'>'+esc(m)+'</option>';}).join('');
+  // Campo colaborador ausente
+  var wrapCA=document.getElementById('ft-modal-colab-ausente-wrap');
+  if(ftMotivoPrecisaColab(ft.motivo)){
+    ftPopularColabAusente('ft-modal-colab-ausente',ft.colaboradorAusente||'');
+    wrapCA.style.display='';
+  } else {
+    wrapCA.style.display='none';
+  }
   var selH=document.getElementById('ft-modal-horario');
   selH.innerHTML='<option value="">-- Selecione --</option>'+FT_HORARIOS.map(function(h){return '<option value="'+esc(h)+'"'+(ft.horario===h?' selected':'')+'>'+esc(h)+'</option>';}).join('');
   document.getElementById('ft-modal-valor').value=ft.valor||'';
@@ -5118,6 +5130,41 @@ window.ftModalAbrir=function(ftId){
   document.getElementById('ft-modal-overlay').style.display='flex';
 };
 window.ftModalFechar=function(){document.getElementById('ft-modal-overlay').style.display='none';};
+
+// Preenche select de colaboradores ausentes (Atestado / Suspensão)
+function ftPopularColabAusente(selId, valorAtual){
+  var sel=document.getElementById(selId);
+  var ativos=(typeof colaboradores!=='undefined'?colaboradores:[]).filter(function(c){return c.ativo!==false;});
+  sel.innerHTML='<option value="">-- Selecione --</option>'+ativos.map(function(c){
+    return '<option value="'+esc(c.nome)+'"'+(valorAtual===c.nome?' selected':'')+'>'+esc(c.nome)+'</option>';
+  }).join('');
+}
+function ftMotivoPrecisaColab(motivo){
+  return motivo==='Atestado'||motivo==='Suspensão';
+}
+window.ftModalMotivoChange=function(){
+  var motivo=document.getElementById('ft-modal-motivo').value;
+  var wrap=document.getElementById('ft-modal-colab-ausente-wrap');
+  if(ftMotivoPrecisaColab(motivo)){
+    ftPopularColabAusente('ft-modal-colab-ausente','');
+    wrap.style.display='';
+  } else {
+    wrap.style.display='none';
+    document.getElementById('ft-modal-colab-ausente').value='';
+  }
+};
+window.ftvEditMotivoChange=function(){
+  var motivo=document.getElementById('ftv-edit-motivo').value;
+  var wrap=document.getElementById('ftv-edit-colab-ausente-wrap');
+  if(ftMotivoPrecisaColab(motivo)){
+    ftPopularColabAusente('ftv-edit-colab-ausente','');
+    wrap.style.display='';
+  } else {
+    wrap.style.display='none';
+    document.getElementById('ftv-edit-colab-ausente').value='';
+  }
+};
+
 window.ftModalSalvar=function(){
   var id=document.getElementById('ft-modal-id').value;
   var posto=document.getElementById('ft-modal-posto').value;
@@ -5125,7 +5172,9 @@ window.ftModalSalvar=function(){
   var horario=document.getElementById('ft-modal-horario').value;
   var valor=document.getElementById('ft-modal-valor').value;
   var obs=document.getElementById('ft-modal-obs').value;
+  var colabAusente=document.getElementById('ft-modal-colab-ausente').value||'';
   if(!posto||!motivo||!horario){ftToast('⚠️ Posto, motivo e horário são obrigatórios.','error');return;}
+  if(ftMotivoPrecisaColab(motivo)&&!colabAusente){ftToast('⚠️ Informe o colaborador ausente para o motivo "'+motivo+'".','error');return;}
   ftS.ftsLocal=ftS.ftsLocal.map(function(f){
     if(f.id!==id)return f;
     // Preserva flags originais: só marca auto=true se o campo JÁ era auto antes
@@ -5134,7 +5183,8 @@ window.ftModalSalvar=function(){
       posto:posto,    autoPosto:   (f.autoPosto   && posto   === f.posto),
       motivo:motivo,  autoMotivo:  (f.autoMotivo  && motivo  === f.motivo),
       horario:horario,autoHorario: (f.autoHorario && horario === f.horario),
-      valor:parseFloat(valor)||0,observacao:obs
+      valor:parseFloat(valor)||0,observacao:obs,
+      colaboradorAusente:ftMotivoPrecisaColab(motivo)?colabAusente:''
     });
   });
   ftSalvarLocal();
@@ -5176,6 +5226,14 @@ window.ftvEditarAbrir=function(ftId){
   // Motivo
   var selM=document.getElementById('ftv-edit-motivo');
   selM.innerHTML='<option value="">-- Selecione --</option>'+FT_MOTIVOS.map(function(m){return '<option value="'+esc(m)+'"'+(ft.motivo===m?' selected':'')+'>'+esc(m)+'</option>';}).join('');
+  // Campo colaborador ausente
+  var wrapCA2=document.getElementById('ftv-edit-colab-ausente-wrap');
+  if(ftMotivoPrecisaColab(ft.motivo)){
+    ftPopularColabAusente('ftv-edit-colab-ausente',ft.colaboradorAusente||'');
+    wrapCA2.style.display='';
+  } else {
+    wrapCA2.style.display='none';
+  }
   // Horário
   var selH=document.getElementById('ftv-edit-horario');
   selH.innerHTML='<option value="">-- Selecione --</option>'+FT_HORARIOS.map(function(h){return '<option value="'+esc(h)+'"'+(ft.horario===h?' selected':'')+'>'+esc(h)+'</option>';}).join('');
@@ -5191,7 +5249,9 @@ window.ftvEditarSalvar=function(){
   var horario=document.getElementById('ftv-edit-horario').value;
   var valor=document.getElementById('ftv-edit-valor').value;
   var obs=document.getElementById('ftv-edit-obs').value.trim();
+  var colabAusenteV=document.getElementById('ftv-edit-colab-ausente').value||'';
   if(!posto||!motivo||!horario){ftToast('⚠️ Posto, motivo e horário são obrigatórios.','error');return;}
+  if(ftMotivoPrecisaColab(motivo)&&!colabAusenteV){ftToast('⚠️ Informe o colaborador ausente para o motivo "'+motivo+'".','error');return;}
   // Atualiza ftsLocal
   var updated=false;
   ftS.ftsLocal=ftS.ftsLocal.map(function(f){
@@ -5199,6 +5259,7 @@ window.ftvEditarSalvar=function(){
     updated=true;
     return Object.assign({},f,{posto:posto,motivo:motivo,horario:horario,
       valor:parseFloat(valor)||0,observacao:obs,
+      colaboradorAusente:ftMotivoPrecisaColab(motivo)?colabAusenteV:'',
       autoPosto:false,autoMotivo:false,autoHorario:false,
       validadoPor:'adm',editadoEm:new Date().toISOString()});
   });
@@ -5208,6 +5269,7 @@ window.ftvEditarSalvar=function(){
     updated=true;
     return Object.assign({},f,{posto:posto,motivo:motivo,horario:horario,
       valor:parseFloat(valor)||0,observacao:obs,
+      colaboradorAusente:ftMotivoPrecisaColab(motivo)?colabAusenteV:'',
       autoPosto:false,autoMotivo:false,autoHorario:false,
       validadoPor:'adm',editadoEm:new Date().toISOString()});
   });
@@ -5216,6 +5278,7 @@ window.ftvEditarSalvar=function(){
   if(window._firebaseReady&&window._db){
     var updates={posto:posto,motivo:motivo,horario:horario,
       valor:parseFloat(valor)||0,observacao:obs||null,
+      colaboradorAusente:ftMotivoPrecisaColab(motivo)?colabAusenteV:null,
       autoPosto:false,autoMotivo:false,autoHorario:false,
       validadoPor:'adm',editadoEm:new Date().toISOString()};
     window._fbUpdate(window._fbRef(window._db,'ft_registros/'+ftId),updates)
