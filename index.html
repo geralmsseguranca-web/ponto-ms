@@ -1504,9 +1504,9 @@ footer {
 .ft-chip.auto{color:var(--accent);border-color:rgba(0,200,248,.3);background:rgba(0,200,248,.07)}
 .ft-chip.warn{color:var(--gold);border-color:rgba(255,200,0,.3);background:rgba(255,200,0,.07)}
 .ft-chip.ok{color:var(--green);border-color:rgba(0,255,136,.3);background:rgba(0,255,136,.07)}
-.ft-card-btns{display:flex;gap:8px}
-.ft-btn-completar{flex:1;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.3);color:var(--gold);border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer}
-.ft-btn-enviar{flex:1;background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--green);border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer}
+.ft-card-btns{display:flex;flex-wrap:wrap;gap:8px}
+.ft-btn-completar{flex:1;min-width:120px;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.3);color:var(--gold);border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer}
+.ft-btn-enviar{width:100%;background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--green);border-radius:10px;padding:10px;font-size:.85rem;font-weight:700;cursor:pointer;margin-top:2px}
 .ft-btn-enviar-incompleto{background:rgba(255,200,0,.07)!important;border-color:rgba(255,200,0,.25)!important;color:var(--gold)!important}
 .ft-obs-wrap{margin-top:8px}
 .ft-obs-textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:.8rem;resize:vertical;min-height:56px;font-family:var(--font-body);box-sizing:border-box;transition:border-color .2s}
@@ -1520,11 +1520,11 @@ footer {
 .ftv-btn-edit:hover{background:rgba(0,212,255,.18)}
 .ftv-btn-del{background:rgba(255,50,50,.08);border:1px solid rgba(255,50,50,.22);color:var(--red);border-radius:10px;padding:8px 14px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
 .ftv-btn-del:hover{background:rgba(255,50,50,.18)}
-.ft-btn-edit-motivo{flex:1;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);color:#c084fc;border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
+.ft-btn-edit-motivo{flex:1;min-width:90px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);color:#c084fc;border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
 .ft-btn-edit-motivo:hover{background:rgba(124,58,237,.2)}
-.ft-btn-edit-horario{flex:1;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);color:var(--accent);border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
+.ft-btn-edit-horario{flex:1;min-width:90px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.25);color:var(--accent);border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
 .ft-btn-edit-horario:hover{background:rgba(0,212,255,.15)}
-.ft-btn-edit-data{flex:1;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);color:#fbbf24;border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
+.ft-btn-edit-data{flex:1;min-width:90px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);color:#fbbf24;border-radius:10px;padding:8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
 .ft-btn-edit-data:hover{background:rgba(251,191,36,.18)}
 .ft-card-dup-warn{display:flex;align-items:center;gap:8px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.35);border-radius:10px;padding:8px 12px;margin-top:10px;font-size:.8rem;color:#f87171;font-weight:600}
 .ft-card-dup-warn span{flex:1}
@@ -3493,12 +3493,12 @@ function showTab(id, btn) {
   document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
   if (id === 'ft-auto' && typeof window.ftRenderLista === 'function') {
-    // Preenche filtro de data com HOJE ao abrir a aba (se ainda vazio)
+    // Sempre força os filtros para HOJE ao abrir a aba FT Automática
     var _hj = (function(){var d=new Date();return d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-'+(String(d.getDate()).padStart(2,'0'));})();
     var _ini = document.getElementById('ft-filter-data-ini');
     var _fim = document.getElementById('ft-filter-data-fim');
-    if(_ini && !_ini.value) _ini.value = _hj;
-    if(_fim && !_fim.value) _fim.value = _hj;
+    if(_ini) _ini.value = _hj;
+    if(_fim) _fim.value = _hj;
     setTimeout(window.ftRenderLista, 80);
   }
   if (id === 'ft-validadas' && typeof window.renderFTValidadas === 'function') setTimeout(window.renderFTValidadas, 80);
@@ -4343,14 +4343,20 @@ function ftAplicarDataInicialNosFiltros(){
   ['ft-filter-data-ini','ftv-filter-data-ini'].forEach(function(id){
     var el=document.getElementById(id);
     if(!el)return;
-    if(!el.value||el.value<FT_DATA_INICIAL_CONTAGEM)el.value=FT_DATA_INICIAL_CONTAGEM;
+    // Só configura o mínimo; nunca sobrescreve o valor já definido pelo showTab
     el.min=FT_DATA_INICIAL_CONTAGEM;
   });
 }
 function ftLimparLancamentosAntigosLocal(){
-  // Remove do localStorage tudo anterior ao corte
+  // Remove do localStorage: (1) tudo anterior ao corte histórico
+  // (2) FTs pendentes de dias anteriores a hoje (nunca devem aparecer na aba)
+  var _hjLimpar=(function(){var d=new Date();return d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-'+(String(d.getDate()).padStart(2,'0'));})();
   var antes=ftS.ftsLocal.length;
-  ftS.ftsLocal=ftS.ftsLocal.filter(ftFTDentroPeriodo);
+  ftS.ftsLocal=ftS.ftsLocal.filter(function(f){
+    if(!ftFTDentroPeriodo(f))return false; // anterior ao corte histórico
+    if(f.status==='pendente'&&ftDataDoRegistro(f)<_hjLimpar)return false; // pendente de dia anterior
+    return true;
+  });
   if(ftS.ftsLocal.length!==antes)ftSalvarLocal();
 }
 // Apaga TODOS os registros antigos do Firebase (ft_registros) uma única vez,
@@ -4919,6 +4925,9 @@ window.ftRenderLista=function(){
     }
     if(fStatus&&f.status!==fStatus)return false;
     if(fColab&&f.colaboradorNome!==fColab)return false;
+    // Proteção: FT pendente de dia anterior nunca aparece na aba FT Automática
+    var _hjRender=(function(){var d=new Date();return d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-'+(String(d.getDate()).padStart(2,'0'));})();
+    if(f.status==='pendente'&&d<_hjRender)return false;
     if(fDtIni&&d<fDtIni)return false;
     if(fDtFim&&d>fDtFim)return false;
     return true;
@@ -4975,17 +4984,17 @@ window.ftRenderLista=function(){
     var ok=ft.posto&&ft.horario&&ft.motivo,btns='';
     var isDup=!!_dupSet[ft.id];
     if(ft.status==='pendente'){
-      btns+='<button class="ft-btn-edit-data" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'data\')">📅 Data</button>';
-      btns+='<button class="ft-btn-edit-motivo" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'motivo\')">💬 Motivo</button>';
-      btns+='<button class="ft-btn-edit-horario" onclick="ftQuickEditAbrir(\''+ft.id+'\',\'horario\')">🕐 Horário</button>';
-      btns+='<button class="ft-btn-completar" onclick="ftModalAbrir(\''+ft.id+'\')">✏️ Completar</button>';
+      btns+='<button class="ft-btn-edit-data" data-ft-id="'+ft.id+'" data-ft-action="qe-data">📅 Data</button>';
+      btns+='<button class="ft-btn-edit-motivo" data-ft-id="'+ft.id+'" data-ft-action="qe-motivo">💬 Motivo</button>';
+      btns+='<button class="ft-btn-edit-horario" data-ft-id="'+ft.id+'" data-ft-action="qe-horario">🕐 Horário</button>';
+      btns+='<button class="ft-btn-completar" data-ft-id="'+ft.id+'" data-ft-action="modal">✏️ Completar</button>';
       if(isDup){
         btns+='<button class="ft-btn-enviar bloqueado" disabled title="Duplicidade detectada — verifique colaborador, posto e horário">🚫 Duplicidade</button>';
       }else{
-        btns+='<button class="ft-btn-enviar" onclick="ftModalAbrir(\''+ft.id+'\')">✅ Validar e Enviar FT</button>';
+        btns+='<button class="ft-btn-enviar" data-ft-id="'+ft.id+'" data-ft-action="modal">✅ Validar e Enviar FT</button>';
       }
     }else{btns+='<span class="ft-chip ok" style="padding:8px 14px">✅ Enviada '+(ft.enviadoEm?new Date(ft.enviadoEm).toLocaleDateString('pt-BR'):'')+'</span>';}
-    btns+='<button class="ft-btn-del" onclick="ftDeletar(\''+ft.id+'\')" title="Remover">🗑</button>';
+    btns+='<button class="ft-btn-del" data-ft-id="'+ft.id+'" data-ft-action="del" title="Remover">🗑</button>';
     var dt=ft.dataHora?new Date(ft.dataHora).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
     var motivoOpts=FT_MOTIVOS.map(function(m){return '<option value="'+esc(m)+'"'+(ft.motivo===m?' selected':'')+'>'+esc(m)+'</option>';}).join('');
     var horarioOpts=FT_HORARIOS.map(function(h){return '<option value="'+esc(h)+'"'+(ft.horario===h?' selected':'')+'>'+esc(h)+'</option>';}).join('');
@@ -5001,8 +5010,8 @@ window.ftRenderLista=function(){
       +'<select id="ft-qe-sel-horario-'+ft.id+'"><option value="">-- Horário --</option>'+horarioOpts+'</select>'
       +'</div>'
       +'<div class="ft-quick-edit-btns">'
-      +'<button class="ft-qe-ok" onclick="ftQuickEditSalvar(\''+ft.id+'\')">✅ Salvar</button>'
-      +'<button class="ft-qe-cancel" onclick="ftQuickEditFechar(\''+ft.id+'\')">Cancelar</button>'
+      +'<button class="ft-qe-ok" data-ft-id="'+ft.id+'" data-ft-action="qe-salvar">✅ Salvar</button>'
+      +'<button class="ft-qe-cancel" data-ft-id="'+ft.id+'" data-ft-action="qe-fechar">Cancelar</button>'
       +'</div></div>';
     var obsVal=esc(ft.observacao||'');
     var obsHtml='<div class="ft-obs-wrap">'
@@ -5021,6 +5030,23 @@ window.ftRenderLista=function(){
       +'<div class="ft-card-btns" style="margin-top:8px">'+btns+'</div>'
       +quickEdit+'</div>';
   }).join('');
+
+  // Event delegation: captura cliques nos botões dos cards (mais robusto que onclick inline)
+  lista.onclick = function(e) {
+    var btn = e.target.closest('[data-ft-action]');
+    if (!btn) return;
+    var id = btn.getAttribute('data-ft-id');
+    var action = btn.getAttribute('data-ft-action');
+    if (!id || !action) return;
+    e.stopPropagation();
+    if (action === 'modal') { if (window.ftModalAbrir) window.ftModalAbrir(id); }
+    else if (action === 'del') { if (window.ftDeletar) window.ftDeletar(id); }
+    else if (action === 'qe-data') { if (window.ftQuickEditAbrir) window.ftQuickEditAbrir(id, 'data'); }
+    else if (action === 'qe-motivo') { if (window.ftQuickEditAbrir) window.ftQuickEditAbrir(id, 'motivo'); }
+    else if (action === 'qe-horario') { if (window.ftQuickEditAbrir) window.ftQuickEditAbrir(id, 'horario'); }
+    else if (action === 'qe-salvar') { if (window.ftQuickEditSalvar) window.ftQuickEditSalvar(id); }
+    else if (action === 'qe-fechar') { if (window.ftQuickEditFechar) window.ftQuickEditFechar(id); }
+  };
 };
 
 window.renderFTValidadas=function(){
@@ -5439,7 +5465,9 @@ function ftvExportarExcel(){
   ftToast('✅ Excel exportado com '+lf.length+' registros!','success');
 }
 function ftUpdateStats(){
-  var p=ftS.ftsLocal.filter(function(f){return f.status==='pendente'&&ftFTDentroPeriodo(f);}).length;
+  // Conta apenas pendentes de HOJE (alinhado com o que ftRenderLista exibe)
+  var _hjStats=(function(){var d=new Date();return d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-'+(String(d.getDate()).padStart(2,'0'));})();
+  var p=ftS.ftsLocal.filter(function(f){return f.status==='pendente'&&ftDataDoRegistro(f)===_hjStats;}).length;
   var e=ftS.ftsLocal.filter(function(f){return f.status==='enviada'&&ftFTDentroPeriodo(f);}).length;
   var el1=document.getElementById('ft-stat-pendentes'),el2=document.getElementById('ft-stat-enviadas'),el3=document.getElementById('ft-stat-padroes');
   if(el1)el1.textContent=p;if(el2)el2.textContent=e;if(el3)el3.textContent=ftS.padroes.length;
@@ -5878,10 +5906,11 @@ window.ftRecuperarDoHistorico=function(){
   if(!regs.length){
     ftToast('⚠️ Nenhum registro de ponto encontrado.','warn');return;
   }
-  // Filtra apenas entradas a partir da data inicial e sem FT gerada (local OU no Firebase)
+  // Filtra apenas entradas de HOJE e sem FT gerada (local OU no Firebase)
+  var _hoje=(function(){var d=new Date();return d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-'+(String(d.getDate()).padStart(2,'0'));})();
   var pendentes=regs.filter(function(r){
     if(r.tipo!=='entrada')return false;
-    if(!ftDentroPeriodoFT(ftDataDoRegistro(r)))return false;
+    if(ftDataDoRegistro(r)!==_hoje)return false;
     var noLocal=ftS.ftsLocal.some(function(f){return f.pontoId===r.id;});
     var noFirebase=ftS.ftFirestore.some(function(f){return f.pontoId===r.id||f._pontoId===r.id;});
     return !noLocal&&!noFirebase;
