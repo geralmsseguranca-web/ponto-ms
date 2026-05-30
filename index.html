@@ -2150,6 +2150,7 @@ footer {
       <button class="tab-btn" id="tab-btn-colaboradores" onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft" onclick="showTab('ft-auto',this)" style="display:none">📋 FT Automática</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft-validadas" onclick="showTab('ft-validadas',this)" style="display:none">✅ FTs Validadas</button>
+      <button class="tab-btn admin-tab" id="tab-btn-pagamentos" onclick="showTab('pagamentos',this);pgRender()" style="display:none">💰 Pagamentos</button>
 
     </nav>
   </div>
@@ -2559,6 +2560,52 @@ footer {
           <div style="font-size:.8rem;color:var(--muted);margin-top:4px">As FTs enviadas/validadas aparecerão aqui automaticamente.</div>
         </div>
         <div id="ftv-lista"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── ABA: PAGAMENTOS ─── -->
+  <section id="tab-pagamentos" class="tab-content">
+    <div class="ft-auto-wrap">
+      <div class="ft-auto-header">
+        <div class="ft-auto-title">💰 Pagamentos</div>
+        <div class="ft-auto-sub">Consolidado de recibos por colaborador e posto</div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="ft-filter-row" style="flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <select id="pg-filter-colab" onchange="pgRender()" style="flex:1;min-width:160px">
+          <option value="">Todos os colaboradores</option>
+        </select>
+        <select id="pg-filter-posto" onchange="pgRender()" style="flex:1;min-width:140px">
+          <option value="">Todos os postos</option>
+        </select>
+        <input type="date" id="pg-filter-ini" onchange="pgRender()" title="Data inicial" style="flex:1;min-width:130px"/>
+        <input type="date" id="pg-filter-fim" onchange="pgRender()" title="Data final" style="flex:1;min-width:130px"/>
+        <button class="ft-btn-sync" onclick="pgRender()">🔄 Atualizar</button>
+      </div>
+
+      <!-- Resumo cards -->
+      <div class="ft-stats-row" style="margin-bottom:14px">
+        <div class="ft-stat-card ft-stat-green"><div class="ft-stat-num" id="pg-stat-total">R$ 0,00</div><div class="ft-stat-label">Total Geral</div></div>
+        <div class="ft-stat-card ft-stat-blue"><div class="ft-stat-num" id="pg-stat-colab">0</div><div class="ft-stat-label">Colaboradores</div></div>
+        <div class="ft-stat-card"><div class="ft-stat-num" id="pg-stat-fts">0</div><div class="ft-stat-label">FTs no Período</div></div>
+      </div>
+
+      <!-- Botões de exportação -->
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <button onclick="pgGerarReciboPDF()" style="flex:1;min-width:160px;padding:9px 16px;background:linear-gradient(135deg,#dc2626,#f97316);color:#fff;border:none;border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;">🖨️ Gerar Recibo(s) PDF</button>
+        <button onclick="pgExportarExcel()" style="flex:1;min-width:160px;padding:9px 16px;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;border:none;border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;">📊 Exportar Excel</button>
+      </div>
+
+      <!-- Lista consolidada -->
+      <div id="pg-lista-wrap">
+        <div class="ft-empty" id="pg-empty-msg">
+          <span style="font-size:2.5rem">💰</span>
+          <div>Nenhum lançamento encontrado.</div>
+          <div style="font-size:.8rem;color:var(--muted);margin-top:4px">Valide FTs na aba FT Automática para elas aparecerem aqui.</div>
+        </div>
+        <div id="pg-lista"></div>
       </div>
     </div>
   </section>
@@ -3151,6 +3198,7 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-dashboard').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft').style.display = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft-validadas').style.display = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-pagamentos').style.display = isAdmin ? '' : 'none';
 
   // Reseta seleção ao entrar
   selectedColab = null;
@@ -5601,6 +5649,352 @@ window.ftvFormatarBRL      = ftvFormatarBRL;
 window.ftvExportarPDF      = ftvExportarPDF;
 window.ftvExportarExcel    = ftvExportarExcel;
 })();
+// ─── ABA PAGAMENTOS ───────────────────────────────────────────────────────────
+(function(){
+  'use strict';
+
+  // Retorna a lista de FTs validadas (ftFirestore + ftsLocal enviadas)
+  function pgGetFTs(){
+    if(typeof ftS === 'undefined') return [];
+    var lista = (ftS.ftFirestore && ftS.ftFirestore.length ? ftS.ftFirestore : []);
+    if(!lista.length){
+      lista = (ftS.ftsLocal||[]).filter(function(f){ return f.status==='enviada'; });
+    }
+    return lista;
+  }
+
+  // Popula os selects de filtro
+  function pgPopularFiltros(lista){
+    var selC = document.getElementById('pg-filter-colab');
+    var selP = document.getElementById('pg-filter-posto');
+    if(!selC||!selP) return;
+    var valC = selC.value, valP = selP.value;
+    var nomes = {}, postos = {};
+    lista.forEach(function(ft){
+      var n = ft.substituto||ft.colaboradorNome||'';
+      var p = ft.posto||'';
+      if(n) nomes[n]=1;
+      if(p) postos[p]=1;
+    });
+    selC.innerHTML = '<option value="">Todos os colaboradores</option>' +
+      Object.keys(nomes).sort().map(function(n){ return '<option value="'+esc(n)+'"'+(valC===n?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
+    selP.innerHTML = '<option value="">Todos os postos</option>' +
+      Object.keys(postos).sort().map(function(p){ return '<option value="'+esc(p)+'"'+(valP===p?' selected':'')+'>'+esc(p)+'</option>'; }).join('');
+  }
+
+  // Filtra a lista
+  function pgFiltrar(lista){
+    var fColab = (document.getElementById('pg-filter-colab')||{}).value||'';
+    var fPosto = (document.getElementById('pg-filter-posto')||{}).value||'';
+    var fIni   = (document.getElementById('pg-filter-ini')||{}).value||'';
+    var fFim   = (document.getElementById('pg-filter-fim')||{}).value||'';
+    return lista.filter(function(ft){
+      var nome = ft.substituto||ft.colaboradorNome||'';
+      if(fColab && nome !== fColab) return false;
+      if(fPosto && (ft.posto||'') !== fPosto) return false;
+      var dia = (ft.dataHora||ft.criadoEm||'').slice(0,10);
+      if(fIni && dia < fIni) return false;
+      if(fFim && dia > fFim) return false;
+      return true;
+    });
+  }
+
+  // Formata BRL — reutiliza helper do ftv se disponível
+  function pgBRL(v){ return typeof ftvFormatarBRL==='function' ? ftvFormatarBRL(v) : 'R$ '+parseFloat(v||0).toFixed(2).replace('.',','); }
+  function pgDt(str){ return typeof ftvFormatarDataHora==='function' ? ftvFormatarDataHora(str) : (str?new Date(str).toLocaleDateString('pt-BR'):'—'); }
+
+  // Renderiza a lista consolidada na tela
+  window.pgRender = function(){
+    var todos = pgGetFTs();
+    pgPopularFiltros(todos);
+    var lista = pgFiltrar(todos);
+
+    var emptyEl = document.getElementById('pg-empty-msg');
+    var listaEl = document.getElementById('pg-lista');
+    var statTotal = document.getElementById('pg-stat-total');
+    var statColab = document.getElementById('pg-stat-colab');
+    var statFTs   = document.getElementById('pg-stat-fts');
+    if(!listaEl) return;
+
+    // Stats
+    var totalGeral = lista.reduce(function(s,f){ return s+(parseFloat(f.valor)||0); }, 0);
+    if(statTotal) statTotal.textContent = pgBRL(totalGeral);
+    // Agrupa por colaborador
+    var porColab = {};
+    lista.forEach(function(ft){
+      var nome = ft.substituto||ft.colaboradorNome||'Desconhecido';
+      if(!porColab[nome]) porColab[nome] = {fts:[], total:0};
+      porColab[nome].fts.push(ft);
+      porColab[nome].total += parseFloat(ft.valor)||0;
+    });
+    var nomes = Object.keys(porColab);
+    if(statColab) statColab.textContent = nomes.length;
+    if(statFTs)   statFTs.textContent   = lista.length;
+
+    if(!lista.length){
+      if(emptyEl) emptyEl.style.display='';
+      listaEl.innerHTML='';
+      return;
+    }
+    if(emptyEl) emptyEl.style.display='none';
+
+    // Monta os cards por colaborador
+    listaEl.innerHTML = nomes.sort().map(function(nome){
+      var g = porColab[nome];
+      var linhas = g.fts.map(function(ft,i){
+        var bg = i%2===0?'#1a1720':'#141218';
+        var ausente = ft.colaboradorAusente||ft.quemFaltou||'';
+        return '<tr style="background:'+bg+'">'+
+          '<td style="padding:8px 10px;color:var(--muted);font-size:11px;text-align:center">'+(i+1)+'</td>'+
+          '<td style="padding:8px 10px;color:var(--accent);font-size:12px">'+pgDt(ft.dataHora||ft.criadoEm)+'</td>'+
+          '<td style="padding:8px 10px;font-size:12px">'+esc(ft.posto||'—')+'</td>'+
+          '<td style="padding:8px 10px;font-size:12px;color:var(--gold)">'+esc(ft.motivo||'—')+'</td>'+
+          '<td style="padding:8px 10px;font-size:12px;color:var(--muted)">'+esc(ft.horario||'—')+'</td>'+
+          (ausente?'<td style="padding:8px 10px;font-size:11px;color:var(--red)">'+esc(ausente)+'</td>':'<td style="padding:8px 10px;font-size:11px;color:var(--muted)">—</td>')+
+          '<td style="padding:8px 10px;text-align:right;font-weight:700;color:var(--green);font-size:12px">'+pgBRL(ft.valor)+'</td>'+
+          '</tr>';
+      }).join('');
+
+      return '<div style="margin-bottom:16px;border:1px solid var(--border);border-radius:12px;overflow:hidden">'+
+        '<div style="background:linear-gradient(135deg,rgba(245,158,11,.15),rgba(245,158,11,.05));border-bottom:1px solid var(--border);padding:10px 14px;display:flex;justify-content:space-between;align-items:center">'+
+          '<span style="font-weight:700;color:var(--text);font-size:.95rem">👤 '+esc(nome)+'</span>'+
+          '<span style="font-size:.8rem;color:var(--muted)">'+g.fts.length+' FT'+(g.fts.length!==1?'s':'')+'</span>'+
+        '</div>'+
+        '<div style="overflow-x:auto">'+
+        '<table style="width:100%;border-collapse:collapse;min-width:500px">'+
+          '<thead><tr style="background:rgba(0,0,0,.3)">'+
+            '<th style="padding:7px 10px;font-size:10px;color:var(--muted);text-transform:uppercase;text-align:center">#</th>'+
+            '<th style="padding:7px 10px;font-size:10px;color:var(--muted);text-transform:uppercase">Data</th>'+
+            '<th style="padding:7px 10px;font-size:10px;color:var(--muted);text-transform:uppercase">Posto</th>'+
+            '<th style="padding:7px 10px;font-size:10px;color:var(--muted);text-transform:uppercase">Motivo</th>'+
+            '<th style="padding:7px 10px;font-size:10px;color:var(--muted);text-transform:uppercase">Horário</th>'+
+            '<th style="padding:7px 10px;font-size:10px;color:var(--muted);text-transform:uppercase">Ausente</th>'+
+            '<th style="padding:7px 10px;font-size:10px;color:var(--muted);text-transform:uppercase;text-align:right">Valor</th>'+
+          '</tr></thead>'+
+          '<tbody>'+linhas+'</tbody>'+
+          '<tfoot><tr style="background:rgba(34,197,94,.06);border-top:1px solid rgba(34,197,94,.2)">'+
+            '<td colspan="6" style="padding:10px 14px;font-size:12px;font-weight:700;color:var(--muted);text-align:right">SUBTOTAL ('+g.fts.length+' FT'+(g.fts.length!==1?'s':'')+')</td>'+
+            '<td style="padding:10px 14px;text-align:right;font-weight:800;font-size:13px;color:var(--green)">'+pgBRL(g.total)+'</td>'+
+          '</tr></tfoot>'+
+        '</table></div>'+
+        '<div style="padding:10px 14px;background:rgba(0,0,0,.2);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">'+
+          '<button onclick="pgGerarReciboNome(\''+esc(nome).replace(/'/g,"\\'")+'\')" style="padding:6px 14px;background:linear-gradient(135deg,#dc2626,#f97316);color:#fff;border:none;border-radius:8px;font-size:.75rem;font-weight:700;cursor:pointer;">🖨️ Recibo PDF</button>'+
+        '</div>'+
+      '</div>';
+    }).join('') +
+    // Total geral rodapé
+    '<div style="background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(34,197,94,.05));border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-top:8px">'+
+      '<span style="font-weight:700;font-size:1rem;color:var(--text)">TOTAL GERAL</span>'+
+      '<span style="color:var(--muted);font-size:.85rem">'+lista.length+' lançamento'+(lista.length!==1?'s':'')+'</span>'+
+      '<span style="font-weight:800;font-size:1.1rem;color:var(--green)">'+pgBRL(totalGeral)+'</span>'+
+    '</div>';
+  };
+
+  // Gera recibo PDF para um colaborador específico
+  window.pgGerarReciboNome = function(nome){
+    var todos = pgGetFTs();
+    var fIni   = (document.getElementById('pg-filter-ini')||{}).value||'';
+    var fFim   = (document.getElementById('pg-filter-fim')||{}).value||'';
+    var lista = todos.filter(function(ft){
+      var n = ft.substituto||ft.colaboradorNome||'';
+      if(n !== nome) return false;
+      var dia = (ft.dataHora||ft.criadoEm||'').slice(0,10);
+      if(fIni && dia < fIni) return false;
+      if(fFim && dia > fFim) return false;
+      return true;
+    });
+    if(!lista.length){ ftToast('⚠️ Nenhum lançamento para '+nome+'.','warn'); return; }
+    pgImprimirRecibo(nome, lista);
+  };
+
+  // Gera recibo(s) PDF de acordo com filtros actuais
+  window.pgGerarReciboPDF = function(){
+    var todos = pgGetFTs();
+    var lista = pgFiltrar(todos);
+    if(!lista.length){ ftToast('⚠️ Nenhum lançamento com os filtros actuais.','warn'); return; }
+    var fColab = (document.getElementById('pg-filter-colab')||{}).value||'';
+    if(fColab){
+      pgImprimirRecibo(fColab, lista);
+    } else {
+      // Gera um PDF unificado com todos os colaboradores
+      var porColab = {};
+      lista.forEach(function(ft){
+        var n = ft.substituto||ft.colaboradorNome||'Desconhecido';
+        if(!porColab[n]) porColab[n]=[];
+        porColab[n].push(ft);
+      });
+      pgImprimirReciboMultiplo(porColab);
+    }
+  };
+
+  // ── PDF de recibo para um colaborador ────────────────────────────────────
+  function pgImprimirRecibo(nome, lista){
+    var totalGeral = lista.reduce(function(s,f){ return s+(parseFloat(f.valor)||0); }, 0);
+    var fIni = (document.getElementById('pg-filter-ini')||{}).value||'';
+    var fFim = (document.getElementById('pg-filter-fim')||{}).value||'';
+    var periodoTxt = (fIni||fFim)
+      ? ((fIni?new Date(fIni+'T12:00:00').toLocaleDateString('pt-BR'):'...') + ' → ' + (fFim?new Date(fFim+'T12:00:00').toLocaleDateString('pt-BR'):'...'))
+      : 'Todos os períodos';
+    var dataHoje = new Date().toLocaleDateString('pt-BR');
+
+    var linhas = lista.map(function(ft,i){
+      var ausente = ft.colaboradorAusente||ft.quemFaltou||'—';
+      return '<tr style="'+(i%2?'background:#f8fafc':'')+'">' +
+        '<td style="padding:8px;text-align:center;color:#64748b;font-size:11px">'+(i+1)+'</td>' +
+        '<td style="padding:8px;color:#1e40af;font-size:12px">'+pgDt(ft.dataHora||ft.criadoEm)+'</td>' +
+        '<td style="padding:8px;font-size:12px">'+esc(ft.posto||'—')+'</td>' +
+        '<td style="padding:8px;font-size:12px;color:#d97706">'+esc(ft.motivo||'—')+'</td>' +
+        '<td style="padding:8px;font-size:12px;color:#64748b">'+esc(ft.horario||'—')+'</td>' +
+        '<td style="padding:8px;font-size:11px;color:#dc2626">'+esc(ausente)+'</td>' +
+        '<td style="padding:8px;text-align:right;font-weight:700;color:#15803d;font-size:12px">'+pgBRL(ft.valor)+'</td>' +
+      '</tr>';
+    }).join('');
+
+    var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Recibo - '+esc(nome)+'</title>' +
+    '<style>body{font-family:Arial,sans-serif;color:#1e293b;margin:0;padding:20px;background:#fff}' +
+    '@media print{body{padding:0}button{display:none!important}}' +
+    'table{border-collapse:collapse;width:100%}th,td{border:1px solid #e2e8f0;text-align:left}' +
+    'h1{font-size:18px;margin:0}h2{font-size:14px;margin:0 0 4px}</style></head><body>' +
+    // Botão imprimir
+    '<div style="text-align:right;margin-bottom:12px"><button onclick="window.print()" style="padding:8px 20px;background:#1e40af;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">🖨️ Imprimir / Salvar PDF</button></div>' +
+    // Cabeçalho
+    '<div style="background:linear-gradient(135deg,#0d3878,#1e3a8a);color:#fff;border-radius:10px;padding:18px 22px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start">' +
+      '<div><h1>💰 Recibo de Pagamento</h1><div style="font-size:12px;opacity:.75;margin-top:4px">Grupo M.S Segurança e Serviços</div></div>' +
+      '<div style="text-align:right;font-size:12px;opacity:.8"><div>Emitido: '+dataHoje+'</div><div>Período: '+periodoTxt+'</div></div>' +
+    '</div>' +
+    // Nome do colaborador
+    '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px 18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">' +
+      '<div><div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px">Colaborador</div><div style="font-size:17px;font-weight:700;color:#1e40af">'+esc(nome)+'</div></div>' +
+      '<div style="text-align:right"><div style="font-size:11px;color:#64748b">Total a receber</div><div style="font-size:22px;font-weight:800;color:#15803d">'+pgBRL(totalGeral)+'</div></div>' +
+    '</div>' +
+    // Tabela
+    '<table><thead><tr style="background:#f1f5f9">' +
+      '<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase;text-align:center">#</th>' +
+      '<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase">Data / Hora</th>' +
+      '<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase">Posto</th>' +
+      '<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase">Motivo</th>' +
+      '<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase">Horário</th>' +
+      '<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase">Ausente</th>' +
+      '<th style="padding:8px;font-size:10px;color:#64748b;text-transform:uppercase;text-align:right">Valor</th>' +
+    '</tr></thead><tbody>'+linhas+'</tbody>' +
+    '<tfoot><tr style="background:#f0fdf4;font-weight:700">' +
+      '<td colspan="6" style="padding:10px;text-align:right;color:#64748b">TOTAL ('+lista.length+' lançamento'+(lista.length!==1?'s':'')+')</td>' +
+      '<td style="padding:10px;text-align:right;color:#15803d;font-size:14px">'+pgBRL(totalGeral)+'</td>' +
+    '</tr></tfoot></table>' +
+    // Declaração
+    '<div style="border:1.5px solid #cbd5e1;border-radius:10px;padding:28px 32px;margin-top:24px;background:#fff;page-break-inside:avoid">' +
+      '<div style="text-align:center;font-size:13px;font-weight:700;color:#1e293b;letter-spacing:.5px;margin-bottom:14px;text-transform:uppercase">Declaração de Recebimento</div>' +
+      '<p style="font-size:12px;color:#3b82f6;text-align:center;line-height:1.7;margin-bottom:32px">' +
+        'Eu, <strong>'+esc(nome)+'</strong>, declaro que estou de acordo com os lançamentos acima,<br>' +
+        'referentes às Folgas Trabalhadas (FT) listadas neste recibo,<br>e confirmo o recebimento dos valores correspondentes.' +
+      '</p>' +
+      '<div style="border-top:1.5px solid #1e293b;width:340px;margin:0 auto 10px"></div>' +
+      '<div style="text-align:center;font-size:11px;color:#64748b">Assinatura: <strong>'+esc(nome)+'</strong></div>' +
+      '<div style="text-align:center;font-size:11px;color:#64748b;margin-top:8px">Data: ________ / ________ / __________</div>' +
+    '</div>' +
+    '</body></html>';
+
+    var w = window.open('','_blank','width=860,height=700');
+    if(w){ w.document.write(html); w.document.close(); }
+    else { ftToast('⚠️ Popup bloqueado. Permita pop-ups para abrir o recibo.','warn'); }
+  }
+
+  // ── PDF unificado com múltiplos colaboradores ────────────────────────────
+  function pgImprimirReciboMultiplo(porColab){
+    var dataHoje = new Date().toLocaleDateString('pt-BR');
+    var fIni = (document.getElementById('pg-filter-ini')||{}).value||'';
+    var fFim = (document.getElementById('pg-filter-fim')||{}).value||'';
+    var periodoTxt = (fIni||fFim)
+      ? ((fIni?new Date(fIni+'T12:00:00').toLocaleDateString('pt-BR'):'...') + ' → ' + (fFim?new Date(fFim+'T12:00:00').toLocaleDateString('pt-BR'):'...'))
+      : 'Todos os períodos';
+    var nomes = Object.keys(porColab).sort();
+    var totalGlobal = 0;
+    nomes.forEach(function(n){ totalGlobal += porColab[n].reduce(function(s,f){ return s+(parseFloat(f.valor)||0); },0); });
+
+    var corpoHtml = nomes.map(function(nome){
+      var lista = porColab[nome];
+      var total = lista.reduce(function(s,f){ return s+(parseFloat(f.valor)||0); },0);
+      var linhas = lista.map(function(ft,i){
+        var ausente = ft.colaboradorAusente||ft.quemFaltou||'—';
+        return '<tr style="'+(i%2?'background:#f8fafc':'')+'">' +
+          '<td style="padding:7px 8px;text-align:center;color:#64748b;font-size:11px">'+(i+1)+'</td>' +
+          '<td style="padding:7px 8px;color:#1e40af;font-size:11px">'+pgDt(ft.dataHora||ft.criadoEm)+'</td>' +
+          '<td style="padding:7px 8px;font-size:11px">'+esc(ft.posto||'—')+'</td>' +
+          '<td style="padding:7px 8px;font-size:11px;color:#d97706">'+esc(ft.motivo||'—')+'</td>' +
+          '<td style="padding:7px 8px;font-size:11px;color:#64748b">'+esc(ft.horario||'—')+'</td>' +
+          '<td style="padding:7px 8px;font-size:11px;color:#dc2626">'+esc(ausente)+'</td>' +
+          '<td style="padding:7px 8px;text-align:right;font-weight:700;color:#15803d;font-size:11px">'+pgBRL(ft.valor)+'</td>' +
+        '</tr>';
+      }).join('');
+      return '<div style="margin-bottom:24px;page-break-inside:avoid">' +
+        '<div style="background:linear-gradient(135deg,#0d3878,#1e3a8a);color:#fff;border-radius:6px 6px 0 0;padding:9px 14px;display:flex;justify-content:space-between;align-items:center">' +
+          '<span style="font-weight:700;font-size:13px">👤 '+esc(nome)+'</span>' +
+          '<span style="font-size:12px;opacity:.8">'+lista.length+' FT'+(lista.length!==1?'s':'')+'</span>' +
+        '</div>' +
+        '<table style="border-collapse:collapse;width:100%;border:1px solid #e2e8f0;border-top:none">' +
+          '<thead><tr style="background:#f1f5f9">' +
+            '<th style="padding:6px 8px;font-size:10px;color:#64748b;text-transform:uppercase;text-align:center;border:1px solid #e2e8f0">#</th>' +
+            '<th style="padding:6px 8px;font-size:10px;color:#64748b;text-transform:uppercase;border:1px solid #e2e8f0">Data</th>' +
+            '<th style="padding:6px 8px;font-size:10px;color:#64748b;text-transform:uppercase;border:1px solid #e2e8f0">Posto</th>' +
+            '<th style="padding:6px 8px;font-size:10px;color:#64748b;text-transform:uppercase;border:1px solid #e2e8f0">Motivo</th>' +
+            '<th style="padding:6px 8px;font-size:10px;color:#64748b;text-transform:uppercase;border:1px solid #e2e8f0">Horário</th>' +
+            '<th style="padding:6px 8px;font-size:10px;color:#64748b;text-transform:uppercase;border:1px solid #e2e8f0">Ausente</th>' +
+            '<th style="padding:6px 8px;font-size:10px;color:#64748b;text-transform:uppercase;border:1px solid #e2e8f0;text-align:right">Valor</th>' +
+          '</tr></thead><tbody>'+linhas+'</tbody>' +
+          '<tfoot><tr style="background:#f0fdf4;font-weight:700">' +
+            '<td colspan="6" style="padding:8px;text-align:right;color:#64748b;font-size:12px;border:1px solid #e2e8f0">Subtotal</td>' +
+            '<td style="padding:8px;text-align:right;color:#15803d;font-size:13px;border:1px solid #e2e8f0">'+pgBRL(total)+'</td>' +
+          '</tr></tfoot>' +
+        '</table>' +
+        // Linha de assinatura por colaborador
+        '<div style="border:1px solid #cbd5e1;border-radius:0 0 6px 6px;padding:16px 24px;background:#f8fafc;display:flex;gap:40px;align-items:flex-end">' +
+          '<div style="flex:1"><div style="border-top:1px solid #94a3b8;padding-top:6px;font-size:10px;color:#64748b;text-align:center">Assinatura: <strong>'+esc(nome)+'</strong></div></div>' +
+          '<div><div style="border-top:1px solid #94a3b8;padding-top:6px;font-size:10px;color:#64748b;text-align:center">Data: ___/___/______</div></div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Pagamentos - '+dataHoje+'</title>' +
+    '<style>body{font-family:Arial,sans-serif;color:#1e293b;margin:0;padding:20px;background:#fff}' +
+    '@media print{body{padding:0}button{display:none!important}}' +
+    'table{border-collapse:collapse;width:100%}</style></head><body>' +
+    '<div style="text-align:right;margin-bottom:12px"><button onclick="window.print()" style="padding:8px 20px;background:#1e40af;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">🖨️ Imprimir / Salvar PDF</button></div>' +
+    '<div style="background:linear-gradient(135deg,#0d3878,#1e3a8a);color:#fff;border-radius:10px;padding:18px 22px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center">' +
+      '<div><div style="font-size:18px;font-weight:800">💰 Consolidado de Pagamentos</div><div style="font-size:12px;opacity:.7;margin-top:2px">Grupo M.S Segurança e Serviços</div></div>' +
+      '<div style="text-align:right;font-size:12px;opacity:.8"><div>Emitido: '+dataHoje+'</div><div>Período: '+periodoTxt+'</div><div style="font-size:14px;font-weight:700;margin-top:4px">Total: '+pgBRL(totalGlobal)+'</div></div>' +
+    '</div>' +
+    corpoHtml +
+    '</body></html>';
+
+    var w = window.open('','_blank','width=900,height=750');
+    if(w){ w.document.write(html); w.document.close(); }
+    else { ftToast('⚠️ Popup bloqueado. Permita pop-ups para abrir o recibo.','warn'); }
+  }
+
+  // ── Exportar Excel (CSV) ──────────────────────────────────────────────────
+  window.pgExportarExcel = function(){
+    var lista = pgFiltrar(pgGetFTs());
+    if(!lista.length){ ftToast('⚠️ Nenhum dado para exportar.','warn'); return; }
+    var bom = '\uFEFF';
+    var cab = ['Colaborador','Data','Posto','Motivo','Horário','Ausente','Valor (R$)'];
+    var csvEsc = function(v){ var s=String(v||''); return (s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s.replace(/"/g,'""')+'"':s; };
+    var linhas = lista.map(function(ft){
+      var nome = ft.substituto||ft.colaboradorNome||'';
+      var dt   = pgDt(ft.dataHora||ft.criadoEm);
+      var aus  = ft.colaboradorAusente||ft.quemFaltou||'';
+      return [nome, dt, ft.posto||'', ft.motivo||'', ft.horario||'', aus, parseFloat(ft.valor||0).toFixed(2)].map(csvEsc).join(',');
+    });
+    var csv = bom + cab.join(',') + '\n' + linhas.join('\n');
+    var a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'pagamentos_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    ftToast('✅ Excel exportado!','success');
+  };
+
+})();
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ─── EXPORTAR HISTÓRICO EXCEL (CSV) ───────────────────────────────────────────
 function exportarHistoricoExcel() {
   const dados = _filtrados;
