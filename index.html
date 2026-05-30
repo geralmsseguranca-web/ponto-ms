@@ -4469,7 +4469,12 @@ function ftConectar(){
     // Escuta mudanças na coleção FT em tempo real
     window._fbOnValue(window._fbRef(window._db,'ft_registros'),function(snap){
       var data=snap.val();
-      var remotas=data?Object.values(data):[];
+      // Preserva a chave real do nó Firebase em _fbNodeKey — garante que escritas de volta
+      // usem a chave correta (evita orphan records quando id interno ≠ chave do nó)
+      var remotas=data?Object.keys(data).map(function(k){
+        var obj=data[k];
+        return Object.assign({},obj,{_fbNodeKey:k, id:obj.id||k});
+      }):[];
 
       // ── DEDUP: mantém apenas UMA por colab+posto+horário+dia (a mais recente) ──
       var _vistos={};
@@ -4492,10 +4497,8 @@ function ftConectar(){
       });
 
       // ── ftsLocal é espelho direto do Firebase ──
-      // Pendentes: todos os registros com status pendente
-      // A aba FT Automática mostra apenas pendentes de HOJE
       ftS.ftFirestore=remotas;
-      ftS.ftsLocal=remotas.slice(); // espelho completo; ftRenderLista filtra por status/data
+      ftS.ftsLocal=remotas.slice();
 
       ftAprenderComHistorico(ftS.ftFirestore);
       ftRenderLista();
@@ -4633,6 +4636,7 @@ window.ftGerarDePonto=function(reg){
       status:'pendente',criadoEm:new Date().toISOString(),
       autoNome:!!reg.colaboradorNome,autoPosto:!!(pad&&pad.posto),
       autoHorario:!!(pad&&pad.horario)||!!turno,autoMotivo:!!(pad&&pad.motivo),autoValor:!!(pad&&pad.valorMedio)};
+    ft._fbNodeKey=ft.id; // chave do nó Firebase = mesmo id gerado localmente
     ftS.ftsLocal.unshift(ft);ftSalvarLocal();ftRenderLista();ftUpdateStats();
     var ok=ft.posto&&ft.horario&&ft.motivo&&ft.valor;
     ftToast(ft.confianca>=80&&ok?'🤖 FT gerada: '+ft.colaboradorNome:'📋 FT pendente: '+ft.colaboradorNome,ft.confianca>=80&&ok?'success':'warn');
@@ -4713,7 +4717,7 @@ function ftEnviarParaFirestore(ftId){
   // ── ESTRATÉGIA: update no ID original da FT pendente (não cria novo ID) ──
   // A FT pendente já existe no Firebase com ft.id. Atualizamos o mesmo nó
   // para status='enviada'. O onValue dispara automaticamente e atualiza a UI.
-  var fbKey = ft._fbId || ft.id; // usa _fbId se disponível, senão o id local
+  var fbKey = ft._fbNodeKey || ft._fbId || ft.id; // usa chave real do nó Firebase
   var updates={
     id:fbKey,
     posto:ft.posto, motivo:ft.motivo, horario:ft.horario,
@@ -5436,21 +5440,78 @@ window.ftModalSalvar=function(){
   var valor=document.getElementById('ft-modal-valor').value;
   var obs=document.getElementById('ft-modal-obs').value;
   if(!posto||!motivo||!horario){ftToast('⚠️ Posto, motivo e horário são obrigatórios.','error');return;}
-  ftS.ftsLocal=ftS.ftsLocal.map(function(f){
-    if(f.id!==id)return f;
-    // Preserva flags originais: só marca auto=true se o campo JÁ era auto antes
-    // Se o ADM mudou o valor, o campo passa a ser manual (auto=false)
-    return Object.assign({},f,{
-      posto:posto,    autoPosto:   (f.autoPosto   && posto   === f.posto),
-      motivo:motivo,  autoMotivo:  (f.autoMotivo  && motivo  === f.motivo),
-      horario:horario,autoHorario: (f.autoHorario && horario === f.horario),
-      valor:parseFloat(valor)||0,observacao:obs
-    });
+
+  // Busca a FT original ANTES de fechar o modal (evita race condition com onValue)
+  var ftOrig=ftS.ftsLocal.find(function(f){return f.id===id;})
+           ||ftS.ftFirestore.find(function(f){return f.id===id;});
+  if(!ftOrig){ftToast('⚠️ FT não encontrada.','error');return;}
+  if(!window._firebaseReady||!window._db){
+    ftToast('⚠️ Firebase offline. Conecte-se e tente novamente.','error');return;
+  }
+
+  // Monta objeto completo com dados do modal — não depende de ftsLocal
+  var agora=new Date().toISOString();
+  var todosCamposAuto=(ftOrig.autoPosto&&posto===ftOrig.posto)
+                    &&(ftOrig.autoHorario&&horario===ftOrig.horario)
+                    &&(ftOrig.autoMotivo&&motivo===ftOrig.motivo)
+                    &&!!ftOrig.autoValor;
+  var origemValidacao=(ftOrig.confianca>=80&&todosCamposAuto)?'inteligencia':'adm';
+  var fbKey=ftOrig._fbNodeKey||ftOrig._fbId||ftOrig.id;
+
+  // Verifica duplicidade antes de enviar
+  var nomeNorm=(ftOrig.colaboradorNome||'').trim().toLowerCase();
+  var colabIdNorm=ftOrig.colaboradorId||'';
+  var postoNorm=(posto||'').trim().toLowerCase();
+  var horarioNorm=(horario||'').trim();
+  var ftDiaKey=(ftOrig.dataHora||ftOrig.criadoEm||'').slice(0,10);
+  var duplicada=ftS.ftFirestore.find(function(f){
+    if((f.status||'enviada')!=='enviada')return false;
+    if(f.id===fbKey||f._pontoId===ftOrig.pontoId)return false;
+    var fDia=(f.dataHora||f.criadoEm||'').slice(0,10);
+    var fNome=(f.substituto||f.colaboradorNome||'').trim().toLowerCase();
+    var fId=f.colaboradorId||'';
+    var mesmoColab=(colabIdNorm&&fId&&fId===colabIdNorm)||(fNome===nomeNorm);
+    return fDia===ftDiaKey&&mesmoColab&&(f.posto||'').trim().toLowerCase()===postoNorm&&(f.horario||'').trim()===horarioNorm;
   });
-  ftSalvarLocal();
+  if(duplicada){
+    var dtDupFmt=duplicada.dataHora?new Date(duplicada.dataHora).toLocaleDateString('pt-BR'):'—';
+    ftToast('🚫 Já existe FT validada para '+ftOrig.colaboradorNome+' em '+esc(posto)+' ('+horario+') no dia '+dtDupFmt+'.','error');
+    return;
+  }
+
+  var payload=Object.assign({},ftOrig,{
+    id:fbKey,
+    posto:posto, motivo:motivo, horario:horario,
+    valor:parseFloat(valor)||0, observacao:obs||null,
+    autoPosto:(ftOrig.autoPosto&&posto===ftOrig.posto),
+    autoMotivo:(ftOrig.autoMotivo&&motivo===ftOrig.motivo),
+    autoHorario:(ftOrig.autoHorario&&horario===ftOrig.horario),
+    status:'enviada', enviadoEm:agora,
+    validadoPor:origemValidacao, validadoEm:agora,
+    _origem:'ponto-automatico', _pontoId:ftOrig.pontoId||ftOrig.id
+  });
+
   ftModalFechar();
-  // ftEnviarParaFirestore cuida de renderizar, atualizar stats e enviar ao Firebase
-  ftEnviarParaFirestore(id);
+
+  // Optimistic update imediato em memória
+  ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===id?Object.assign({},f,payload):f;});
+  ftS.ftFirestore=ftS.ftFirestore.map(function(f){return f.id===fbKey?Object.assign({},f,payload):f;});
+  ftSalvarLocal();
+  ftRenderLista();
+  if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();
+  ftUpdateStats();
+
+  // Grava no Firebase — o onValue vai confirmar e re-renderizar
+  window._fbSet(window._fbRef(window._db,'ft_registros/'+fbKey), payload)
+    .then(function(){ftToast('✅ FT validada e salva no Firebase!','success');})
+    .catch(function(e){
+      console.error('[FT] Erro ao gravar no Firebase:',e);
+      // Reverte optimistic update
+      ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===id?Object.assign({},f,{status:'pendente',enviadoEm:null,validadoPor:null}):f;});
+      ftS.ftFirestore=ftS.ftFirestore.map(function(f){return f.id===fbKey?ftOrig:f;});
+      ftSalvarLocal();ftRenderLista();ftUpdateStats();
+      ftToast('❌ Erro ao salvar no Firebase: '+e.message,'error');
+    });
 };
 window.ftDeletar=function(id){
   if(!confirm('Excluir esta FT? Esta ação não pode ser desfeita.'))return;
@@ -5459,8 +5520,8 @@ window.ftDeletar=function(id){
   ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==id&&f._fbId!==id;});
   ftS.ftFirestore=ftS.ftFirestore.filter(function(f){return f.id!==id&&f._fbId!==id;});
   ftSalvarLocal();
-  // Remove do Firebase: usa _fbId se disponível, senão tenta com ft.id
-  var fbKey=(ft&&ft._fbId)||(ft&&ft.id)||null;
+  // Remove do Firebase: usa chave real do nó (_fbNodeKey), senão _fbId, senão id
+  var fbKey=(ft&&ft._fbNodeKey)||(ft&&ft._fbId)||(ft&&ft.id)||null;
   if(fbKey&&window._firebaseReady&&window._db){
     window._fbRemove(window._fbRef(window._db,'ft_registros/'+fbKey))
       .then(function(){ftToast('🗑️ FT excluída permanentemente.','success');})
@@ -5502,33 +5563,27 @@ window.ftvEditarSalvar=function(){
   var valor=document.getElementById('ftv-edit-valor').value;
   var obs=document.getElementById('ftv-edit-obs').value.trim();
   if(!posto||!motivo||!horario){ftToast('⚠️ Posto, motivo e horário são obrigatórios.','error');return;}
-  // Atualiza ftsLocal
-  var updated=false;
+  // Resolve chave real do nó Firebase
+  var ftOrig=ftS.ftFirestore.find(function(f){return f.id===ftId||f._fbId===ftId;})
+           ||ftS.ftsLocal.find(function(f){return f.id===ftId||f._fbId===ftId;});
+  var fbKey=(ftOrig&&ftOrig._fbNodeKey)||(ftOrig&&ftOrig._fbId)||ftId;
+  var upd={posto:posto,motivo:motivo,horario:horario,
+    valor:parseFloat(valor)||0,observacao:obs||null,
+    autoPosto:false,autoMotivo:false,autoHorario:false,
+    validadoPor:'adm',editadoEm:new Date().toISOString()};
+  // Atualiza em memória
   ftS.ftsLocal=ftS.ftsLocal.map(function(f){
     if(f.id!==ftId&&f._fbId!==ftId)return f;
-    updated=true;
-    return Object.assign({},f,{posto:posto,motivo:motivo,horario:horario,
-      valor:parseFloat(valor)||0,observacao:obs,
-      autoPosto:false,autoMotivo:false,autoHorario:false,
-      validadoPor:'adm',editadoEm:new Date().toISOString()});
+    return Object.assign({},f,upd);
   });
-  // Atualiza também em ftFirestore (memória)
   ftS.ftFirestore=ftS.ftFirestore.map(function(f){
     if(f.id!==ftId&&f._fbId!==ftId)return f;
-    updated=true;
-    return Object.assign({},f,{posto:posto,motivo:motivo,horario:horario,
-      valor:parseFloat(valor)||0,observacao:obs,
-      autoPosto:false,autoMotivo:false,autoHorario:false,
-      validadoPor:'adm',editadoEm:new Date().toISOString()});
+    return Object.assign({},f,upd);
   });
   ftSalvarLocal();
-  // Persiste no Firebase
+  // Persiste no Firebase com chave correta
   if(window._firebaseReady&&window._db){
-    var updates={posto:posto,motivo:motivo,horario:horario,
-      valor:parseFloat(valor)||0,observacao:obs||null,
-      autoPosto:false,autoMotivo:false,autoHorario:false,
-      validadoPor:'adm',editadoEm:new Date().toISOString()};
-    window._fbUpdate(window._fbRef(window._db,'ft_registros/'+ftId),updates)
+    window._fbUpdate(window._fbRef(window._db,'ft_registros/'+fbKey),upd)
       .then(function(){ftToast('✅ FT atualizada no Firebase!','success');})
       .catch(function(e){ftToast('⚠️ Salvo localmente. Erro Firebase: '+e.message,'warn');});
   } else {
@@ -5539,13 +5594,14 @@ window.ftvEditarSalvar=function(){
 };
 window.ftvDeletar=function(ftId){
   if(!confirm('Excluir esta FT validada? Esta ação não pode ser desfeita.')){return;}
-  // Remove de ftsLocal e ftFirestore (memória)
+  var ftOrig=ftS.ftFirestore.find(function(f){return f.id===ftId||f._fbId===ftId;})
+           ||ftS.ftsLocal.find(function(f){return f.id===ftId||f._fbId===ftId;});
+  var fbKey=(ftOrig&&ftOrig._fbNodeKey)||(ftOrig&&ftOrig._fbId)||ftId;
   ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return f.id!==ftId&&f._fbId!==ftId;});
   ftS.ftFirestore=ftS.ftFirestore.filter(function(f){return f.id!==ftId&&f._fbId!==ftId;});
   ftSalvarLocal();
-  // Remove do Firebase
   if(window._firebaseReady&&window._db){
-    window._fbRemove(window._fbRef(window._db,'ft_registros/'+ftId))
+    window._fbRemove(window._fbRef(window._db,'ft_registros/'+fbKey))
       .then(function(){ftToast('🗑️ FT excluída do Firebase.','success');})
       .catch(function(e){ftToast('⚠️ Removido localmente. Erro Firebase: '+e.message,'warn');});
   } else {
@@ -5558,11 +5614,12 @@ window.ftSalvarObs=function(ftId){
   var el=document.getElementById('ft-obs-'+ftId);
   if(!el)return;
   var val=el.value.trim();
+  var ftRef=ftS.ftsLocal.find(function(f){return f.id===ftId;})||ftS.ftFirestore.find(function(f){return f.id===ftId;});
+  var fbKey=(ftRef&&ftRef._fbNodeKey)||(ftRef&&ftRef._fbId)||ftId;
   ftS.ftsLocal=ftS.ftsLocal.map(function(f){return f.id===ftId?Object.assign({},f,{observacao:val}):f;});
   ftSalvarLocal();
-  // Persiste observação no Firebase
   if(window._firebaseReady&&window._db){
-    window._fbUpdate(window._fbRef(window._db,'ft_registros/'+ftId),{observacao:val||null})
+    window._fbUpdate(window._fbRef(window._db,'ft_registros/'+fbKey),{observacao:val||null})
       .catch(function(e){console.warn('[FT] Erro ao salvar obs no Firebase:',e);});
   }
 };
@@ -5592,6 +5649,9 @@ window.ftQuickEditSalvar=function(ftId){
   var qe=document.getElementById('ft-qe-'+ftId);
   if(!qe)return;
   var campo=qe.dataset.campo;
+  // Resolve chave real do nó Firebase
+  var ftRef=ftS.ftsLocal.find(function(f){return f.id===ftId;})||ftS.ftFirestore.find(function(f){return f.id===ftId;});
+  var fbKey=(ftRef&&ftRef._fbNodeKey)||(ftRef&&ftRef._fbId)||ftId;
   // Edição de data tem fluxo próprio
   if(campo==='data'){
     var inp=document.getElementById('ft-qe-inp-data-'+ftId);
@@ -5606,7 +5666,7 @@ window.ftQuickEditSalvar=function(ftId){
     ftSalvarLocal();ftQuickEditFechar(ftId);ftRenderLista();ftUpdateStats();
     // Persiste no Firebase
     if(window._firebaseReady&&window._db){
-      window._fbUpdate(window._fbRef(window._db,'ft_registros/'+ftId),{dataHora:val})
+      window._fbUpdate(window._fbRef(window._db,'ft_registros/'+fbKey),{dataHora:val})
         .then(function(){ftToast('✅ Data atualizada!','success');})
         .catch(function(e){ftToast('⚠️ Atualizado em memória. Erro Firebase: '+e.message,'warn');});
     } else {
@@ -5628,7 +5688,7 @@ window.ftQuickEditSalvar=function(ftId){
   ftSalvarLocal();ftQuickEditFechar(ftId);ftRenderLista();ftUpdateStats();
   // Persiste no Firebase
   if(window._firebaseReady&&window._db){
-    window._fbUpdate(window._fbRef(window._db,'ft_registros/'+ftId),updateObj)
+    window._fbUpdate(window._fbRef(window._db,'ft_registros/'+fbKey),updateObj)
       .then(function(){ftToast('✅ '+(campo==='motivo'?'Motivo':'Horário')+' atualizado!','success');})
       .catch(function(e){ftToast('⚠️ Atualizado em memória. Erro Firebase: '+e.message,'warn');});
   } else {
