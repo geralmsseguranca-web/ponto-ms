@@ -5522,10 +5522,37 @@ function ftvExportarExcel(){
   ftToast('✅ Excel exportado com '+lf.length+' registros!','success');
 }
 function ftUpdateStats(){
-  // Conta apenas pendentes de HOJE (alinhado com o que ftRenderLista exibe)
+  // FIX: usa o mesmo critério de _jaValidadaNoFirebase que ftRenderLista usa
+  // para não contar como pendente uma FT que já foi validada no Firebase
   var _hjStats=(function(){var d=new Date();return d.getFullYear()+'-'+(String(d.getMonth()+1).padStart(2,'0'))+'-'+(String(d.getDate()).padStart(2,'0'));})();
-  var p=ftS.ftsLocal.filter(function(f){return f.status==='pendente'&&ftDataDoRegistro(f)===_hjStats;}).length;
+  var _validadasFirebase=(ftS.ftFirestore||[]).filter(function(r){return (r.status||'enviada')==='enviada';});
+  var _validadasPontoIds=new Set(_validadasFirebase.map(function(r){return r._pontoId||r.pontoId||'__';}));
+  var _validadasIds=new Set(_validadasFirebase.map(function(r){return r.id||'';}));
+  var _validadasColabDia=new Set(_validadasFirebase.map(function(r){
+    var nome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+    var dia=(r.dataHora||r.criadoEm||'').slice(0,10);
+    return nome+'||'+dia;
+  }));
+  function _jaValidadaStats(f){
+    if(f.pontoId&&_validadasPontoIds.has(f.pontoId))return true;
+    if(f._fbId&&_validadasIds.has(f._fbId))return true;
+    if(f.id&&_validadasIds.has(f.id))return true;
+    if(f.colaboradorNome){
+      var fNome=(f.colaboradorNome||'').trim().toLowerCase();
+      var fDia=(f.dataHora||f.criadoEm||'').slice(0,10);
+      if(_validadasColabDia.has(fNome+'||'+fDia))return true;
+    }
+    return false;
+  }
+  var p=ftS.ftsLocal.filter(function(f){
+    return f.status==='pendente'&&ftDataDoRegistro(f)===_hjStats&&!_jaValidadaStats(f);
+  }).length;
   var e=ftS.ftsLocal.filter(function(f){return f.status==='enviada'&&ftFTDentroPeriodo(f);}).length;
+  // Soma também as validadas no Firebase que ainda não foram atualizadas no ftsLocal
+  var _enviadasFbExtra=_validadasFirebase.filter(function(r){
+    return ftFTDentroPeriodo(r)&&!ftS.ftsLocal.some(function(l){return l.id===r.id||l._fbId===r.id;});
+  }).length;
+  e+=_enviadasFbExtra;
   var el1=document.getElementById('ft-stat-pendentes'),el2=document.getElementById('ft-stat-enviadas'),el3=document.getElementById('ft-stat-padroes');
   if(el1)el1.textContent=p;if(el2)el2.textContent=e;if(el3)el3.textContent=ftS.padroes.length;
 }
@@ -5849,8 +5876,11 @@ function ftSalvarLocal(){
   // ou mesmo colaborador+posto+horario+dia (mantém o mais antigo pelo criadoEm)
   var vistos={pontoIds:{},chaveDia:{}};
   var limpo=[];
-  // Ordena mais antigos primeiro para manter o registro original
+  // FIX: ordena 'enviada' antes de 'pendente' para que, em duplicidade,
+  // o registro validado seja SEMPRE mantido (não o pendente mais antigo)
   var ordenados=ftS.ftsLocal.slice().sort(function(a,b){
+    var sA=a.status==='enviada'?0:1, sB=b.status==='enviada'?0:1;
+    if(sA!==sB)return sA-sB; // enviada vem primeiro
     var ta=a.criadoEm?new Date(a.criadoEm).getTime():0;
     var tb=b.criadoEm?new Date(b.criadoEm).getTime():0;
     return ta-tb;
