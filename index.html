@@ -4527,7 +4527,27 @@ function ftConectar(){
       });
       // ─────────────────────────────────────────────────────────────────────────
 
-      // ── ftsLocal é espelho direto do Firebase ──
+      // ── ftsLocal é espelho do Firebase, preservando optimistic updates locais ──
+      // FIX: se uma FT foi marcada como 'enviada' localmente (optimistic update)
+      // mas o Firebase ainda não confirmou (chegou como 'pendente'), mantém o status local
+      // para evitar que a FT reapareça na aba FT Automática durante a gravação.
+      var _localEnviadasIds=new Set();
+      (ftS.ftsLocal||[]).forEach(function(f){
+        if(f.status==='enviada'){
+          if(f.id)_localEnviadasIds.add(f.id);
+          if(f._fbId)_localEnviadasIds.add(f._fbId);
+          if(f.pontoId)_localEnviadasIds.add('pontoId:'+f.pontoId);
+        }
+      });
+      remotas=remotas.map(function(r){
+        if((r.status||'enviada')==='pendente'){
+          var rPontoId=r.pontoId||r._pontoId||'';
+          if(_localEnviadasIds.has(r.id)||_localEnviadasIds.has('pontoId:'+rPontoId)){
+            return Object.assign({},r,{status:'enviada'});
+          }
+        }
+        return r;
+      });
       ftS.ftFirestore=remotas;
       ftS.ftsLocal=remotas.slice();
 
@@ -4793,9 +4813,18 @@ function ftEnviarParaFirestore(ftId){
   };
 
   // Optimistic update imediato em memória
+  // FIX: inclui _fbId e pontoId para que _jaValidadaNoFirebase() consiga fazer match
+  // e remova a FT da aba FT Automática imediatamente após validar
   ftS.ftsLocal=ftS.ftsLocal.map(function(f){
     if(f.id!==ftId)return f;
-    return Object.assign({},f,{status:'enviada',enviadoEm:agora,validadoPor:origemValidacao,validadoEm:agora});
+    return Object.assign({},f,{
+      status:'enviada',
+      enviadoEm:agora,
+      validadoPor:origemValidacao,
+      validadoEm:agora,
+      _fbId:fbKey,
+      pontoId:ft.pontoId||ftId
+    });
   });
   ftS.ftFirestore=ftS.ftFirestore.map(function(f){
     if(f.id!==fbKey&&f.id!==ftId)return f;
@@ -4894,11 +4923,15 @@ window.ftRenderLista=function(){
     var dia=(r.dataHora||r.criadoEm||'').slice(0,10);
     return nome+'||'+dia;
   }));
+  // Conjunto de IDs diretos das validadas (cobre match por id local igual ao id no Firebase)
+  var _validadasIds=new Set(_validadasFirebase.map(function(r){return r.id||'';}));
   function _jaValidadaNoFirebase(f){
     // Match por pontoId
     if(f.pontoId&&_validadasPontoIds.has(f.pontoId))return true;
     // Match por _fbId (FT já enviada cujo id remoto é conhecido)
-    if(f._fbId&&_validadasFirebase.some(function(r){return r.id===f._fbId;}))return true;
+    if(f._fbId&&(_validadasIds.has(f._fbId)||_validadasFirebase.some(function(r){return r.id===f._fbId;})))return true;
+    // Match direto por id (cobre caso onde ftId === fbKey)
+    if(f.id&&_validadasIds.has(f.id))return true;
     // Match por colab+posto+horário+dia (fallback para FTs sem pontoId)
     if(f.horario&&f.posto&&f.colaboradorNome){
       var nome=(f.colaboradorNome||'').trim().toLowerCase();
