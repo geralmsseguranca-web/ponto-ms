@@ -4251,7 +4251,7 @@ function exportarHistoricoPDF() {
 'use strict';
 var FT_FIREBASE_CONFIG={apiKey:"AIzaSyA6OzNUzlHVJaG3CsnQ3m-cfcuOkf6Ve-Q",authDomain:"nova-folga-trabalhada.firebaseapp.com",projectId:"nova-folga-trabalhada",storageBucket:"nova-folga-trabalhada.firebasestorage.app",messagingSenderId:"187145497152",appId:"1:187145497152:web:8f943193dffdadd2340da5"};
 var FT_COLLECTION='folga_trabalhada',FT_DOC_ID='dados';
-var ftS={ftsLocal:[],padroes:[],ftFirestore:[],dbFT:null,sync:false};
+var ftS={ftsLocal:[],padroes:[],ftFirestore:[],dbFT:null,sync:false,ftSyncInicial:false};
 var LS_LOCAL='ft_auto_local',LS_PAD='ft_auto_padroes',LS_MOTIVOS='ft_motivos_lista',LS_HORARIOS='ft_horarios_lista';
 var TURNOS=[{t:'06:00 – 18:00',i:6,f:18},{t:'18:00 – 06:00',i:18,f:6},{t:'07:00 – 17:00',i:7,f:17},{t:'07:00 – 16:00',i:7,f:16},{t:'18:00 – 07:00',i:18,f:7},{t:'18:00 – 08:30',i:18,f:8},{t:'17:00 – 07:00',i:17,f:7},{t:'22:00 – 07:20',i:22,f:7}];
 
@@ -4319,10 +4319,42 @@ function ftLimparFirebaseAntigos(){
   }).catch(function(e){console.warn('[FT] Erro ao ler ft_registros para limpeza:',e);});
 }
 
+// Remove duplicatas já existentes no ftsLocal.
+// Critério: mesmo colaboradorNome + posto + dia (yyyy-mm-dd).
+// Mantém a FT mais antiga (primeira gerada) e remove as demais pendentes.
+// FTs com status='enviada' nunca são removidas.
+function ftLimparDuplicatasLocal(){
+  var vistas={};
+  var antes=ftS.ftsLocal.length;
+  // Ordena: enviadas primeiro, depois por criadoEm asc (mais antigas primeiro)
+  var ordenado=ftS.ftsLocal.slice().sort(function(a,b){
+    if(a.status==='enviada'&&b.status!=='enviada')return -1;
+    if(b.status==='enviada'&&a.status!=='enviada')return 1;
+    return (a.criadoEm||a.dataHora||'').localeCompare(b.criadoEm||b.dataHora||'');
+  });
+  var idsRemover=new Set();
+  ordenado.forEach(function(f){
+    if(f.status==='enviada')return; // nunca remover enviadas
+    var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
+    var key=(f.colaboradorNome||'').trim().toLowerCase()+'|'+(f.posto||'').trim().toLowerCase()+'|'+dia;
+    if(vistas[key]){
+      idsRemover.add(f.id); // duplicata — remover
+    } else {
+      vistas[key]=true;
+    }
+  });
+  if(idsRemover.size>0){
+    ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return !idsRemover.has(f.id);});
+    ftSalvarLocal();
+    console.log('[FT] Limpeza de duplicatas locais: '+idsRemover.size+' removidas (de '+antes+' → '+ftS.ftsLocal.length+')');
+  }
+}
+
 function ftInit(){
   ftS.ftsLocal=JSON.parse(localStorage.getItem(LS_LOCAL)||'[]');
   ftS.padroes=JSON.parse(localStorage.getItem(LS_PAD)||'[]');
   ftLimparLancamentosAntigosLocal();
+  ftLimparDuplicatasLocal(); // remove duplicatas já existentes no localStorage
   ftGerRenderMotivos();
   ftGerRenderHorarios();
   ftAplicarDataInicialNosFiltros();
@@ -4345,11 +4377,17 @@ function ftConectar(){
       var data=snap.val();
       var remotas=data?Object.values(data):[];
       ftS.ftFirestore=remotas;
+      ftS.ftSyncInicial=true; // marca que o primeiro snapshot foi recebido (dedup seguro a partir daqui)
       // Merge: incorpora no ftsLocal qualquer FT remota (pendente ou enviada) ainda não conhecida
       // Isso garante que todos os dispositivos vejam FTs pendentes geradas em outros celulares
       var idsLocais=ftS.ftsLocal.map(function(f){return f.id;});
+      var pontoIdsLocais=ftS.ftsLocal.map(function(f){return f.pontoId||'__none__';});
       var novas=remotas.filter(function(r){
-        return !idsLocais.includes(r.id) && !idsLocais.includes(r._fbId||'__');
+        // Exclui se já existe pelo id, _fbId ou pelo pontoId (evita duplicata quando FT local já foi criada para o mesmo ponto)
+        if(idsLocais.includes(r.id))return false;
+        if(idsLocais.includes(r._fbId||'__none__'))return false;
+        if(r.pontoId&&pontoIdsLocais.includes(r.pontoId))return false;
+        return true;
       });
       if(novas.length){
         ftS.ftsLocal=ftS.ftsLocal.concat(novas);
@@ -4365,6 +4403,7 @@ function ftConectar(){
       });
       ftSalvarLocal();
       ftAprenderComHistorico(ftS.ftFirestore);
+      ftLimparDuplicatasLocal(); // remove duplicatas que possam ter surgido após o merge
       ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
       console.log('[FT] Firebase sync: '+remotas.length+' registros ('+novas.length+' novos incorporados)');
     },function(e){console.warn('[FT] onValue err',e);});
@@ -4447,19 +4486,27 @@ window.ftGerarDePonto=function(reg){
     var jaExiste=ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;})
       ||ftS.ftFirestore.some(function(f){return f.pontoId===reg.id||f._pontoId===reg.id;});
     if(jaExiste)return;
-    // Dedup 2: espelha o cooldown de 60min da UI — impede gerar FT duplicada
-    // para o mesmo colaborador no mesmo dia/posto se já existe uma gerada recentemente
-    var agora60=Date.now();
+    // Dedup 2: impede gerar FT duplicada para o mesmo colaborador + posto + dia
+    // A chave inclui o posto para não bloquear o mesmo colaborador em postos diferentes
     var colabNomeLower=(reg.colaboradorNome||'').trim().toLowerCase();
+    var regPosto=(reg.posto||'').trim().toLowerCase();
     var regDia=ftLocalISO(reg.timestamp).slice(0,10);
     var jaGeradaRecente=ftS.ftsLocal.some(function(f){
       if((f.colaboradorNome||'').trim().toLowerCase()!==colabNomeLower)return false;
       if((f.dataHora||f.criadoEm||'').slice(0,10)!==regDia)return false;
-      // Considera duplicata se criada nos últimos 60 minutos (mesmo cooldown da UI)
-      var criadoMs=f.criadoEm?new Date(f.criadoEm).getTime():0;
-      return (agora60-criadoMs)<(60*60*1000);
+      if((f.posto||'').trim().toLowerCase()!==regPosto)return false;
+      return true; // mesma pessoa, mesmo posto, mesmo dia — é duplicata
     });
-    if(jaGeradaRecente){console.warn('[FT] Dedup cooldown: FT já gerada para '+reg.colaboradorNome+' nas últimas 60 min. Ignorando.');return;}
+    // Dedup 2b: também checa no Firebase remotas (cross-device)
+    if(!jaGeradaRecente){
+      jaGeradaRecente=ftS.ftFirestore.some(function(f){
+        if((f.colaboradorNome||f.substituto||'').trim().toLowerCase()!==colabNomeLower)return false;
+        if((f.dataHora||f.criadoEm||'').slice(0,10)!==regDia)return false;
+        if((f.posto||'').trim().toLowerCase()!==regPosto)return false;
+        return true;
+      });
+    }
+    if(jaGeradaRecente){console.warn('[FT] Dedup: FT já existe para '+reg.colaboradorNome+' / '+reg.posto+' no dia '+regDia+'. Ignorando.');return;}
     var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
     var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',colaboradorNome:reg.colaboradorNome||'',
       posto:(pad&&pad.posto)||reg.posto||'',horario:(pad&&pad.horario)||(turno?turno.t:''),
@@ -4478,8 +4525,8 @@ window.ftGerarDePonto=function(reg){
     }
   }
 
-  // Se Firebase já carregou e tem dados, gera imediatamente
-  if(ftS.dbFT&&ftS.ftFirestore.length>=0){
+  // Se Firebase já carregou e recebeu o primeiro snapshot, gera imediatamente (dedup seguro)
+  if(ftS.dbFT&&ftS.ftSyncInicial){
     _gerar();
   } else {
     // Firebase ainda não conectou — aguarda até 4s para garantir dedup correto
