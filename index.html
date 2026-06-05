@@ -4761,6 +4761,7 @@ window.ftRenderLista=function(){
       +'<div class="ft-card-btns" style="margin-top:8px">'+btns+'</div>'
       +quickEdit+'</div>';
   }).join('');
+  ftUpdateStats();
 };
 
 window.renderFTValidadas=function(){
@@ -5146,8 +5147,24 @@ function ftvExportarExcel(){
   ftToast('✅ Excel exportado com '+lf.length+' registros!','success');
 }
 function ftUpdateStats(){
-  var p=ftS.ftsLocal.filter(function(f){return f.status==='pendente'&&ftFTDentroPeriodo(f);}).length;
-  var e=ftS.ftsLocal.filter(function(f){return f.status==='enviada'&&ftFTDentroPeriodo(f);}).length;
+  var fDtIni=(document.getElementById('ft-filter-data-ini')||{}).value||'';
+  var fDtFim=(document.getElementById('ft-filter-data-fim')||{}).value||'';
+  var p=ftS.ftsLocal.filter(function(f){
+    if(f.status!=='pendente')return false;
+    var d=ftDataDoRegistro(f);
+    if(!ftDentroPeriodoFT(d))return false;
+    if(fDtIni&&d<fDtIni)return false;
+    if(fDtFim&&d>fDtFim)return false;
+    return true;
+  }).length;
+  var e=ftS.ftsLocal.filter(function(f){
+    if(f.status!=='enviada')return false;
+    var d=ftDataDoRegistro(f);
+    if(!ftDentroPeriodoFT(d))return false;
+    if(fDtIni&&d<fDtIni)return false;
+    if(fDtFim&&d>fDtFim)return false;
+    return true;
+  }).length;
   var el1=document.getElementById('ft-stat-pendentes'),el2=document.getElementById('ft-stat-enviadas'),el3=document.getElementById('ft-stat-padroes');
   if(el1)el1.textContent=p;if(el2)el2.textContent=e;if(el3)el3.textContent=ftS.padroes.length;
 }
