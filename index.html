@@ -4395,7 +4395,19 @@ function ftConectar(){
       }
       // Atualiza status local de FTs que foram validadas em outro dispositivo
       ftS.ftsLocal=ftS.ftsLocal.map(function(f){
-        var remota=remotas.find(function(r){return r.id===f.id||r.id===f._fbId||r._pontoId===f.pontoId;});
+        var remota=remotas.find(function(r){
+          if(r.id===f.id)return true;
+          if(f._fbId&&r.id===f._fbId)return true;
+          // Corrigido: era r._pontoId (typo) — o campo correto é pontoId
+          if(f.pontoId&&(r.pontoId===f.pontoId||r._pontoId===f.pontoId))return true;
+          // Fallback: mesmo colaborador + posto + horario + dia (para FTs sem pontoId linkado)
+          if(f.colaboradorNome&&f.posto&&f.horario){
+            var fDia=(f.dataHora||f.criadoEm||'').slice(0,10);
+            var rDia=(r.dataHora||r.criadoEm||'').slice(0,10);
+            if(fDia&&rDia===fDia&&r.colaboradorNome===f.colaboradorNome&&r.posto===f.posto&&r.horario===f.horario)return true;
+          }
+          return false;
+        });
         if(remota&&remota.status==='enviada'&&f.status==='pendente'){
           return Object.assign({},f,{status:'enviada',enviadoEm:remota.enviadoEm,_fbId:remota.id,validadoPor:remota.validadoPor||'adm'});
         }
