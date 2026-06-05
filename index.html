@@ -4398,13 +4398,16 @@ function ftConectar(){
         var remota=remotas.find(function(r){
           if(r.id===f.id)return true;
           if(f._fbId&&r.id===f._fbId)return true;
-          // Corrigido: era r._pontoId (typo) — o campo correto é pontoId
-          if(f.pontoId&&(r.pontoId===f.pontoId||r._pontoId===f.pontoId))return true;
-          // Fallback: mesmo colaborador + posto + horario + dia (para FTs sem pontoId linkado)
+          // pontoId local bate com _pontoId remoto (campo usado no payload do Firebase)
+          if(f.pontoId&&(r._pontoId===f.pontoId||r.pontoId===f.pontoId))return true;
+          // Fallback: mesmo colaborador + posto + horario + dia
+          // No Firebase o nome fica em 'substituto'; localmente fica em 'colaboradorNome'
           if(f.colaboradorNome&&f.posto&&f.horario){
             var fDia=(f.dataHora||f.criadoEm||'').slice(0,10);
             var rDia=(r.dataHora||r.criadoEm||'').slice(0,10);
-            if(fDia&&rDia===fDia&&r.colaboradorNome===f.colaboradorNome&&r.posto===f.posto&&r.horario===f.horario)return true;
+            var rNome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
+            var fNome=(f.colaboradorNome||'').trim().toLowerCase();
+            if(fDia&&rDia===fDia&&rNome===fNome&&(r.posto||'').trim().toLowerCase()===(f.posto||'').trim().toLowerCase()&&(r.horario||'').trim()===(f.horario||'').trim())return true;
           }
           return false;
         });
@@ -4608,6 +4611,7 @@ function ftEnviarParaFirestore(ftId){
     autoNome:!!ft.autoNome,autoPosto:!!ft.autoPosto,
     autoHorario:!!ft.autoHorario,autoMotivo:!!ft.autoMotivo,autoValor:!!ft.autoValor,
     validadoPor:origemValidacao,validadoEm:agora,
+    colaboradorNome:ft.colaboradorNome||'',pontoId:ft.pontoId||'',
     _origem:'ponto-automatico',_pontoId:ft.pontoId||ft.id
   };
 
