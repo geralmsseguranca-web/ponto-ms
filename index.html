@@ -65,7 +65,7 @@
       }
     });
 
-    // Fallback: se após 6s não conectou, dispara mesmo assim (pode ser modo offline)
+    // Fallback: se após 3s não conectou, dispara mesmo assim (pode ser modo offline)
     setTimeout(() => {
       if (!_jáDisparou) {
         _jáDisparou = true;
@@ -73,7 +73,7 @@
         window._firebaseReady = false;
         window.dispatchEvent(new Event('firebaseReady'));
       }
-    }, 6000);
+    }, 3000);
 
     console.log("🔄 Firebase SDK carregado — aguardando conexão...");
   } catch(e) {
@@ -3210,6 +3210,20 @@ function fazerLogin() {
     if (adminLocal) cacheBase.push(adminLocal);
   }
 
+  // Se Firebase ainda inicializando mas online → aguarda até 4s pelo evento firebaseReady
+  if (navigator.onLine && !window._firebaseReady && window._db) {
+    btn.textContent = '⏳ Conectando...';
+    let resolvido = false;
+    const continuar = () => {
+      if (resolvido) return;
+      resolvido = true;
+      fazerLoginComFirebase(tentarLogin, cacheBase, btn);
+    };
+    window.addEventListener('firebaseReady', continuar, { once: true });
+    setTimeout(continuar, 4000);
+    return;
+  }
+
   // Se offline ou Firebase não disponível → entra imediatamente via cache
   if (!navigator.onLine || !window._firebaseReady || !window._db) {
     if (cacheBase.length === 0) {
@@ -3232,7 +3246,7 @@ function fazerLogin() {
       // Firebase demorou demais → cai no cache local
       tentarLogin(cacheBase.length ? cacheBase : usuarios);
     }
-  }, 5000); // 5s máximo esperando Firebase
+  }, 4000); // 4s máximo esperando Firebase
 
   window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
     if (loginResolvido) return;
@@ -3260,6 +3274,54 @@ function fazerLogin() {
     if (loginResolvido) return;
     loginResolvido = true;
     clearTimeout(timeoutSeguranca);
+    tentarLogin(cacheBase.length ? cacheBase : usuarios);
+  });
+}
+
+function fazerLoginComFirebase(tentarLogin, cacheBase, btn) {
+  // Chamado após firebaseReady — executa o fetch de usuários com timeout
+  if (!window._firebaseReady || !window._db) {
+    // Ainda não conectou mesmo após espera → usa cache
+    if (cacheBase.length === 0) {
+      mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
+      btn.disabled = false;
+      btn.textContent = '🔐 ENTRAR';
+      return;
+    }
+    btn.textContent = '📦 Entrando offline...';
+    setTimeout(() => tentarLogin(cacheBase), 300);
+    return;
+  }
+
+  let resolvido = false;
+  const timeout = setTimeout(() => {
+    if (!resolvido) { resolvido = true; tentarLogin(cacheBase.length ? cacheBase : usuarios); }
+  }, 4000);
+
+  window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
+    if (resolvido) return;
+    resolvido = true;
+    clearTimeout(timeout);
+    const data = snap.val();
+    const listaFb = data ? fromFirebaseObj(data) : [];
+    const idsFb = new Set(listaFb.map(u => u.id));
+    const locaisPendentes = cacheBase.filter(u => !idsFb.has(u.id));
+    const listaMerge = [...listaFb, ...locaisPendentes];
+    if (listaMerge.length) {
+      usuarios = listaMerge;
+      localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+      if (locaisPendentes.length && window._db) {
+        locaisPendentes.forEach(u => {
+          window._fbSet(window._fbRef(window._db, 'usuarios/' + u.id), u)
+            .catch(e => console.warn('[Login] Sync usuario pendente:', e.message));
+        });
+      }
+    }
+    tentarLogin(listaMerge.length ? listaMerge : cacheBase);
+  }).catch(() => {
+    if (resolvido) return;
+    resolvido = true;
+    clearTimeout(timeout);
     tentarLogin(cacheBase.length ? cacheBase : usuarios);
   });
 }
