@@ -3,19 +3,16 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Grupo M.S — Ponto Eletrônico v17</title>
+<title>Grupo M.S — Ponto Eletrônico v18</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, push, set, onValue, remove, update, get }
+  import { getDatabase, ref, push, set, onValue, remove, update, get, goOnline }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-  // ══════════════════════════════════════════════════════
-  //  🔧 SUBSTITUA AQUI COM SUAS CREDENCIAIS DO FIREBASE
-  // ══════════════════════════════════════════════════════
   const firebaseConfig = {
     apiKey: "AIzaSyAuOPQPjV4K25iBvEhDBYt6qh3j8o7SjGU",
     authDomain: "grupo-ms-ponto.firebaseapp.com",
@@ -26,26 +23,63 @@
     appId: "1:177148492322:web:74335b5e953493a799687b"
   };
 
-  let db;
   try {
     const app = initializeApp(firebaseConfig);
-    db = getDatabase(app);
-    window._firebaseReady = true;
-    window._db = db;
-    window._fbRef = ref;
-    window._fbPush = push;
-    window._fbSet = set;
-    window._fbOnValue = onValue;
-    window._fbRemove = remove;
-    window._fbUpdate = update;
-    window._fbGet = get;
-    console.log("✅ Firebase conectado");
+    const db  = getDatabase(app);
+
+    // Expõe funções globalmente ANTES de confirmar conexão
+    window._db         = db;
+    window._fbRef      = ref;
+    window._fbPush     = push;
+    window._fbSet      = set;
+    window._fbOnValue  = onValue;
+    window._fbRemove   = remove;
+    window._fbUpdate   = update;
+    window._fbGet      = get;
+    window._fbGoOnline = goOnline;
+    window._firebaseReady = false; // ainda false até confirmar conexão real
+
+    // Garante que o SDK está online
+    goOnline(db);
+
+    // Monitora o nó especial .info/connected do Firebase
+    // Só dispara 'firebaseReady' quando houver conexão REAL com o servidor
+    let _jáDisparou = false;
+    onValue(ref(db, '.info/connected'), (snap) => {
+      const conectado = snap.val() === true;
+      const antes = window._fbConectado;
+      window._fbConectado = conectado;
+
+      if (conectado && !_jáDisparou) {
+        _jáDisparou = true;
+        window._firebaseReady = true;
+        console.log("✅ Firebase conectado ao servidor");
+        window.dispatchEvent(new Event('firebaseReady'));
+      }
+
+      // Só dispara fbConnectionChange se o estado realmente mudou
+      if (conectado !== antes || antes === undefined) {
+        console.log('[Firebase] Conexão:', conectado ? '🟢 online' : '🔴 offline');
+        window.dispatchEvent(new CustomEvent('fbConnectionChange', { detail: { online: conectado } }));
+      }
+    });
+
+    // Fallback: se após 6s não conectou, dispara mesmo assim (pode ser modo offline)
+    setTimeout(() => {
+      if (!_jáDisparou) {
+        _jáDisparou = true;
+        console.warn("⚠️ Firebase: timeout de conexão — usando modo local");
+        window._firebaseReady = false;
+        window.dispatchEvent(new Event('firebaseReady'));
+      }
+    }, 6000);
+
+    console.log("🔄 Firebase SDK carregado — aguardando conexão...");
   } catch(e) {
     console.warn("⚠️ Firebase não configurado, usando localStorage:", e.message);
     window._firebaseReady = false;
+    window.dispatchEvent(new Event('firebaseReady'));
   }
-  // Dispara evento para o script principal saber que o Firebase foi inicializado
-  window.dispatchEvent(new Event('firebaseReady'));
 </script>
 
 <style>
@@ -364,6 +398,11 @@ main {
 }
 .tag-in  { background: var(--green-bg); color: var(--green); border: 1px solid #00ff8833; }
 .tag-out { background: var(--red-bg);   color: var(--red);   border: 1px solid #ff336633; }
+.tag-warn   { background: #1a1000;          color: var(--gold);  border: 1px solid #fbbf2444; }
+.tag-absent { background: var(--red-bg);    color: var(--red);   border: 1px solid #ff336644; }
+.colab-item.status-ok     { border-left: 3px solid var(--green); }
+.colab-item.status-warn   { border-left: 3px solid var(--gold); }
+.colab-item.status-absent { border-left: 3px solid var(--red); }
 .status-time { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--font-mono); }
 
 /* ── PONTO BUTTONS ── */
@@ -2625,7 +2664,7 @@ footer {
 
 <footer id="main-footer" style="display:none">
   <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
-    <div>© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v17 · Modo Offline ✓</div>
+    <div>© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v18 · Modo Offline ✓</div>
     <div style="display:flex;align-items:center;gap:8px;opacity:.55;font-size:11px;letter-spacing:1.5px;text-transform:uppercase">
       <svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:18px;height:20px;filter:drop-shadow(0 0 4px rgba(0,200,248,.4))">
         <defs>
@@ -2971,7 +3010,22 @@ function loadData() {
         clearTimeout(seedUserTimer);
         const lista = fromFirebaseObj(data);
         if (lista.length) {
-          usuarios = lista;
+          // Merge SEGURO: Firebase + localStorage + memória
+          // Lê localStorage diretamente para pegar dados que podem ter sumido da memória
+          let localCache = [];
+          try { localCache = JSON.parse(localStorage.getItem('ms_usuarios') || '[]'); } catch { localCache = []; }
+          const idsFirebase = new Set(lista.map(u => u.id));
+          // Une todos os usuários que NÃO estão no Firebase (de memória e localStorage)
+          const fonteLocal = localCache.length >= usuarios.length ? localCache : usuarios;
+          const locaisPendentes = fonteLocal.filter(u => !idsFirebase.has(u.id));
+          usuarios = [...lista, ...locaisPendentes];
+          // Garante que o admin padrão sempre existe
+          if (!usuarios.find(u => u.login === 'admin')) {
+            const adminDefault = { id: 'admin-default', login: 'admin', senha: 'admin123', nome: 'Administrador', role: 'admin' };
+            usuarios.push(adminDefault);
+            // Salva admin no Firebase para nunca mais perder
+            if (window._db) window._fbSet(window._fbRef(window._db, 'usuarios/admin-default'), adminDefault).catch(()=>{});
+          }
           localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
           // Atualiza sessão se o usuário logado foi alterado no Firebase
           if (currentUser) {
@@ -3020,12 +3074,7 @@ function loadData() {
 }
 
 function seedColaboradores() {
-  colaboradores = [
-    { id: uid(), nome: "Carlos Silva",    posto: "Portaria Principal",       ativo: true },
-    { id: uid(), nome: "Ana Souza",       posto: "Recepção Bloco A",         ativo: true },
-    { id: uid(), nome: "João Ferreira",   posto: "Ronda Perimetral",         ativo: true },
-    { id: uid(), nome: "Maria Oliveira",  posto: "Central de Monitoramento", ativo: true },
-  ];
+  colaboradores = [];
   saveColabs();
 }
 
@@ -3038,16 +3087,7 @@ function seedAdminUser() {
 }
 
 function seedPostos() {
-  postos = [
-    { id: uid(), nome: 'Portaria Principal' },
-    { id: uid(), nome: 'Portaria Secundária' },
-    { id: uid(), nome: 'Recepção Bloco A' },
-    { id: uid(), nome: 'Ronda Perimetral' },
-    { id: uid(), nome: 'Central de Monitoramento' },
-    { id: uid(), nome: 'Estacionamento' },
-    { id: uid(), nome: 'Sala de Controle' },
-    { id: uid(), nome: 'Guarita Externa' },
-  ];
+  postos = [];
   savePostos();
 }
 
@@ -3066,13 +3106,20 @@ function fazerLogin() {
   btn.textContent = '⏳ Verificando...';
 
   function tentarLogin(lista) {
-    const usuario = lista.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaVal);
+    const senhaValTrim = senhaVal.trim();
+    const usuario = lista.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaValTrim);
     if (usuario) {
       currentUser = usuario;
       sessionStorage.setItem('ms_session', JSON.stringify(usuario));
       entrarSistema(usuario);
     } else {
-      mostrarErroLogin('Usuário ou senha incorretos');
+      // Verifica se o login existe mas a senha está errada
+      const loginExiste = lista.find(u => u.login.toLowerCase() === loginVal);
+      if (loginExiste) {
+        mostrarErroLogin('Senha incorreta. A senha são os 4 primeiros dígitos do seu CPF.');
+      } else {
+        mostrarErroLogin('Usuário não encontrado. Use o login gerado no cadastro (ex: paulo123).');
+      }
       btn.disabled = false;
       btn.textContent = '🔐 ENTRAR';
     }
@@ -3082,8 +3129,19 @@ function fazerLogin() {
   let usuariosLocal = [];
   try { usuariosLocal = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuariosLocal = []; }
 
-  // Merge: cache local + o que já está em memória (o maior vence)
-  const cacheBase = usuariosLocal.length >= usuarios.length ? usuariosLocal : usuarios;
+  // Merge COMPLETO: une memória + localStorage por ID — nunca perde nenhum usuário
+  const todosIds = new Set([...usuarios.map(u => u.id), ...usuariosLocal.map(u => u.id)]);
+  const cacheBase = [];
+  todosIds.forEach(id => {
+    const daMem   = usuarios.find(u => u.id === id);
+    const doLocal = usuariosLocal.find(u => u.id === id);
+    cacheBase.push(daMem || doLocal);
+  });
+  // Garante que sempre há pelo menos o admin padrão como fallback
+  if (!cacheBase.find(u => u.login === 'admin')) {
+    const adminLocal = usuariosLocal.find(u => u.login === 'admin');
+    if (adminLocal) cacheBase.push(adminLocal);
+  }
 
   // Se offline ou Firebase não disponível → entra imediatamente via cache
   if (!navigator.onLine || !window._firebaseReady || !window._db) {
@@ -3104,10 +3162,9 @@ function fazerLogin() {
   const timeoutSeguranca = setTimeout(() => {
     if (!loginResolvido) {
       loginResolvido = true;
-      // Firebase demorou demais → cai no cache local
       tentarLogin(cacheBase.length ? cacheBase : usuarios);
     }
-  }, 5000); // 5s máximo esperando Firebase
+  }, 5000);
 
   window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
     if (loginResolvido) return;
@@ -3116,10 +3173,13 @@ function fazerLogin() {
     const data = snap.val();
     const lista = data ? fromFirebaseObj(data) : [];
     if (lista.length) {
-      usuarios = lista;
+      // Merge: Firebase + pendentes locais
+      const idsFirebase = new Set(lista.map(u => u.id));
+      const locaisPendentes = cacheBase.filter(u => !idsFirebase.has(u.id));
+      usuarios = [...lista, ...locaisPendentes];
       localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
     }
-    tentarLogin(lista.length ? lista : cacheBase);
+    tentarLogin(lista.length ? usuarios : cacheBase);
   }).catch(() => {
     if (loginResolvido) return;
     loginResolvido = true;
@@ -3534,8 +3594,41 @@ function renderColabPonto() {
   ativos.sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR',{sensitivity:'base'})).forEach(c => {
     const ult = ultimoReg(c.id);
     const isSelected = selectedColab?.id === c.id;
+
+    // ── Lógica de status visual ──────────────────────────────────────────────
+    // Verde  = última entrada de hoje (dentro do plantão)
+    // Âmbar  = entrada há mais de 8h (possível esqueceu de bater saída) OU saída registrada
+    // Vermelho = sem nenhum registro hoje
+    const agora = Date.now();
+    const HOJE_INI = new Date(); HOJE_INI.setHours(0,0,0,0);
+    const ultHoje = ult && ult.timestamp >= HOJE_INI.getTime();
+    const OITO_H = 8 * 60 * 60 * 1000;
+    let statusClass, tagClass, tagLabel;
+    if (!ult || !ultHoje) {
+      // Nenhum registro hoje
+      statusClass = 'status-absent';
+      tagClass    = 'tag-absent';
+      tagLabel    = '⚠ SEM REG.';
+    } else if (ult.tipo === 'entrada' && (agora - ult.timestamp) > OITO_H) {
+      // Entrada há mais de 8h — âmbar (possível esqueceu saída)
+      statusClass = 'status-warn';
+      tagClass    = 'tag-warn';
+      tagLabel    = '⏱ +8H DENTRO';
+    } else if (ult.tipo === 'entrada') {
+      // Entrada normal — verde
+      statusClass = 'status-ok';
+      tagClass    = 'tag-in';
+      tagLabel    = '▲ DENTRO';
+    } else {
+      // Saída registrada — âmbar (fora do posto)
+      statusClass = 'status-warn';
+      tagClass    = 'tag-out';
+      tagLabel    = '▼ FORA';
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const div = document.createElement('div');
-    div.className = 'colab-item' + (isSelected ? ' selected' : '');
+    div.className = 'colab-item' + (isSelected ? ' selected' : '') + ' ' + statusClass;
     div.onclick = () => selectColab(c);
     div.innerHTML = `
       <div class="avatar" style="background:${avatarColor(c.nome)}">${c.nome.charAt(0)}</div>
@@ -3545,11 +3638,9 @@ function renderColabPonto() {
       </div>
       ${ult ? `
       <div class="status-tag">
-        <span class="${ult.tipo==='entrada'?'tag-in':'tag-out'}">
-          ${ult.tipo==='entrada'?'▲ DENTRO':'▼ FORA'}
-        </span>
+        <span class="${tagClass}">${tagLabel}</span>
         <div class="status-time">${fmtHora(ult.timestamp)}</div>
-      </div>` : '<div class="status-tag"><span style="color:var(--muted);font-size:12px">–</span></div>'}
+      </div>` : `<div class="status-tag"><span class="${tagClass}">${tagLabel}</span></div>`}
     `;
     container.appendChild(div);
   });
@@ -3678,10 +3769,11 @@ async function baterPonto(tipo) {
   if (!postoEscolhido) {
     const sel = document.getElementById('ponto-posto-select');
     sel.style.borderColor = 'var(--red)';
-    sel.style.boxShadow = '0 0 0 3px #ef444420';
+    sel.style.boxShadow = '0 0 0 3px #e8273f33';
     sel.focus();
-    setTimeout(() => { sel.style.borderColor = ''; sel.style.boxShadow = ''; }, 2500);
-    return;
+    setTimeout(() => { sel.style.borderColor = ''; sel.style.boxShadow = ''; }, 3000);
+    mostrarSyncToast('⚠️ Selecione o posto antes de registrar o ponto!', 'gold');
+    return; // BLOQUEIA — posto obrigatório
   }
   pendingTipo = tipo;
   pendingLocalizacao = null;
@@ -7651,18 +7743,34 @@ function atualizarEstadoConexao(online) {
   }
 }
 
-window.addEventListener('online',  () => atualizarEstadoConexao(true));
+// Os eventos 'online'/'offline' do navegador controlam apenas o banner visual.
+// A sincronização real é controlada pelo fbConnectionChange (Firebase .info/connected).
+window.addEventListener('online',  () => {
+  if (!window._fbConectado) {
+    // Firebase ainda não confirmou — mostra banner otimista
+    atualizarEstadoConexao(true);
+  }
+  // Caso real de reconexão sem Firebase ainda pronto: drena fila
+  if (window._firebaseReady && currentUser) {
+    setTimeout(() => { try { sincronizarFilaOffline(); } catch(e){} }, 1500);
+  }
+});
 window.addEventListener('offline', () => atualizarEstadoConexao(false));
 
 // Verificação periódica (a cada 30s) — útil quando o evento nativo falha
 function iniciarVerificacaoConexao() {
   if (_syncInterval) clearInterval(_syncInterval);
   _syncInterval = setInterval(async () => {
+    // 1. Drena fila se houver pendentes e Firebase estiver pronto
     const fila = offlineQueueGet();
-    if (!fila.length) return;
-    // Tenta sincronizar se o Firebase estiver pronto e houver pendentes
-    if (window._firebaseReady && navigator.onLine) {
+    if (fila.length && window._firebaseReady && navigator.onLine) {
       await sincronizarFilaOffline();
+    }
+    // 2. Verifica se os listeners Firebase estão vivos — reativa se morreram
+    // Um listener morto = _fbUnsubs vazio mas Firebase pronto e usuário logado
+    if (window._firebaseReady && currentUser && _fbUnsubs.length === 0) {
+      console.warn('[Ponto] Listeners Firebase mortos detectados — recriando...');
+      loadData();
     }
   }, 30000);
 }
@@ -7755,24 +7863,37 @@ checkSession();
 mostrarSetupSeNecessario();
 
 // ─── AGUARDA FIREBASE ANTES DE CARREGAR DADOS ─────────────────────────────────
-// O script Firebase é type="module" (assíncrono). Esperamos o evento 'firebaseReady'
-// antes de chamar loadData(). Se demorar mais de 5s, usa localStorage como fallback.
 (function aguardarFirebase() {
   let resolvido = false;
 
   function iniciar() {
     if (resolvido) return;
     resolvido = true;
-    // Se o usuário já está logado (sessão restaurada), carrega os dados agora
     if (currentUser) loadData();
   }
 
-  // Ouve o evento que o módulo Firebase dispara ao terminar
+  // Ouve conexão REAL com o servidor (disparado pelo .info/connected)
   window.addEventListener('firebaseReady', iniciar, { once: true });
 
-  // Fallback: se o Firebase demorar mais de 4s, inicia com localStorage
-  setTimeout(iniciar, 4000);
+  // Fallback: se o Firebase demorar mais de 7s, inicia com localStorage
+  setTimeout(iniciar, 7000);
 })();
+
+// ─── SINCRONISMO EM TEMPO REAL ENTRE APARELHOS ────────────────────────────────
+// Quando a conexão com o Firebase muda, atualiza o banner de conexão.
+// NÃO chama loadData() aqui — os listeners onValue já estão vivos e recebem
+// as mudanças automaticamente quando o SDK reconecta ao servidor.
+// Só drena a fila offline ao reconectar.
+window.addEventListener('fbConnectionChange', function(e) {
+  const online = e.detail.online;
+  atualizarEstadoConexao(online);
+  if (online && currentUser && window._firebaseReady) {
+    // Listeners já estão ativos — só drena fila de pontos pendentes offline
+    setTimeout(() => {
+      try { sincronizarFilaOffline(); } catch(err) {}
+    }, 1200);
+  }
+});
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
