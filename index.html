@@ -3206,10 +3206,8 @@ function fazerLogin() {
     if (adminLocal) cacheBase.push(adminLocal);
   }
 
-  // ── Se offline ou Firebase não disponível → usa cache imediatamente
-  // FIX: checa !window._db em vez de só !_firebaseReady
-  // (_firebaseReady pode ser false se o timeout de 3s disparou antes da conexão real)
-  if (!navigator.onLine || (!window._firebaseReady && !window._db)) {
+  // ── Se sem SDK → usa cache imediatamente
+  if (!window._db) {
     if (cacheBase.length === 0) {
       mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
       btn.disabled = false;
@@ -3221,42 +3219,36 @@ function fazerLogin() {
     return;
   }
 
-  // ── Online + Firebase SDK disponível → busca lista atualizada, com timeout de segurança
-  let loginResolvido = false;
+  // ── Firebase SDK disponível → Promise.race com timeout de 4s
+  // Garante que o botão NUNCA trava mesmo se _fbGet ficar pendurado
+  const fbPromise = window._fbGet(window._fbRef(window._db, 'usuarios'));
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('timeout')), 4000)
+  );
 
-  const timeoutSeguranca = setTimeout(() => {
-    if (!loginResolvido) {
-      loginResolvido = true;
-      tentarLogin(cacheBase.length ? cacheBase : usuarios);
-    }
-  }, 5000);
-
-  window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
-    if (loginResolvido) return;
-    loginResolvido = true;
-    clearTimeout(timeoutSeguranca);
-    const data = snap.val();
-    const listaFb = data ? fromFirebaseObj(data) : [];
-    const idsFb = new Set(listaFb.map(u => u.id));
-    const locaisPendentes = cacheBase.filter(u => !idsFb.has(u.id));
-    const listaMerge = [...listaFb, ...locaisPendentes];
-    if (listaMerge.length) {
-      usuarios = listaMerge;
-      localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
-      if (locaisPendentes.length && window._db) {
-        locaisPendentes.forEach(u => {
-          window._fbSet(window._fbRef(window._db, 'usuarios/' + u.id), u)
-            .catch(e => console.warn('[Login] Sync usuario pendente:', e.message));
-        });
+  Promise.race([fbPromise, timeoutPromise])
+    .then(snap => {
+      const data = snap.val();
+      const listaFb = data ? fromFirebaseObj(data) : [];
+      const idsFb = new Set(listaFb.map(u => u.id));
+      const locaisPendentes = cacheBase.filter(u => !idsFb.has(u.id));
+      const listaMerge = [...listaFb, ...locaisPendentes];
+      if (listaMerge.length) {
+        usuarios = listaMerge;
+        localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+        if (locaisPendentes.length) {
+          locaisPendentes.forEach(u => {
+            window._fbSet(window._fbRef(window._db, 'usuarios/' + u.id), u)
+              .catch(e => console.warn('[Login] Sync pendente:', e.message));
+          });
+        }
       }
-    }
-    tentarLogin(listaMerge.length ? listaMerge : cacheBase);
-  }).catch(() => {
-    if (loginResolvido) return;
-    loginResolvido = true;
-    clearTimeout(timeoutSeguranca);
-    tentarLogin(cacheBase.length ? cacheBase : usuarios);
-  });
+      tentarLogin(listaMerge.length ? listaMerge : cacheBase);
+    })
+    .catch(() => {
+      // Firebase demorou ou falhou → usa cache local
+      tentarLogin(cacheBase.length ? cacheBase : usuarios);
+    });
 }
 
 function mostrarErroLogin(msg) {
