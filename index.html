@@ -3125,11 +3125,11 @@ function fazerLogin() {
     }
   }
 
-  // ── OFFLINE FIRST: sempre carrega o cache local imediatamente
+  // ── CACHE LOCAL: monta lista de usuários do localStorage + memória
   let usuariosLocal = [];
   try { usuariosLocal = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuariosLocal = []; }
 
-  // Merge COMPLETO: une memória + localStorage por ID — nunca perde nenhum usuário
+  // Merge por ID: memória + localStorage
   const todosIds = new Set([...usuarios.map(u => u.id), ...usuariosLocal.map(u => u.id)]);
   const cacheBase = [];
   todosIds.forEach(id => {
@@ -3137,43 +3137,52 @@ function fazerLogin() {
     const doLocal = usuariosLocal.find(u => u.id === id);
     cacheBase.push(daMem || doLocal);
   });
-  // Garante que sempre há pelo menos o admin padrão como fallback
   if (!cacheBase.find(u => u.login === 'admin')) {
     const adminLocal = usuariosLocal.find(u => u.login === 'admin');
     if (adminLocal) cacheBase.push(adminLocal);
   }
 
-  // Se offline OU Firebase ainda não confirmou conexão real → usa cache imediatamente
-  if (!navigator.onLine || !window._db) {
-    if (cacheBase.length === 0) {
-      mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
-      btn.disabled = false;
-      btn.textContent = '🔐 ENTRAR';
-      return;
+  // ── ESTRATÉGIA: sempre tenta cache local PRIMEIRO (instantâneo)
+  // Se encontrar o usuário → entra. Só vai ao Firebase se NÃO encontrar no cache.
+  const usuarioNoCache = cacheBase.find(u => u.login.toLowerCase() === loginVal);
+
+  if (usuarioNoCache) {
+    // Usuário existe no cache → valida senha e entra imediatamente
+    tentarLogin(cacheBase);
+    // Em paralelo, atualiza cache do Firebase silenciosamente (sem bloquear)
+    if (window._firebaseReady && window._db) {
+      window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
+        const data = snap.val();
+        if (data) {
+          const lista = fromFirebaseObj(data);
+          const idsFirebase = new Set(lista.map(u => u.id));
+          const locaisPendentes = cacheBase.filter(u => !idsFirebase.has(u.id));
+          usuarios = [...lista, ...locaisPendentes];
+          localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+        }
+      }).catch(() => {});
     }
-    btn.textContent = '📦 Entrando offline...';
-    setTimeout(() => tentarLogin(cacheBase), 300);
     return;
   }
 
-  // Firebase SDK carregado mas conexão ainda não confirmada?
-  // Não bloqueia — usa cache local como fallback imediato se houver dados
-  if (!window._firebaseReady && cacheBase.length > 0) {
-    btn.textContent = '📦 Entrando...';
-    setTimeout(() => tentarLogin(cacheBase), 300);
+  // Usuário NÃO está no cache → pode ser novo cadastro ainda não sincronizado
+  // Tenta buscar do Firebase com timeout de 3s
+  if (!navigator.onLine || !window._db) {
+    mostrarErroLogin('Usuário não encontrado. Use o login gerado no cadastro (ex: paulo123).');
+    btn.disabled = false;
+    btn.textContent = '🔐 ENTRAR';
     return;
   }
 
-  // Online + Firebase pronto → busca atualizado, com timeout de segurança curto
   let loginResolvido = false;
-
   const timeoutSeguranca = setTimeout(() => {
     if (!loginResolvido) {
       loginResolvido = true;
-      // Firebase demorou — usa cache sem bloquear o usuário
-      tentarLogin(cacheBase.length ? cacheBase : usuarios);
+      mostrarErroLogin('Usuário não encontrado. Use o login gerado no cadastro (ex: paulo123).');
+      btn.disabled = false;
+      btn.textContent = '🔐 ENTRAR';
     }
-  }, 2500); // 2.5s máximo
+  }, 3000);
 
   window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
     if (loginResolvido) return;
@@ -3182,7 +3191,6 @@ function fazerLogin() {
     const data = snap.val();
     const lista = data ? fromFirebaseObj(data) : [];
     if (lista.length) {
-      // Merge: Firebase + pendentes locais
       const idsFirebase = new Set(lista.map(u => u.id));
       const locaisPendentes = cacheBase.filter(u => !idsFirebase.has(u.id));
       usuarios = [...lista, ...locaisPendentes];
