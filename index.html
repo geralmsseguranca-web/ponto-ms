@@ -3220,16 +3220,20 @@ function fazerLogin() {
   // Se Firebase não está pronto ainda → aguarda até 5s
   const executarComFirebase = () => {
     if (cacheBase.length > 0) { tentarLogin(cacheBase); return; }
-    if (!window._firebaseReady || !window._db) {
-      mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
-      btn.disabled = false;
-      btn.textContent = '🔐 ENTRAR';
+    // Tenta buscar direto do Firebase se o SDK estiver disponível,
+    // mesmo que _firebaseReady seja false (timeout de 3s pode ter disparado antes da conexão real)
+    if (window._db) {
+      fazerLoginComFirebase(tentarLogin, cacheBase, btn);
       return;
     }
-    fazerLoginComFirebase(tentarLogin, cacheBase, btn);
+    mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
+    btn.disabled = false;
+    btn.textContent = '🔐 ENTRAR';
   };
 
-  if (!window._firebaseReady && navigator.onLine && window._db) {
+  // Aguarda Firebase se o SDK foi carregado mas ainda não conectou
+  // Removido "navigator.onLine" pois _db já garante que o SDK está ativo
+  if (!window._firebaseReady && window._db) {
     btn.textContent = '⏳ Conectando...';
     let aguardando = false;
     const onReady = () => { if (!aguardando) { aguardando = true; executarComFirebase(); } };
@@ -3250,8 +3254,9 @@ function fazerLogin() {
 
 function fazerLoginComFirebase(tentarLogin, cacheBase, btn) {
   // Chamado após firebaseReady — executa o fetch de usuários com timeout
-  if (!window._firebaseReady || !window._db) {
-    // Ainda não conectou mesmo após espera → usa cache
+  // Aceita _db mesmo que _firebaseReady seja false (timeout de 3s pode ter disparado antes da conexão real)
+  if (!window._db) {
+    // SDK não disponível → usa cache se houver
     if (cacheBase.length === 0) {
       mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
       btn.disabled = false;
