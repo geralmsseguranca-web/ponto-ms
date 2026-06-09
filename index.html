@@ -3125,64 +3125,57 @@ function fazerLogin() {
     }
   }
 
-  // ── CACHE LOCAL: monta lista de usuários do localStorage + memória
+  // ── SEMPRE lê localStorage diretamente — memória pode estar vazia antes do loadData
   let usuariosLocal = [];
   try { usuariosLocal = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuariosLocal = []; }
 
-  // Merge por ID: memória + localStorage
-  const todosIds = new Set([...usuarios.map(u => u.id), ...usuariosLocal.map(u => u.id)]);
-  const cacheBase = [];
-  todosIds.forEach(id => {
-    const daMem   = usuarios.find(u => u.id === id);
-    const doLocal = usuariosLocal.find(u => u.id === id);
-    cacheBase.push(daMem || doLocal);
-  });
-  if (!cacheBase.find(u => u.login === 'admin')) {
-    const adminLocal = usuariosLocal.find(u => u.login === 'admin');
-    if (adminLocal) cacheBase.push(adminLocal);
+  // Atualiza a variável global com o que está no localStorage (garante que não está vazia)
+  if (usuariosLocal.length > usuarios.length) {
+    usuarios = usuariosLocal;
   }
 
-  // ── ESTRATÉGIA: sempre tenta cache local PRIMEIRO (instantâneo)
-  // Se encontrar o usuário → entra. Só vai ao Firebase se NÃO encontrar no cache.
-  const usuarioNoCache = cacheBase.find(u => u.login.toLowerCase() === loginVal);
+  // Lista final para login: tudo que temos localmente
+  const listaLogin = usuarios.length ? usuarios : usuariosLocal;
 
-  if (usuarioNoCache) {
-    // Usuário existe no cache → valida senha e entra imediatamente
-    tentarLogin(cacheBase);
-    // Em paralelo, atualiza cache do Firebase silenciosamente (sem bloquear)
-    if (window._firebaseReady && window._db) {
+  // Tenta login imediatamente com o que temos
+  if (listaLogin.length > 0) {
+    tentarLogin(listaLogin);
+    // Em paralelo, atualiza silenciosamente do Firebase
+    if (window._db) {
       window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
         const data = snap.val();
         if (data) {
           const lista = fromFirebaseObj(data);
-          const idsFirebase = new Set(lista.map(u => u.id));
-          const locaisPendentes = cacheBase.filter(u => !idsFirebase.has(u.id));
-          usuarios = [...lista, ...locaisPendentes];
-          localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+          if (lista.length) {
+            const idsFirebase = new Set(lista.map(u => u.id));
+            const locaisPendentes = listaLogin.filter(u => !idsFirebase.has(u.id));
+            usuarios = [...lista, ...locaisPendentes];
+            localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+          }
         }
       }).catch(() => {});
     }
     return;
   }
 
-  // Usuário NÃO está no cache → pode ser novo cadastro ainda não sincronizado
-  // Tenta buscar do Firebase com timeout de 3s
+  // Sem nenhum dado local — tenta Firebase diretamente
   if (!navigator.onLine || !window._db) {
-    mostrarErroLogin('Usuário não encontrado. Use o login gerado no cadastro (ex: paulo123).');
+    mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
     btn.disabled = false;
     btn.textContent = '🔐 ENTRAR';
     return;
   }
 
+  btn.textContent = '🔄 Buscando...';
   let loginResolvido = false;
   const timeoutSeguranca = setTimeout(() => {
     if (!loginResolvido) {
       loginResolvido = true;
-      mostrarErroLogin('Usuário não encontrado. Use o login gerado no cadastro (ex: paulo123).');
+      mostrarErroLogin('⚠️ Sem dados em cache. Aguarde a sincronização e tente novamente.');
       btn.disabled = false;
       btn.textContent = '🔐 ENTRAR';
     }
-  }, 3000);
+  }, 4000);
 
   window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
     if (loginResolvido) return;
@@ -3191,17 +3184,17 @@ function fazerLogin() {
     const data = snap.val();
     const lista = data ? fromFirebaseObj(data) : [];
     if (lista.length) {
-      const idsFirebase = new Set(lista.map(u => u.id));
-      const locaisPendentes = cacheBase.filter(u => !idsFirebase.has(u.id));
-      usuarios = [...lista, ...locaisPendentes];
+      usuarios = lista;
       localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
     }
-    tentarLogin(lista.length ? usuarios : cacheBase);
+    tentarLogin(lista.length ? lista : []);
   }).catch(() => {
     if (loginResolvido) return;
     loginResolvido = true;
     clearTimeout(timeoutSeguranca);
-    tentarLogin(cacheBase.length ? cacheBase : usuarios);
+    mostrarErroLogin('⚠️ Erro ao conectar. Tente novamente.');
+    btn.disabled = false;
+    btn.textContent = '🔐 ENTRAR';
   });
 }
 
