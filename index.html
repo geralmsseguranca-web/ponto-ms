@@ -3143,8 +3143,8 @@ function fazerLogin() {
     if (adminLocal) cacheBase.push(adminLocal);
   }
 
-  // Se offline ou Firebase não disponível → entra imediatamente via cache
-  if (!navigator.onLine || !window._firebaseReady || !window._db) {
+  // Se offline OU Firebase ainda não confirmou conexão real → usa cache imediatamente
+  if (!navigator.onLine || !window._db) {
     if (cacheBase.length === 0) {
       mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
       btn.disabled = false;
@@ -3156,15 +3156,24 @@ function fazerLogin() {
     return;
   }
 
-  // Online + Firebase pronto → busca atualizado, com timeout de segurança
+  // Firebase SDK carregado mas conexão ainda não confirmada?
+  // Não bloqueia — usa cache local como fallback imediato se houver dados
+  if (!window._firebaseReady && cacheBase.length > 0) {
+    btn.textContent = '📦 Entrando...';
+    setTimeout(() => tentarLogin(cacheBase), 300);
+    return;
+  }
+
+  // Online + Firebase pronto → busca atualizado, com timeout de segurança curto
   let loginResolvido = false;
 
   const timeoutSeguranca = setTimeout(() => {
     if (!loginResolvido) {
       loginResolvido = true;
+      // Firebase demorou — usa cache sem bloquear o usuário
       tentarLogin(cacheBase.length ? cacheBase : usuarios);
     }
-  }, 5000);
+  }, 2500); // 2.5s máximo
 
   window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
     if (loginResolvido) return;
