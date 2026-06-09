@@ -3210,72 +3210,42 @@ function fazerLogin() {
     if (adminLocal) cacheBase.push(adminLocal);
   }
 
-  // Se Firebase ainda inicializando mas online → aguarda até 4s pelo evento firebaseReady
-  if (navigator.onLine && !window._firebaseReady && window._db) {
-    btn.textContent = '⏳ Conectando...';
-    let resolvido = false;
-    const continuar = () => {
-      if (resolvido) return;
-      resolvido = true;
-      fazerLoginComFirebase(tentarLogin, cacheBase, btn);
-    };
-    window.addEventListener('firebaseReady', continuar, { once: true });
-    setTimeout(continuar, 4000);
+  // Se já tem usuários em memória (pré-carga ou cache) → loga imediatamente
+  if (cacheBase.length > 0) {
+    tentarLogin(cacheBase);
     return;
   }
 
-  // Se offline ou Firebase não disponível → entra imediatamente via cache
-  if (!navigator.onLine || !window._firebaseReady || !window._db) {
-    if (cacheBase.length === 0) {
+  // Sem cache: precisa buscar do Firebase
+  // Se Firebase não está pronto ainda → aguarda até 5s
+  const executarComFirebase = () => {
+    if (cacheBase.length > 0) { tentarLogin(cacheBase); return; }
+    if (!window._firebaseReady || !window._db) {
       mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
       btn.disabled = false;
       btn.textContent = '🔐 ENTRAR';
       return;
     }
-    btn.textContent = '📦 Entrando offline...';
-    setTimeout(() => tentarLogin(cacheBase), 300);
+    fazerLoginComFirebase(tentarLogin, cacheBase, btn);
+  };
+
+  if (!window._firebaseReady && navigator.onLine && window._db) {
+    btn.textContent = '⏳ Conectando...';
+    let aguardando = false;
+    const onReady = () => { if (!aguardando) { aguardando = true; executarComFirebase(); } };
+    window.addEventListener('firebaseReady', onReady, { once: true });
+    setTimeout(onReady, 5000);
     return;
   }
 
-  // Online + Firebase pronto → busca atualizado, com timeout de segurança
+  executarComFirebase();
+
+  // (bloco abaixo não é mais usado — mantido como dead code para não quebrar o fechamento)
   let loginResolvido = false;
-
   const timeoutSeguranca = setTimeout(() => {
-    if (!loginResolvido) {
-      loginResolvido = true;
-      // Firebase demorou demais → cai no cache local
-      tentarLogin(cacheBase.length ? cacheBase : usuarios);
-    }
-  }, 4000); // 4s máximo esperando Firebase
+    if (!loginResolvido) { loginResolvido = true; }
+  }, 100);
 
-  window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
-    if (loginResolvido) return;
-    loginResolvido = true;
-    clearTimeout(timeoutSeguranca);
-    const data = snap.val();
-    const listaFb = data ? fromFirebaseObj(data) : [];
-    // MERGE: une Firebase + cache local para nunca perder usuários de nenhum lado
-    const idsFb = new Set(listaFb.map(u => u.id));
-    const locaisPendentes = cacheBase.filter(u => !idsFb.has(u.id));
-    const listaMerge = [...listaFb, ...locaisPendentes];
-    if (listaMerge.length) {
-      usuarios = listaMerge;
-      localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
-      // Salva usuários locais pendentes no Firebase para não perder
-      if (locaisPendentes.length && window._db) {
-        locaisPendentes.forEach(u => {
-          window._fbSet(window._fbRef(window._db, 'usuarios/' + u.id), u)
-            .catch(e => console.warn('[Login] Sync usuario pendente:', e.message));
-        });
-      }
-    }
-    tentarLogin(listaMerge.length ? listaMerge : cacheBase);
-  }).catch(() => {
-    if (loginResolvido) return;
-    loginResolvido = true;
-    clearTimeout(timeoutSeguranca);
-    tentarLogin(cacheBase.length ? cacheBase : usuarios);
-  });
 }
 
 function fazerLoginComFirebase(tentarLogin, cacheBase, btn) {
@@ -8214,6 +8184,47 @@ function showFeedbackOffline(tipo, nome, loc, offline) {
 
 checkSession();
 mostrarSetupSeNecessario();
+
+// ─── PRÉ-CARREGA USUÁRIOS PARA LOGIN FUNCIONAR SEM CACHE ──────────────────────
+// Roda independente de estar logado — garante que a lista de usuários
+// esteja em memória antes do primeiro clique em "Entrar"
+(function preCarregarUsuarios() {
+  // Já tem usuários em memória (ex: recarregamento com localStorage) → ok
+  if (usuarios.length > 0) return;
+
+  const fazerPreCarga = () => {
+    if (!window._firebaseReady || !window._db) return;
+    if (usuarios.length > 0) return; // já carregou enquanto esperava
+    window._fbGet(window._fbRef(window._db, 'usuarios'))
+      .then(snap => {
+        const data = snap.val();
+        if (data) {
+          const listaFb = fromFirebaseObj(data);
+          if (listaFb.length > 0) {
+            usuarios = listaFb;
+            localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+            console.log('[PreCarga] Usuários carregados:', usuarios.length);
+            // Se tinha sessão salva mas falhou por lista vazia, tenta novamente
+            try {
+              const saved = sessionStorage.getItem('ms_session');
+              if (saved && !currentUser) {
+                const u = JSON.parse(saved);
+                const valid = usuarios.find(x => x.id === u.id && x.login === u.login);
+                if (valid) { currentUser = valid; entrarSistema(valid); }
+              }
+            } catch(e) {}
+          }
+        }
+      })
+      .catch(() => {}); // falha silenciosa — o login tem seus próprios fallbacks
+  };
+
+  if (window._firebaseReady) {
+    fazerPreCarga();
+  } else {
+    window.addEventListener('firebaseReady', fazerPreCarga, { once: true });
+  }
+})();
 
 // ─── AGUARDA FIREBASE ANTES DE CARREGAR DADOS ─────────────────────────────────
 (function aguardarFirebase() {
