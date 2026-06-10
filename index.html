@@ -310,13 +310,31 @@ header {
 .user-chip:hover { border-color: var(--accent); }
 
 /* ── TABS ── */
-.tabs { display: flex; gap: 0; }
+.tabs {
+  display: flex; gap: 0;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; -ms-overflow-style: none;
+  /* Garante que as tabs nunca quebram linha e sempre deslizam */
+  flex-wrap: nowrap;
+  /* Fade visual nas bordas para indicar scroll */
+  -webkit-mask-image: linear-gradient(to right, black 80%, transparent 100%);
+  mask-image: linear-gradient(to right, black 80%, transparent 100%);
+}
+.tabs::-webkit-scrollbar { display: none; }
+/* Remove fade quando não há overflow (desktop largo) */
+@media(min-width:960px) {
+  .tabs {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
 .tab-btn {
   background: transparent; border: none; cursor: pointer;
   padding: 14px 22px; font-family: var(--font-head);
   font-size: 15px; font-weight: 600; letter-spacing: 0.5px;
   color: var(--muted); border-bottom: 3px solid transparent;
   transition: all .2s; white-space: nowrap; position: relative;
+  flex-shrink: 0; /* impede compressão — botão mantém largura natural */
 }
 .tab-btn:hover { color: var(--text); }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
@@ -1068,10 +1086,8 @@ footer {
   .status-badge { display: none; }
   .user-chip { font-size: 11px; padding: 5px 10px; }
 
-  /* Tabs - scrollável horizontalmente */
-  .tabs { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
-  .tabs::-webkit-scrollbar { display: none; }
-  .tab-btn { padding: 12px 16px; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
+  /* Tabs - reduz padding em tablet */
+  .tab-btn { padding: 12px 16px; font-size: 13px; }
 
   /* Main */
   main { padding: 20px 16px 60px; }
@@ -1132,8 +1148,13 @@ footer {
   .user-chip { padding: 4px 8px; font-size: 10px; gap: 4px; }
   .user-chip span:first-child { font-size: 14px; }
 
-  /* Tabs - menor */
-  .tab-btn { padding: 10px 12px; font-size: 12px; }
+  /* Tabs - ainda menor no mobile */
+  .tab-btn { padding: 10px 10px; font-size: 11px; letter-spacing: 0; }
+  /* Fade lateral mais pronunciado para indicar scroll */
+  .tabs {
+    -webkit-mask-image: linear-gradient(to right, black 60%, transparent 100%);
+    mask-image: linear-gradient(to right, black 60%, transparent 100%);
+  }
 
   /* Main */
   main { padding: 16px 12px 80px; }
@@ -3589,6 +3610,8 @@ function showTab(id, btn) {
   if (id === 'ft-validadas' && typeof window.renderFTValidadas === 'function') setTimeout(window.renderFTValidadas, 80);
   document.getElementById('tab-'+id).classList.add('active');
   btn.classList.add('active');
+  // Rola o nav de tabs para deixar a aba ativa visível no mobile
+  if (btn) { setTimeout(function() { btn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" }); }, 50); }
   if (id==='historico')  { updatePostoFilter(); renderHistorico(); }
   if (id==='dashboard')  { renderDashboard(); }
 }
