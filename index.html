@@ -970,6 +970,29 @@ input.hist-select[type="date"]::-webkit-calendar-picker-indicator { filter: inve
 .colab-card-btn.btn-toggle-ativo { }
 .colab-card-btn.btn-del:hover   { border-color: var(--red); color: var(--red); }
 
+/* Bloco de credenciais no card */
+.colab-card-cred {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.colab-card-cred-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.colab-cred-login {
+  font-family: var(--font-mono); font-size: 12px; color: #38bdf8; font-weight: 600;
+}
+.colab-cred-senha {
+  font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+}
+.colab-cred-role {
+  font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+  background: #f59e0b14; border: 1px solid var(--border);
+  padding: 2px 8px; border-radius: 5px; display: inline-block;
+}
+
 /* Empty state */
 .colab-mgr-empty {
   text-align: center; padding: 60px 20px; color: var(--muted);
@@ -2985,6 +3008,8 @@ function loadData() {
       _setSyncStatus('ok');
       populatePostoSelects();
       renderColabPonto();
+      // Atualizar aba Colaboradores se estiver visível
+      if (typeof colabMgrRenderGrid === 'function') colabMgrRenderGrid();
     });
 
     const u2 = window._fbOnValue(window._fbRef(window._db,'registros'), snap => {
@@ -4374,12 +4399,38 @@ function colabMgrRenderGrid() {
       ? '<span class="colab-card-badge badge-ativo">✅ ATIVO</span>'
       : '<span class="colab-card-badge badge-inativo">⛔ INATIVO</span>';
 
-    const user = usuarios.find(u => u.colaboradorId === c.id || (u.login && u.nome === c.nome));
-    const loginInfo = user
-      ? `<div class="colab-card-detail-row">🔑 <span>${esc(user.login)}</span> <em style="color:var(--muted);font-size:10px">(${user.role === 'admin' ? 'admin' : 'usuário'})</em></div>`
-      : '';
-    const telInfo = c.tel ? `<div class="colab-card-detail-row">📱 <span>${esc(c.tel)}</span></div>` : '';
-    const obsInfo = c.obs ? `<div class="colab-card-detail-row">📝 <span style="white-space:normal;word-break:break-word">${esc(c.obs)}</span></div>` : '';
+    // Login: vinculado por colaboradorId, ou por login direto no próprio objeto
+    const user = usuarios.find(u => u.colaboradorId === c.id || u.login === c.login)
+      || (c.login ? { login: c.login, role: c.role || 'colaborador' } : null);
+
+    // Campos do cadastro
+    const rgcpf = [c.rg ? `RG: ${esc(c.rg)}` : '', c.cpf ? `CPF: ${esc(c.cpf)}` : ''].filter(Boolean).join('  ·  ');
+    const nascEstCivil = [c.nascimento ? esc(c.nascimento) : '', c.estadoCivil ? esc(c.estadoCivil) : ''].filter(Boolean).join(' · ');
+
+    const det = [];
+    if (rgcpf)        det.push(`<div class="colab-card-detail-row" style="flex-wrap:wrap"><span style="font-family:var(--font-mono);font-size:11px">${rgcpf}</span></div>`);
+    if (nascEstCivil) det.push(`<div class="colab-card-detail-row">🎂 <span>${nascEstCivil}</span></div>`);
+    const tel = c.telefone || c.tel || '';
+    if (tel)          det.push(`<div class="colab-card-detail-row">📞 <span>${esc(tel)}</span></div>`);
+    if (c.email)      det.push(`<div class="colab-card-detail-row">✉️ <span style="word-break:break-all">${esc(c.email)}</span></div>`);
+    if (c.endereco)   det.push(`<div class="colab-card-detail-row">🏠 <span style="white-space:normal;word-break:break-word">${esc(c.endereco)}</span></div>`);
+
+    // Bloco de credenciais (login + senha resumida + perfil)
+    let credBlock = '';
+    if (user) {
+      const senhaResumida = (c.senha || user.senha || '').toString().slice(0,4);
+      const perfilLabel   = (user.role === 'admin' || c.role === 'admin') ? '🛡️ Administrador' : '👤 Colaborador';
+      credBlock = `
+        <div class="colab-card-cred">
+          <div class="colab-card-cred-row">
+            <span class="colab-cred-login">👤 ${esc(user.login || c.login)}</span>
+            ${senhaResumida ? `<span class="colab-cred-senha">🔒 ${senhaResumida}</span>` : ''}
+          </div>
+          <span class="colab-cred-role">${perfilLabel}</span>
+        </div>`;
+    }
+
+    if (c.obs)        det.push(`<div class="colab-card-detail-row">📝 <span style="white-space:normal;word-break:break-word">${esc(c.obs)}</span></div>`);
 
     const toggleLabel = ativo ? '⛔ Desativar' : '✅ Ativar';
 
@@ -4392,7 +4443,8 @@ function colabMgrRenderGrid() {
         </div>
         ${badge}
       </div>
-      ${(loginInfo || telInfo || obsInfo) ? `<div class="colab-card-details">${loginInfo}${telInfo}${obsInfo}</div>` : ''}
+      ${det.length ? `<div class="colab-card-details">${det.join('')}</div>` : ''}
+      ${credBlock}
       <div class="colab-card-actions">
         <button class="colab-card-btn" onclick="colabMgrAbrirForm('${c.id}')">✏️ Editar</button>
         <button class="colab-card-btn btn-toggle-ativo" onclick="colabMgrToggleAtivo('${c.id}')">${toggleLabel}</button>
