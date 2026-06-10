@@ -3,19 +3,16 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Grupo M.S — Ponto Eletrônico v17</title>
+<title>PJ Tecnologia e Sistemas — Ponto Eletrônico</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, push, set, onValue, remove, update, get }
+  import { getDatabase, ref, push, set, onValue, remove, update, get, goOnline }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-  // ══════════════════════════════════════════════════════
-  //  🔧 SUBSTITUA AQUI COM SUAS CREDENCIAIS DO FIREBASE
-  // ══════════════════════════════════════════════════════
   const firebaseConfig = {
     apiKey: "AIzaSyAuOPQPjV4K25iBvEhDBYt6qh3j8o7SjGU",
     authDomain: "grupo-ms-ponto.firebaseapp.com",
@@ -26,26 +23,64 @@
     appId: "1:177148492322:web:74335b5e953493a799687b"
   };
 
-  let db;
   try {
     const app = initializeApp(firebaseConfig);
-    db = getDatabase(app);
-    window._firebaseReady = true;
-    window._db = db;
-    window._fbRef = ref;
-    window._fbPush = push;
-    window._fbSet = set;
-    window._fbOnValue = onValue;
-    window._fbRemove = remove;
-    window._fbUpdate = update;
-    window._fbGet = get;
-    console.log("✅ Firebase conectado");
+    const db  = getDatabase(app);
+
+    // Expõe funções globalmente ANTES de confirmar conexão
+    window._db         = db;
+    window._fbRef      = ref;
+    window._fbPush     = push;
+    window._fbSet      = set;
+    window._fbOnValue  = onValue;
+    window._fbRemove   = remove;
+    window._fbUpdate   = update;
+    window._fbGet      = get;
+    window._fbGoOnline = goOnline;
+    window._firebaseReady = false; // ainda false até confirmar conexão real
+
+    // Garante que o SDK está online
+    goOnline(db);
+
+    // Monitora o nó especial .info/connected do Firebase
+    // Só dispara 'firebaseReady' quando houver conexão REAL com o servidor
+    let _jáDisparou = false;
+    onValue(ref(db, '.info/connected'), (snap) => {
+      const conectado = snap.val() === true;
+      const antes = window._fbConectado;
+      window._fbConectado = conectado;
+
+      if (conectado && !_jáDisparou) {
+        _jáDisparou = true;
+        window._firebaseReady = true;
+        console.log("✅ Firebase conectado ao servidor");
+        window.dispatchEvent(new Event('firebaseReady'));
+      }
+
+      // Só dispara fbConnectionChange se o estado realmente mudou
+      // Evita disparos duplos na inicialização (antes era chamado mesmo na primeira leitura)
+      if (conectado !== antes || antes === undefined) {
+        console.log('[Firebase] Conexão:', conectado ? '🟢 online' : '🔴 offline');
+        window.dispatchEvent(new CustomEvent('fbConnectionChange', { detail: { online: conectado } }));
+      }
+    });
+
+    // Fallback: se após 3s não conectou, dispara mesmo assim (pode ser modo offline)
+    setTimeout(() => {
+      if (!_jáDisparou) {
+        _jáDisparou = true;
+        console.warn("⚠️ Firebase: timeout de conexão — usando modo local");
+        window._firebaseReady = false;
+        window.dispatchEvent(new Event('firebaseReady'));
+      }
+    }, 3000);
+
+    console.log("🔄 Firebase SDK carregado — aguardando conexão...");
   } catch(e) {
     console.warn("⚠️ Firebase não configurado, usando localStorage:", e.message);
     window._firebaseReady = false;
+    window.dispatchEvent(new Event('firebaseReady'));
   }
-  // Dispara evento para o script principal saber que o Firebase foi inicializado
-  window.dispatchEvent(new Event('firebaseReady'));
 </script>
 
 <style>
@@ -59,8 +94,8 @@
   --accent2:   #b45309;
   --green:     #22c55e;
   --green-bg:  #052010;
-  --red:       #ff4466;
-  --red-bg:    #1a0010;
+  --red:       #e8273f;
+  --red-bg:    #18040a;
   --text:      #fef3c7;
   --muted:     #92856a;
   --muted2:    #3d3020;
@@ -175,12 +210,15 @@ body::before {
 
 .login-title {
   font-family: var(--font-head);
-  font-size: 28px; font-weight: 700; letter-spacing: 1px;
-  text-align: center; color: var(--text); margin-bottom: 4px;
+  font-size: 24px; font-weight: 700; letter-spacing: 2px;
+  text-align: center; color: var(--text); margin-bottom: 6px;
+  text-transform: uppercase;
 }
 .login-subtitle {
-  text-align: center; font-size: 12px; color: #f59e0baa;
-  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 36px;
+  text-align: center; font-size: 11px; letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 36px;
+  font-family: var(--font-head); font-weight: 600;
+  line-height: 1.6;
 }
 
 .login-field { margin-bottom: 16px; }
@@ -191,7 +229,7 @@ body::before {
 }
 
 .login-error {
-  background: var(--red-bg); border: 1px solid #dc262655;
+  background: var(--red-bg); border: 1px solid #e8273f55;
   color: var(--red); border-radius: 10px; padding: 12px 16px;
   font-size: 14px; text-align: center; margin-bottom: 16px;
   display: none; animation: fadeUp .2s ease;
@@ -239,12 +277,12 @@ header {
 
 .brand-text h1 {
   font-family: var(--font-head);
-  font-size: 24px; font-weight: 700; letter-spacing: 1px;
-  color: var(--text); line-height: 1;
+  font-size: 20px; font-weight: 700; letter-spacing: 1.5px;
+  color: var(--text); line-height: 1; text-transform: uppercase;
 }
 .brand-text p {
-  font-size: 11px; color: var(--muted); letter-spacing: 2px;
-  text-transform: uppercase; margin-top: 3px;
+  font-size: 10px; letter-spacing: 1.5px;
+  text-transform: uppercase; margin-top: 4px;
 }
 
 .header-right {
@@ -363,7 +401,12 @@ main {
   padding: 4px 10px; border-radius: 6px; display: inline-block;
 }
 .tag-in  { background: var(--green-bg); color: var(--green); border: 1px solid #00ff8833; }
-.tag-out { background: var(--red-bg);   color: var(--red);   border: 1px solid #ff336633; }
+.tag-out { background: var(--red-bg);   color: var(--red);   border: 1px solid #e8273f33; }
+.tag-warn   { background: #1a1000;          color: var(--gold);  border: 1px solid #fbbf2444; }
+.tag-absent { background: var(--red-bg);    color: var(--red);   border: 1px solid #e8273f44; }
+.colab-item.status-ok     { border-left: 3px solid var(--green); }
+.colab-item.status-warn   { border-left: 3px solid var(--gold); }
+.colab-item.status-absent { border-left: 3px solid var(--red); }
 .status-time { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: var(--font-mono); }
 
 /* ── PONTO BUTTONS ── */
@@ -393,10 +436,10 @@ main {
 }
 .btn-entrada:hover { box-shadow: 0 12px 48px #00ff8866; }
 .btn-saida {
-  background: linear-gradient(135deg, #3d0015, #cc0044);
-  box-shadow: 0 8px 36px #ff336633;
+  background: linear-gradient(135deg, #420010, #c01030);
+  box-shadow: 0 8px 36px #e8273f33;
 }
-.btn-saida:hover { box-shadow: 0 12px 48px #ff336666; }
+.btn-saida:hover { box-shadow: 0 12px 48px #e8273f66; }
 .btn-ponto .icon { font-size: 46px; line-height: 1; }
 
 /* ── FEEDBACK BANNER ── */
@@ -406,7 +449,7 @@ main {
   animation: fadeUp .3s ease;
 }
 .feedback.entrada { background: var(--green-bg); border: 2px solid #00ff8855; }
-.feedback.saida   { background: var(--red-bg);   border: 2px solid #ff336655; }
+.feedback.saida   { background: var(--red-bg);   border: 2px solid #e8273f55; }
 .feedback-title { font-family: var(--font-head); font-size: 22px; font-weight: 700; }
 .feedback.entrada .feedback-title { color: var(--green); }
 .feedback.saida   .feedback-title { color: var(--red); }
@@ -582,7 +625,7 @@ tbody tr:hover { background: #1a1520; }
   padding: 4px 10px; border-radius: 6px; white-space: nowrap; display: inline-block;
 }
 .tipo-entrada { background: var(--green-bg); color: var(--green); border: 1px solid #00ff8833; }
-.tipo-saida   { background: var(--red-bg);   color: var(--red);   border: 1px solid #ff336633; }
+.tipo-saida   { background: var(--red-bg);   color: var(--red);   border: 1px solid #e8273f33; }
 .tipo-vazio   { color: var(--muted2); font-size: 14px; padding: 0 10px; }
 .empty-row td { padding: 40px; text-align: center; color: var(--muted); }
 .pagination {
@@ -638,23 +681,23 @@ tbody tr:hover { background: #1a1520; }
 }
 .btn-edit:hover { background: #f59e0b33; }
 .btn-del {
-  background: #ff336622; border: 1px solid #ff336644; color: var(--red);
+  background: #e8273f18; border: 1px solid #e8273f44; color: var(--red);
   border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px; transition: all .2s;
 }
-.btn-del:hover { background: #ff336644; }
+.btn-del:hover { background: #e8273f33; }
 .btn-reativar {
   background: #00ff8822; border: 1px solid #00ff8844; color: var(--green);
   border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 13px;
 }
 .inactive-badge {
   font-size: 10px; font-family: var(--font-mono);
-  background: #1a0010; color: var(--red); border: 1px solid #ff336655;
+  background: #18040a; color: var(--red); border: 1px solid #e8273f55;
   padding: 2px 7px; border-radius: 4px; margin-left: 8px; vertical-align: middle;
 }
 .confirm-modal {
   background: var(--surface); border-radius: 20px; padding: 32px;
   max-width: 380px; width: 94%; text-align: center;
-  border: 1px solid #ff336644; box-shadow: 0 24px 80px #000a;
+  border: 1px solid #e8273f44; box-shadow: 0 24px 80px #000a;
   animation: slideUp .2s ease;
 }
 .confirm-modal h3 { font-family: var(--font-head); font-size: 22px; margin: 12px 0 8px; }
@@ -736,10 +779,10 @@ tbody tr:hover { background: #1a1520; }
   transition: all .2s; white-space: nowrap;
 }
 .btn-export-pdf {
-  background: linear-gradient(135deg, #5c0020, #ff3366);
-  color: #fff; box-shadow: 0 4px 16px #ff336633;
+  background: linear-gradient(135deg, #5c0020, #e8273f);
+  color: #fff; box-shadow: 0 4px 16px #e8273f33;
 }
-.btn-export-pdf:hover { transform: translateY(-2px); box-shadow: 0 6px 24px #ff336655; }
+.btn-export-pdf:hover { transform: translateY(-2px); box-shadow: 0 6px 24px #e8273f55; }
 .btn-export-xlsx {
   background: linear-gradient(135deg, #003d1a, #00ff88);
   color: #000; box-shadow: 0 4px 16px #00ff8833;
@@ -990,7 +1033,7 @@ footer {
 .btn-pa-entrar:hover { transform: translateY(-2px); box-shadow: 0 8px 32px #f59e0b55; }
 
 .pa-error-msg {
-  background: var(--red-bg); border: 1px solid #dc262655;
+  background: var(--red-bg); border: 1px solid #e8273f55;
   color: var(--red); border-radius: 10px; padding: 11px 14px;
   font-size: 13px; margin-bottom: 14px; display: none; animation: fadeUp .2s ease;
 }
@@ -1145,39 +1188,11 @@ footer {
   .dash-stat-num { font-size: 28px; }
   .dash-stat-label { font-size: 10px; }
 
-  /* Dashboard cards — mobile compacto */
-  .dash-lista { padding: 6px; gap: 4px; }
-  .dash-section { margin-bottom: 12px; border-radius: 14px; }
-  .dash-section-title { padding: 10px 14px; font-size: 13px; }
-  .dash-card {
-    padding: 7px 10px;
-    gap: 8px;
-    align-items: flex-start;
-  }
-  .dash-card .avatar {
-    width: 28px; height: 28px; font-size: 12px;
-    border-radius: 6px; margin-top: 1px; flex-shrink: 0;
-  }
-  .dash-card-info { flex: 1; min-width: 0; }
-  .dash-card-nome {
-    font-size: 12px; line-height: 1.3;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .dash-card-posto { font-size: 10px; margin-top: 1px; }
-  .dash-card-time {
-    font-size: 10px;
-    display: flex; flex-direction: column;
-    align-items: flex-end; gap: 2px;
-    flex-shrink: 0; margin-top: 1px;
-    white-space: nowrap;
-  }
-  .dash-card-badge {
-    font-size: 8px; padding: 1px 5px;
-    border-radius: 3px; margin-top: 0;
-  }
-  .dash-stat-card { padding: 10px 8px; border-radius: 12px; }
-  .dash-stat-num { font-size: 24px; }
-  .dash-stat-label { font-size: 9px; }
+  /* Dashboard cards */
+  .dash-card { padding: 10px 12px; gap: 10px; }
+  .dash-card .avatar { width: 36px; height: 36px; font-size: 16px; border-radius: 8px; }
+  .dash-card-nome { font-size: 14px; }
+  .dash-card-time { font-size: 11px; }
 
   /* Dashboard header */
   .dash-header { flex-direction: column; gap: 10px; }
@@ -1261,7 +1276,7 @@ footer {
 }
 .dash-stat-card.total  { background:#1a1100; border-color:#f59e0b33; }
 .dash-stat-card.dentro { background: var(--green-bg); border-color:#22c55e44; }
-.dash-stat-card.ausente{ background: var(--red-bg);   border-color:#ff446655; }
+.dash-stat-card.ausente{ background: var(--red-bg);   border-color:#e8273f55; }
 
 .dash-stat-num {
   font-family: var(--font-head); font-size: 42px; font-weight: 700; line-height: 1;
@@ -1300,7 +1315,7 @@ footer {
 }
 
 .dash-card {
-  display: flex; align-items: flex-start; gap: 14px;
+  display: flex; align-items: center; gap: 14px;
   background: var(--surface2); border-radius: 12px;
   padding: 12px 16px; border: 1px solid var(--border2);
   transition: border-color .2s;
@@ -1323,7 +1338,7 @@ footer {
   display: inline-block;
 }
 .badge-dentro  { background: var(--green-bg); color: var(--green); border: 1px solid #16a34a44; }
-.badge-ausente { background: var(--red-bg);   color: var(--red);   border: 1px solid #dc262644; }
+.badge-ausente { background: var(--red-bg);   color: var(--red);   border: 1px solid #e8273f44; }
 .badge-saiu    { background: #1e293b; color: var(--muted); border: 1px solid var(--border); }
 
 
@@ -1627,7 +1642,7 @@ footer {
           <ul class="instr-list">
             <li><span class="num">1</span><span>Acesse <span class="code-inline">console.firebase.google.com</span> e faça login com sua conta Google</span></li>
             <li><span class="num">2</span><span>Clique em <strong>"Criar um projeto"</strong> (ou "Add project")</span></li>
-            <li><span class="num">3</span><span>Dê um nome ao projeto, ex: <span class="code-inline">grupo-ms-ponto</span></span></li>
+            <li><span class="num">3</span><span>Dê um nome ao projeto, ex: <span class="code-inline">pj-tecnologia-ponto</span></span></li>
             <li><span class="num">4</span><span>Desative o Google Analytics (não é necessário) e clique <strong>"Criar projeto"</strong></span></li>
             <li><span class="num">5</span><span>Aguarde a criação e clique <strong>"Continuar"</strong></span></li>
           </ul>
@@ -1862,8 +1877,11 @@ footer {
         <text x="50" y="67" text-anchor="middle" font-family="'Orbitron',sans-serif" font-weight="900" font-size="30" fill="#eef4ff" letter-spacing="-2">P<tspan fill="#00eaff">J</tspan></text>
       </svg>
     </div>
-    <div class="login-title">GRUPO M.S</div>
-    <div class="login-subtitle">Ponto Eletrônico &nbsp;·&nbsp; Acesso Seguro</div>
+    <div class="login-title">PJ TECNOLOGIA E SISTEMAS</div>
+    <div class="login-subtitle">
+      <span style="color:#7ab3cc">INOVAÇÃO QUE CONECTA.</span>
+      <span style="color:#f59e0b"> TECNOLOGIA QUE TRANSFORMA.</span>
+    </div>
 
     <div class="login-error" id="login-error">❌ Usuário ou senha incorretos</div>
 
@@ -1901,7 +1919,7 @@ footer {
 <div id="recuperar-senha-screen" style="position:fixed;inset:0;z-index:999;background:var(--bg);display:none;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto">
   <div class="pa-card" style="max-width:420px;margin:auto">
     <div class="pa-header">
-      <div class="pa-icon" style="background:linear-gradient(135deg,#7c2d12,#f97316);box-shadow:0 0 32px #f9731644">🔑</div>
+      <div class="pa-icon" style="background:linear-gradient(135deg,#6b0018,#c01030);box-shadow:0 0 32px #e8273f44">🔑</div>
       <div class="pa-title">Recuperar Senha</div>
       <div class="pa-subtitle">Informe seu CPF cadastrado.<br>O sistema mostrará suas credenciais de acesso.</div>
     </div>
@@ -2078,9 +2096,9 @@ footer {
       <div class="pa-section-label">Informações de trabalho</div>
 
       <div class="pa-field">
-        <label class="pa-label">Posto / Função <span class="req">*</span></label>
+        <label class="pa-label">Posto / Função <span style="color:var(--muted);font-size:10px;font-weight:400">(opcional)</span></label>
         <select class="pa-input" id="pa-posto">
-          <option value="">Selecione o posto...</option>
+          <option value="">Selecione o posto (se souber)...</option>
         </select>
       </div>
 
@@ -2157,8 +2175,8 @@ footer {
         </svg>
       </div>
       <div class="brand-text">
-        <h1>GRUPO M.S</h1>
-        <p>Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico</p>
+        <h1>PJ TECNOLOGIA E SISTEMAS</h1>
+        <p><span style="color:#7ab3cc">INOVAÇÃO QUE CONECTA.</span><span style="color:#f59e0bcc"> TECNOLOGIA QUE TRANSFORMA.</span></p>
       </div>
       <div class="header-right">
         <div class="status-badge" id="sync-indicator" onclick="abrirDiagnostico()" title="Clique para diagnóstico" style="cursor:pointer">
@@ -2204,10 +2222,10 @@ footer {
     <!-- Seletor de posto (aparece ao selecionar colaborador) -->
     <div id="posto-selector" style="display:none;margin-bottom:16px">
       <label style="display:block;font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-family:var(--font-mono)">
-        📍 Selecione o posto de trabalho <span style="color:var(--accent)">*</span>
+        📍 Posto de trabalho <span style="color:var(--red);font-size:12px">*obrigatório</span>
       </label>
       <select id="ponto-posto-select" class="input" style="font-size:15px;padding:13px 14px;border-radius:12px">
-        <option value="">Selecione o posto...</option>
+        <option value="">-- Selecione o posto --</option>
       </select>
     </div>
 
@@ -2322,17 +2340,18 @@ footer {
       </div>
     </div>
     <div class="table-wrap">
-      <div style="overflow-x:auto">
-        <table>
-          <thead>
-            <tr>
-              <th id="th-sel" style="display:none;width:36px;text-align:center"><input type="checkbox" id="hist-sel-all" title="Selecionar todos" onchange="histToggleAll(this.checked)" style="cursor:pointer;width:16px;height:16px"/></th>
-              <th>Data</th><th>Colaborador</th><th>Posto</th><th>Entrada</th><th>Saída</th><th>Duração</th><th id="th-acoes" style="display:none">Ações</th>
-            </tr>
-          </thead>
-          <tbody id="hist-tbody"></tbody>
-        </table>
-      </div>
+      <!-- Tabela oculta — mantida para exportarHistoricoPDF / exportarHistoricoExcel -->
+      <table id="hist-table-hidden" style="display:none">
+        <thead>
+          <tr>
+            <th id="th-sel" style="display:none;width:36px;text-align:center"><input type="checkbox" id="hist-sel-all" title="Selecionar todos" onchange="histToggleAll(this.checked)" style="cursor:pointer;width:16px;height:16px"/></th>
+            <th>Data</th><th>Colaborador</th><th>Posto</th><th>Entrada</th><th>Saída</th><th>Duração</th><th id="th-acoes" style="display:none">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="hist-tbody"></tbody>
+      </table>
+      <!-- Cards mobile -->
+      <div id="hist-cards"></div>
       <div class="pagination" id="pagination" style="display:none">
         <button class="btn-page" id="btn-prev" onclick="changePage(-1)">‹ Anterior</button>
         <span class="page-info" id="page-info"></span>
@@ -2358,7 +2377,7 @@ footer {
         <div class="form-row" style="margin-bottom:14px">
           <input class="input" id="f-colab-nome" type="text" placeholder="Nome completo do colaborador"/>
           <select class="input" id="f-colab-posto">
-            <option value="">Posto de serviço...</option>
+            <option value="">Posto de serviço (opcional)</option>
           </select>
         </div>
         <div class="form-row" style="margin-bottom:14px">
@@ -2403,14 +2422,15 @@ footer {
           oninput="renderColaboradores()" style="flex:1;margin-bottom:0"/>
         <button class="btn-secondary" onclick="repararVinculos()" title="Vincula automaticamente usuários sem colaboradorId pelo nome" style="white-space:nowrap;font-size:13px">🔧 Reparar Vínculos</button>
         <button class="btn-secondary" onclick="exportarCredenciais()" title="Exportar lista de usuários e senhas" style="white-space:nowrap;font-size:13px;background:linear-gradient(135deg,#7c3aed,#00d4ff);color:#fff;border:none">📋 Exportar Credenciais</button>
-        <button class="btn-secondary" onclick="exportarCadastrosPDF()" title="Gerar PDF com todos os cadastros para impressão" style="white-space:nowrap;font-size:13px;background:linear-gradient(135deg,#dc2626,#f97316);color:#fff;border:none">🖨️ PDF Cadastros</button>
+        <button class="btn-secondary" onclick="exportarCadastrosPDF()" title="Gerar PDF com todos os cadastros para impressão" style="white-space:nowrap;font-size:13px;background:linear-gradient(135deg,#8b0020,#e8273f);color:#fff;border:none">🖨️ PDF Cadastros</button>
       </div>
       <div class="colab-admin-list" id="colab-admin-list"></div>
     </div>
 
     <!-- ── Sub-aba: POSTOS ── -->
     <div class="sub-tab-content" id="sub-postos">
-      <div class="card" id="posto-form-card" style="margin-bottom:24px">
+      <!-- Formulário — sempre visível -->
+      <div class="card" id="posto-form-card" style="margin-bottom:20px">
         <p class="card-title" id="posto-form-title">📍 Novo Posto</p>
         <div class="form-row" style="margin-bottom:14px">
           <input class="input" id="f-posto-nome" type="text" placeholder="Nome do posto (ex: Portaria Norte)" style="flex:1"/>
@@ -2418,9 +2438,27 @@ footer {
           <button class="btn-secondary" id="btn-cancelar-posto" onclick="cancelarEdicaoPosto()" style="display:none">Cancelar</button>
         </div>
       </div>
-      <input class="input" id="f-busca-posto" type="text" placeholder="🔍 Buscar posto..."
-        oninput="renderPostos()" style="margin-bottom:16px"/>
-      <div class="colab-admin-list" id="postos-admin-list"></div>
+
+      <!-- Cabeçalho recolhível da lista -->
+      <button id="btn-toggle-postos" onclick="toggleListaPostos()"
+        style="width:100%;display:flex;align-items:center;justify-content:space-between;
+          background:var(--surface);border:1px solid var(--border);border-radius:12px;
+          padding:14px 18px;cursor:pointer;margin-bottom:0;transition:border-color .2s">
+        <span style="font-size:13px;font-weight:700;color:var(--text);font-family:var(--font-head);letter-spacing:.5px">
+          📋 POSTOS CADASTRADOS &nbsp;<span id="postos-badge" style="background:rgba(0,212,255,.15);color:var(--accent);
+            border-radius:20px;padding:2px 10px;font-size:12px;font-family:var(--font-mono)">0</span>
+        </span>
+        <span id="postos-chevron" style="font-size:18px;color:var(--muted);transition:transform .25s">▼</span>
+      </button>
+
+      <!-- Lista recolhível -->
+      <div id="postos-lista-wrap" style="overflow:hidden;max-height:0;transition:max-height .3s ease">
+        <div style="padding-top:12px">
+          <input class="input" id="f-busca-posto" type="text" placeholder="🔍 Buscar posto..."
+            oninput="renderPostos()" style="margin-bottom:12px"/>
+          <div class="colab-admin-list" id="postos-admin-list"></div>
+        </div>
+      </div>
     </div>
 
     <!-- ── Sub-aba: RELATÓRIO ── -->
@@ -2446,29 +2484,15 @@ footer {
         </button>
       </div>
 
-      <!-- Tabela de relatório -->
+      <!-- Lista de colaboradores em cards -->
       <div class="rel-table-wrap">
         <div class="rel-count" id="rel-count">0 colaboradores</div>
-        <div style="overflow-x:auto">
-          <table id="rel-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Nome</th>
-                <th>Posto</th>
-                <th>RG</th>
-                <th>CPF</th>
-                <th>Nascimento</th>
-                <th>Est. Civil</th>
-                <th>Telefone</th>
-                <th>E-mail</th>
-                <th>Endereço</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="rel-tbody"></tbody>
-          </table>
-        </div>
+        <!-- tabela oculta mantida para exportarPDF/exportarExcel -->
+        <table id="rel-table" style="display:none">
+          <thead><tr><th>#</th><th>Nome</th><th>Posto</th><th>RG</th><th>CPF</th><th>Nascimento</th><th>Est. Civil</th><th>Telefone</th><th>E-mail</th><th>Endereço</th><th>Status</th></tr></thead>
+          <tbody id="rel-tbody"></tbody>
+        </table>
+        <div id="rel-cards" style="padding:12px;display:flex;flex-direction:column;gap:10px"></div>
       </div>
     </div>
 
@@ -2577,7 +2601,7 @@ footer {
         <button class="ft-btn-sync" onclick="renderFTValidadas()">🔄 Atualizar visão</button>
       </div>
       <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-        <button onclick="ftvExportarPDF()" style="flex:1;min-width:140px;padding:9px 16px;background:linear-gradient(135deg,#dc2626,#f97316);color:#fff;border:none;border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;">🖨️ Exportar PDF</button>
+        <button onclick="ftvExportarPDF()" style="flex:1;min-width:140px;padding:9px 16px;background:linear-gradient(135deg,#8b0020,#e8273f);color:#fff;border:none;border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;">🖨️ Exportar PDF</button>
         <button onclick="ftvExportarExcel()" style="flex:1;min-width:140px;padding:9px 16px;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;border:none;border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;">📊 Exportar Excel</button>
       </div>
       <div id="ftv-lista-wrap">
@@ -2653,7 +2677,7 @@ footer {
 
 <footer id="main-footer" style="display:none">
   <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
-    <div>© 2026 Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico v17 · Modo Offline ✓</div>
+    <div>© 2026 PJ Tecnologia e Sistemas &nbsp;·&nbsp; Todos os direitos reservados ®</div>
     <div style="display:flex;align-items:center;gap:8px;opacity:.55;font-size:11px;letter-spacing:1.5px;text-transform:uppercase">
       <svg viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:18px;height:20px;filter:drop-shadow(0 0 4px rgba(0,200,248,.4))">
         <defs>
@@ -2829,19 +2853,42 @@ function _syncErr()   { _setSyncStatus('error'); setTimeout(()=>{ if(_syncPendin
 function savePostos() {
   localStorage.setItem('ms_postos', JSON.stringify(postos));
   if (window._firebaseReady) {
-    const obj = {}; postos.forEach(p => { obj[p.id] = p; });
+    // Atualiza cada posto individualmente — evita conflito entre aparelhos
+    postos.forEach(p => {
+      _syncStart();
+      window._fbSet(window._fbRef(window._db, 'postos/' + p.id), p)
+        .then(_syncDone).catch(e => { _syncErr(); console.warn('savePostos:', e.message); });
+    });
+  }
+}
+
+function saveUmPosto(posto) {
+  localStorage.setItem('ms_postos', JSON.stringify(postos));
+  if (window._firebaseReady) {
     _syncStart();
-    window._fbSet(window._fbRef(window._db, 'postos'), obj)
-      .then(_syncDone).catch(e => { _syncErr(); console.warn('savePostos:', e.message); });
+    window._fbSet(window._fbRef(window._db, 'postos/' + posto.id), posto)
+      .then(_syncDone).catch(e => { _syncErr(); console.warn('saveUmPosto:', e.message); });
+  }
+}
+
+function removeUmPosto(id) {
+  localStorage.setItem('ms_postos', JSON.stringify(postos));
+  if (window._firebaseReady) {
+    _syncStart();
+    window._fbRemove(window._fbRef(window._db, 'postos/' + id))
+      .then(_syncDone).catch(e => { _syncErr(); console.warn('removeUmPosto:', e.message); });
   }
 }
 
 function saveColabs() {
   localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
   if (window._firebaseReady) {
-    _syncStart();
-    window._fbSet(window._fbRef(window._db, 'colaboradores'), toFirebaseObj(colaboradores, 'id'))
-      .then(_syncDone).catch(e => { _syncErr(); console.warn('saveColabs:', e.message); });
+    // Atualiza cada colaborador individualmente — evita conflito entre aparelhos
+    colaboradores.forEach(c => {
+      _syncStart();
+      window._fbSet(window._fbRef(window._db, 'colaboradores/' + c.id), c)
+        .then(_syncDone).catch(e => { _syncErr(); console.warn('saveColabs:', e.message); });
+    });
   }
 }
 
@@ -2878,18 +2925,24 @@ function saveUmRegistro(reg) {
 function saveRegistros() {
   localStorage.setItem('ms_registros', JSON.stringify(registros));
   if (window._firebaseReady) {
-    _syncStart();
-    window._fbSet(window._fbRef(window._db, 'registros'), toFirebaseObj(registros, 'id'))
-      .then(_syncDone).catch(e => { _syncErr(); console.warn('saveRegistros:', e.message); });
+    // Atualiza cada registro individualmente — evita conflito entre aparelhos
+    registros.forEach(r => {
+      _syncStart();
+      window._fbSet(window._fbRef(window._db, 'registros/' + r.id), r)
+        .then(_syncDone).catch(e => { _syncErr(); console.warn('saveRegistros:', e.message); });
+    });
   }
 }
 
 function saveUsuarios() {
   localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
   if (window._firebaseReady) {
-    _syncStart();
-    window._fbSet(window._fbRef(window._db, 'usuarios'), toFirebaseObj(usuarios, 'id'))
-      .then(_syncDone).catch(e => { _syncErr(); console.warn('saveUsuarios:', e.message); });
+    // Atualiza cada usuário individualmente — evita conflito entre aparelhos
+    usuarios.forEach(u => {
+      _syncStart();
+      window._fbSet(window._fbRef(window._db, 'usuarios/' + u.id), u)
+        .then(_syncDone).catch(e => { _syncErr(); console.warn('saveUsuarios:', e.message); });
+    });
   }
 }
 
@@ -2926,8 +2979,13 @@ function fromFirebaseObj(obj) {
 let _fbUnsubs = [];
 
 function loadData() {
-  _fbUnsubs.forEach(fn => { try { fn(); } catch(e){} });
-  _fbUnsubs = [];
+  // Cancela listeners anteriores antes de criar novos
+  // Isso evita duplicação de callbacks quando loadData é chamado mais de uma vez
+  if (_fbUnsubs.length > 0) {
+    _fbUnsubs.forEach(fn => { try { fn(); } catch(e){} });
+    _fbUnsubs = [];
+    console.log('[Ponto] Listeners anteriores cancelados — recriando...');
+  }
 
   // ── OFFLINE FALLBACK: se sem internet, usa localStorage direto ──────────────
   if (!navigator.onLine) {
@@ -2957,8 +3015,13 @@ function loadData() {
       const data = snap.val();
       if (data) {
         clearTimeout(seedColabTimer);
-        // Firebase é a ÚNICA fonte da verdade — nunca sobrescreve com dado local
-        colaboradores = fromFirebaseObj(data);
+        // Firebase é a fonte da verdade — mas preserva itens locais ainda não chegaram ao Firebase
+        // (ex: colaborador recém-cadastrado via Primeiro Acesso que pode estar em trânsito)
+        const doFirebase = fromFirebaseObj(data);
+        // Merge: adiciona colaboradores locais que ainda não chegaram ao Firebase
+        const idsFirebase = new Set(doFirebase.map(c => c.id));
+        const locaisPendentes = colaboradores.filter(c => !idsFirebase.has(c.id));
+        colaboradores = [...doFirebase, ...locaisPendentes];
         localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
       } else if (!colabsCarregado) {
         // Firebase confirmou nó vazio na primeira leitura
@@ -2999,7 +3062,22 @@ function loadData() {
         clearTimeout(seedUserTimer);
         const lista = fromFirebaseObj(data);
         if (lista.length) {
-          usuarios = lista;
+          // Merge SEGURO: Firebase + localStorage + memória
+          // Lê localStorage diretamente para pegar dados que podem ter sumido da memória
+          let localCache = [];
+          try { localCache = JSON.parse(localStorage.getItem('ms_usuarios') || '[]'); } catch { localCache = []; }
+          const idsFirebase = new Set(lista.map(u => u.id));
+          // Une todos os usuários que NÃO estão no Firebase (de memória e localStorage)
+          const fonteLocal = localCache.length >= usuarios.length ? localCache : usuarios;
+          const locaisPendentes = fonteLocal.filter(u => !idsFirebase.has(u.id));
+          usuarios = [...lista, ...locaisPendentes];
+          // Garante que o admin padrão sempre existe
+          if (!usuarios.find(u => u.login === 'admin')) {
+            const adminDefault = { id: 'admin-default', login: 'admin', senha: 'admin123', nome: 'Administrador', role: 'admin' };
+            usuarios.push(adminDefault);
+            // Salva admin no Firebase para nunca mais perder
+            if (window._db) window._fbSet(window._fbRef(window._db, 'usuarios/admin-default'), adminDefault).catch(()=>{});
+          }
           localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
           // Atualiza sessão se o usuário logado foi alterado no Firebase
           if (currentUser) {
@@ -3094,27 +3172,42 @@ function fazerLogin() {
   btn.textContent = '⏳ Verificando...';
 
   function tentarLogin(lista) {
-    const usuario = lista.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaVal);
+    const senhaValTrim = senhaVal.trim();
+    const usuario = lista.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaValTrim);
     if (usuario) {
       currentUser = usuario;
       sessionStorage.setItem('ms_session', JSON.stringify(usuario));
       entrarSistema(usuario);
     } else {
-      mostrarErroLogin('Usuário ou senha incorretos');
+      const loginExiste = lista.find(u => u.login.toLowerCase() === loginVal);
+      if (loginExiste) {
+        mostrarErroLogin('Senha incorreta. A senha são os 4 primeiros dígitos do seu CPF.');
+      } else {
+        mostrarErroLogin('Usuário não encontrado. Use o login gerado no cadastro (ex: paulo123).');
+      }
       btn.disabled = false;
       btn.textContent = '🔐 ENTRAR';
     }
   }
 
-  // ── OFFLINE FIRST: sempre carrega o cache local imediatamente
+  // ── Monta cache local (memória + localStorage)
   let usuariosLocal = [];
   try { usuariosLocal = JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { usuariosLocal = []; }
 
-  // Merge: cache local + o que já está em memória (o maior vence)
-  const cacheBase = usuariosLocal.length >= usuarios.length ? usuariosLocal : usuarios;
+  const todosIds = new Set([...usuarios.map(u => u.id), ...usuariosLocal.map(u => u.id)]);
+  const cacheBase = [];
+  todosIds.forEach(id => {
+    const daMem   = usuarios.find(u => u.id === id);
+    const doLocal = usuariosLocal.find(u => u.id === id);
+    cacheBase.push(daMem || doLocal);
+  });
+  if (!cacheBase.find(u => u.login === 'admin')) {
+    const adminLocal = usuariosLocal.find(u => u.login === 'admin');
+    if (adminLocal) cacheBase.push(adminLocal);
+  }
 
-  // Se offline ou Firebase não disponível → entra imediatamente via cache
-  if (!navigator.onLine || !window._firebaseReady || !window._db) {
+  // ── Se sem SDK → usa cache imediatamente
+  if (!window._db) {
     if (cacheBase.length === 0) {
       mostrarErroLogin('⚠️ Sem conexão e sem dados em cache. Conecte-se ao menos uma vez primeiro.');
       btn.disabled = false;
@@ -3126,34 +3219,36 @@ function fazerLogin() {
     return;
   }
 
-  // Online + Firebase pronto → busca atualizado, com timeout de segurança
-  let loginResolvido = false;
+  // ── Firebase SDK disponível → Promise.race com timeout de 4s
+  // Garante que o botão NUNCA trava mesmo se _fbGet ficar pendurado
+  const fbPromise = window._fbGet(window._fbRef(window._db, 'usuarios'));
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('timeout')), 4000)
+  );
 
-  const timeoutSeguranca = setTimeout(() => {
-    if (!loginResolvido) {
-      loginResolvido = true;
-      // Firebase demorou demais → cai no cache local
+  Promise.race([fbPromise, timeoutPromise])
+    .then(snap => {
+      const data = snap.val();
+      const listaFb = data ? fromFirebaseObj(data) : [];
+      const idsFb = new Set(listaFb.map(u => u.id));
+      const locaisPendentes = cacheBase.filter(u => !idsFb.has(u.id));
+      const listaMerge = [...listaFb, ...locaisPendentes];
+      if (listaMerge.length) {
+        usuarios = listaMerge;
+        localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+        if (locaisPendentes.length) {
+          locaisPendentes.forEach(u => {
+            window._fbSet(window._fbRef(window._db, 'usuarios/' + u.id), u)
+              .catch(e => console.warn('[Login] Sync pendente:', e.message));
+          });
+        }
+      }
+      tentarLogin(listaMerge.length ? listaMerge : cacheBase);
+    })
+    .catch(() => {
+      // Firebase demorou ou falhou → usa cache local
       tentarLogin(cacheBase.length ? cacheBase : usuarios);
-    }
-  }, 5000); // 5s máximo esperando Firebase
-
-  window._fbGet(window._fbRef(window._db, 'usuarios')).then(snap => {
-    if (loginResolvido) return;
-    loginResolvido = true;
-    clearTimeout(timeoutSeguranca);
-    const data = snap.val();
-    const lista = data ? fromFirebaseObj(data) : [];
-    if (lista.length) {
-      usuarios = lista;
-      localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
-    }
-    tentarLogin(lista.length ? lista : cacheBase);
-  }).catch(() => {
-    if (loginResolvido) return;
-    loginResolvido = true;
-    clearTimeout(timeoutSeguranca);
-    tentarLogin(cacheBase.length ? cacheBase : usuarios);
-  });
+    });
 }
 
 function mostrarErroLogin(msg) {
@@ -3163,11 +3258,28 @@ function mostrarErroLogin(msg) {
   setTimeout(() => el.classList.remove('show'), 3500);
 }
 
+function garantirAdminNoFirebase(usuario) {
+  // Garante que o usuário admin (ou qualquer usuário logado) esteja no Firebase
+  // Isso corrige o caso onde o admin só existe no localStorage
+  if (!window._firebaseReady || !window._db) return;
+  window._fbGet(window._fbRef(window._db, 'usuarios/' + usuario.id)).then(snap => {
+    if (!snap.val()) {
+      // Admin não está no Firebase — salva agora
+      console.warn('[EntrarSistema] Usuário não encontrado no Firebase — salvando:', usuario.login);
+      window._fbSet(window._fbRef(window._db, 'usuarios/' + usuario.id), usuario)
+        .then(() => console.log('[EntrarSistema] Usuário sincronizado com Firebase:', usuario.login))
+        .catch(e => console.warn('[EntrarSistema] Erro ao sincronizar usuário:', e.message));
+    }
+  }).catch(() => {});
+}
+
 function entrarSistema(usuario) {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('main-header').style.display = 'block';
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('main-footer').style.display = 'block';
+  // Garante que este usuário existe no Firebase (corrige admin que só estava no localStorage)
+  setTimeout(() => garantirAdminNoFirebase(usuario), 2000);
 
   // Chip do usuário logado
   document.getElementById('chip-user-name').textContent = usuario.nome || usuario.login;
@@ -3192,15 +3304,16 @@ function entrarSistema(usuario) {
       : 'Olá, ' + usuario.nome + '! Registre sua entrada ou saída:';
   }
 
-  // Se offline → carrega localStorage imediatamente sem esperar Firebase
-  if (!navigator.onLine || !window._firebaseReady || !window._db) {
-    loadData(); // loadData já detecta offline e usa localStorage
-  } else if (window._firebaseReady !== undefined) {
-    loadData();
+  // Carrega dados aguardando conexão real com Firebase
+  if (!navigator.onLine) {
+    loadData(); // offline: usa localStorage direto
+  } else if (window._firebaseReady === true && window._db) {
+    loadData(); // Firebase já confirmou conexão
   } else {
+    // Aguarda conexão real (evento disparado pelo .info/connected)
     window.addEventListener('firebaseReady', () => loadData(), { once: true });
-    // Fallback: se Firebase não responder em 4s, usa localStorage
-    setTimeout(() => { if (!window._firebaseReady) loadData(); }, 4000);
+    // Fallback: se não conectar em 7s, carrega do localStorage
+    setTimeout(() => { if (!window._firebaseReady) loadData(); }, 7000);
   }
 
   // Para colaboradores sem colaboradorId: tenta vincular automaticamente
@@ -3562,8 +3675,41 @@ function renderColabPonto() {
   ativos.sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR',{sensitivity:'base'})).forEach(c => {
     const ult = ultimoReg(c.id);
     const isSelected = selectedColab?.id === c.id;
+
+    // ── Lógica de status visual ──────────────────────────────────────────────
+    // Verde  = última entrada de hoje (dentro do plantão)
+    // Âmbar  = entrada há mais de 8h (possível esqueceu de bater saída) OU saída registrada
+    // Vermelho = sem nenhum registro hoje
+    const agora = Date.now();
+    const HOJE_INI = new Date(); HOJE_INI.setHours(0,0,0,0);
+    const ultHoje = ult && ult.timestamp >= HOJE_INI.getTime();
+    const OITO_H = 8 * 60 * 60 * 1000;
+    let statusClass, tagClass, tagLabel;
+    if (!ult || !ultHoje) {
+      // Nenhum registro hoje
+      statusClass = 'status-absent';
+      tagClass    = 'tag-absent';
+      tagLabel    = '⚠ SEM REG.';
+    } else if (ult.tipo === 'entrada' && (agora - ult.timestamp) > OITO_H) {
+      // Entrada há mais de 8h — âmbar (possível esqueceu saída)
+      statusClass = 'status-warn';
+      tagClass    = 'tag-warn';
+      tagLabel    = '⏱ +8H DENTRO';
+    } else if (ult.tipo === 'entrada') {
+      // Entrada normal — verde
+      statusClass = 'status-ok';
+      tagClass    = 'tag-in';
+      tagLabel    = '▲ DENTRO';
+    } else {
+      // Saída registrada — âmbar (fora do posto)
+      statusClass = 'status-warn';
+      tagClass    = 'tag-out';
+      tagLabel    = '▼ FORA';
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const div = document.createElement('div');
-    div.className = 'colab-item' + (isSelected ? ' selected' : '');
+    div.className = 'colab-item' + (isSelected ? ' selected' : '') + ' ' + statusClass;
     div.onclick = () => selectColab(c);
     div.innerHTML = `
       <div class="avatar" style="background:${avatarColor(c.nome)}">${c.nome.charAt(0)}</div>
@@ -3573,11 +3719,9 @@ function renderColabPonto() {
       </div>
       ${ult ? `
       <div class="status-tag">
-        <span class="${ult.tipo==='entrada'?'tag-in':'tag-out'}">
-          ${ult.tipo==='entrada'?'▲ DENTRO':'▼ FORA'}
-        </span>
+        <span class="${tagClass}">${tagLabel}</span>
         <div class="status-time">${fmtHora(ult.timestamp)}</div>
-      </div>` : '<div class="status-tag"><span style="color:var(--muted);font-size:12px">–</span></div>'}
+      </div>` : `<div class="status-tag"><span class="${tagClass}">${tagLabel}</span></div>`}
     `;
     container.appendChild(div);
   });
@@ -3706,10 +3850,11 @@ async function baterPonto(tipo) {
   if (!postoEscolhido) {
     const sel = document.getElementById('ponto-posto-select');
     sel.style.borderColor = 'var(--red)';
-    sel.style.boxShadow = '0 0 0 3px #ef444420';
+    sel.style.boxShadow = '0 0 0 3px #e8273f33';
     sel.focus();
-    setTimeout(() => { sel.style.borderColor = ''; sel.style.boxShadow = ''; }, 2500);
-    return;
+    setTimeout(() => { sel.style.borderColor = ''; sel.style.boxShadow = ''; }, 3000);
+    mostrarSyncToast('⚠️ Selecione o posto antes de registrar o ponto!', 'gold');
+    return; // BLOQUEIA — posto obrigatório
   }
   pendingTipo = tipo;
   pendingLocalizacao = null;
@@ -3822,7 +3967,7 @@ function registrarPontoBase() {
   };
   registros.unshift(reg);
   saveUmRegistro(reg); // salva somente este registro — não sobrescreve os demais
-  showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao, !navigator.onLine || !window._firebaseReady);
+  showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao);
   if (typeof window.ftGerarDePonto === 'function') window.ftGerarDePonto(reg);
   // Marca este id como já processado nesta sessão, para o listener Firebase não regerar
   if (!window._ftPontosProcessados) window._ftPontosProcessados = new Set();
@@ -3835,24 +3980,20 @@ function registrarPontoBase() {
   renderColabPonto();
 }
 
-function showFeedback(tipo, nome, loc, offline) {
+function showFeedback(tipo, nome, loc) {
   const el = document.getElementById('feedback-banner');
   el.className = 'feedback ' + tipo;
   const locHtml = loc
     ? `<div class="feedback-sub" style="margin-top:6px">${linkMaps(loc)}</div>`
     : `<div class="feedback-sub" style="margin-top:6px;color:var(--muted)">📍 Localização não capturada</div>`;
-  const offlineHtml = offline
-    ? `<div class="feedback-sub" style="margin-top:4px;color:#f59e0b;font-size:12px">📦 Salvo na fila offline — será sincronizado ao reconectar</div>`
-    : '';
   el.innerHTML = `
     <div class="feedback-title">${tipo==='entrada'?'✅ Entrada registrada!':'🚪 Saída registrada!'}</div>
     <div class="feedback-sub">${esc(nome)} &nbsp;·&nbsp; ${fmtHora(Date.now())}</div>
     ${locHtml}
-    ${offlineHtml}
   `;
   el.style.display = 'block';
   clearTimeout(el._timer);
-  el._timer = setTimeout(()=>{ el.style.display='none'; }, 7000);
+  el._timer = setTimeout(()=>{ el.style.display='none'; }, 6000);
 }
 
 // ─── RENDER: HISTÓRICO ────────────────────────────────────────────────────────
@@ -4151,48 +4292,99 @@ function _renderHistTabla() {
   _atualizarBarraSel();
 
   const tbody = document.getElementById('hist-tbody');
+  const histCards = document.getElementById('hist-cards');
   const colSpan = isAdmin ? 8 : 6;
+
   if (!slice.length) {
     tbody.innerHTML = `<tr class="empty-row"><td colspan="${colSpan}">Nenhum registro encontrado</td></tr>`;
+    if (histCards) histCards.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:14px">📭 Nenhum registro encontrado</div>';
   } else {
+    // ── Tabela oculta (para exportadores) ──────────────────────────────────
     tbody.innerHTML = slice.map(l => {
       const idsEsc = esc(JSON.stringify(l.ids || []));
-      const rowKey = (l.ids||[]).join(',');
       const isSel  = (l.ids||[]).every(id => _histSelIds.has(id));
-      const turnoLabel = l.turnoIdx > 0 ? `<span style="font-size:10px;color:var(--gold);font-family:var(--font-mono);margin-left:6px">TURNO ${l.turnoIdx + 1}</span>` : '';
-      const entradaHtml = l.entrada
-        ? `<span class="tipo-tag tipo-entrada">▲ ${fmtHora(l.entrada)}</span>${l.locEntrada ? `<br><a href="https://maps.google.com/?q=${l.locEntrada.lat},${l.locEntrada.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none" title="Ver localização">📍 Ver mapa</a>` : '<br><span style="font-size:10px;color:var(--muted)">📍 —</span>'}`
-        : `<span class="tipo-tag tipo-vazio">–</span>`;
-      const saidaHtml = l.saida
-        ? `<span class="tipo-tag tipo-saida">▼ ${fmtHora(l.saida)}</span>${l.locSaida ? `<br><a href="https://maps.google.com/?q=${l.locSaida.lat},${l.locSaida.lng}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none" title="Ver localização">📍 Ver mapa</a>` : '<br><span style="font-size:10px;color:var(--muted)">📍 —</span>'}`
-        : `<span class="tipo-tag tipo-vazio">–</span>`;
-      const selHtml = isAdmin
-        ? `<td style="text-align:center;width:36px"><input type="checkbox" data-ids='${idsEsc}' ${isSel?'checked':''} onchange="histToggleRow(this)" style="cursor:pointer;width:16px;height:16px"/></td>`
+      const turnoLabel = l.turnoIdx > 0 ? `TURNO ${l.turnoIdx + 1}` : '';
+      const selHtml = isAdmin ? `<td><input type="checkbox" data-ids='${idsEsc}' ${isSel?'checked':''} onchange="histToggleRow(this)"/></td>` : '';
+      const acoesHtml = isAdmin ? `<td><button class="btn-del" onclick="confirmarDelRegistroPorIds(${idsEsc},'${esc(l.colaboradorNome)}','${esc(fmtData(l.dataTs))}')">🗑️</button></td>` : '';
+      const dur = (l.entrada && l.saida) ? (() => { const ms=l.saida-l.entrada,h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000),s=Math.floor((ms%60000)/1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; })() : '–';
+      return `<tr>${selHtml}<td>${fmtData(l.dataTs)}${turnoLabel?` (${turnoLabel})`:""}</td><td>${esc(l.colaboradorNome)}</td><td>${esc(l.posto)}</td><td>${l.entrada?fmtHora(l.entrada):"–"}</td><td>${l.saida?fmtHora(l.saida):"–"}</td><td>${dur}</td>${acoesHtml}</tr>`;
+    }).join('');
+
+    // ── Cards mobile (layout completo) ─────────────────────────────────────
+    if (histCards) histCards.innerHTML = slice.map(l => {
+      const idsEsc = esc(JSON.stringify(l.ids || []));
+      const isSel  = (l.ids||[]).every(id => _histSelIds.has(id));
+      const turnoLabel = l.turnoIdx > 0
+        ? `<span style="font-size:10px;color:var(--gold);font-family:var(--font-mono);font-weight:700;background:#1a1000;border:1px solid #fbbf2433;border-radius:6px;padding:1px 7px">TURNO ${l.turnoIdx + 1}</span>`
         : '';
-      const acoesHtml = isAdmin
-        ? `<td style="text-align:center"><button class="btn-del" title="Excluir este turno" onclick="confirmarDelRegistroPorIds(${idsEsc},'${esc(l.colaboradorNome)}','${esc(fmtData(l.dataTs))}')" >🗑️</button></td>`
+      const dur = (l.entrada && l.saida) ? (() => {
+        const ms=l.saida-l.entrada,h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000),s=Math.floor((ms%60000)/1000);
+        return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+      })() : null;
+      const selCb = isAdmin
+        ? `<input type="checkbox" data-ids='${idsEsc}' ${isSel?'checked':''} onchange="histToggleRow(this)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0"/>`
         : '';
-      const duracaoHtml = (l.entrada && l.saida)
-        ? (() => {
-            const ms = l.saida - l.entrada;
-            const h  = Math.floor(ms/3600000);
-            const m  = Math.floor((ms%3600000)/60000);
-            const s  = Math.floor((ms%60000)/1000);
-            return `<span style="font-family:var(--font-mono);font-size:13px;color:var(--accent)">${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</span>`;
-          })()
-        : `<span style="color:var(--muted);font-size:12px">–</span>`;
+      const delBtn = isAdmin
+        ? `<button class="btn-del" title="Excluir" onclick="confirmarDelRegistroPorIds(${idsEsc},'${esc(l.colaboradorNome)}','${esc(fmtData(l.dataTs))}')">🗑️</button>`
+        : '';
+      const mapEntrada = l.locEntrada
+        ? `<a href="https://maps.google.com/?q=${l.locEntrada.lat},${l.locEntrada.lng}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none">📍 Ver mapa</a>`
+        : `<span style="font-size:11px;color:var(--muted)">📍 —</span>`;
+      const mapSaida = l.locSaida
+        ? `<a href="https://maps.google.com/?q=${l.locSaida.lat},${l.locSaida.lng}" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none">📍 Ver mapa</a>`
+        : `<span style="font-size:11px;color:var(--muted)">📍 —</span>`;
+
       return `
-        <tr>
-          ${selHtml}
-          <td class="td-data">${fmtData(l.dataTs)}${turnoLabel}</td>
-          <td class="td-nome">${esc(l.colaboradorNome)}</td>
-          <td class="td-posto">${esc(l.posto)}</td>
-          <td>${entradaHtml}</td>
-          <td>${saidaHtml}</td>
-          <td style="text-align:center">${duracaoHtml}</td>
-          ${acoesHtml}
-        </tr>
-      `;
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;
+        padding:14px 16px;margin-bottom:10px;display:flex;flex-direction:column;gap:10px">
+
+        <!-- Linha 1: checkbox + data + turno + lixeira -->
+        <div style="display:flex;align-items:center;gap:10px">
+          ${selCb}
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">${fmtData(l.dataTs)}</span>
+              ${turnoLabel}
+            </div>
+          </div>
+          ${delBtn}
+        </div>
+
+        <!-- Linha 2: colaborador + posto -->
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="width:36px;height:36px;border-radius:9px;background:var(--surface2);
+            display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;
+            color:var(--accent);flex-shrink:0;font-family:var(--font-head)">${(l.colaboradorNome||'?').charAt(0).toUpperCase()}</div>
+          <div style="min-width:0">
+            <div style="font-weight:700;font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.colaboradorNome)}</div>
+            <div style="font-size:12px;color:var(--accent2);margin-top:2px">📍 ${esc(l.posto||'—')}</div>
+          </div>
+        </div>
+
+        <!-- Linha 3: entrada + saída lado a lado -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:var(--green-bg);border:1px solid #00ff8822;border-radius:10px;padding:9px 12px">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono);margin-bottom:4px">Entrada</div>
+            ${l.entrada
+              ? `<div style="font-size:15px;font-weight:700;color:var(--green);font-family:var(--font-mono)">▲ ${fmtHora(l.entrada)}</div>
+                 <div style="margin-top:4px">${mapEntrada}</div>`
+              : `<div style="font-size:14px;color:var(--muted)">—</div>`}
+          </div>
+          <div style="background:var(--red-bg);border:1px solid #e8273f22;border-radius:10px;padding:9px 12px">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono);margin-bottom:4px">Saída</div>
+            ${l.saida
+              ? `<div style="font-size:15px;font-weight:700;color:var(--red);font-family:var(--font-mono)">▼ ${fmtHora(l.saida)}</div>
+                 <div style="margin-top:4px">${mapSaida}</div>`
+              : `<div style="font-size:14px;color:var(--muted)">—</div>`}
+          </div>
+        </div>
+
+        <!-- Linha 4: duração total (só se ambos existem) -->
+        ${dur ? `<div style="display:flex;align-items:center;gap:8px;background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.15);border-radius:8px;padding:7px 12px">
+          <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono)">Duração</span>
+          <span style="font-family:var(--font-mono);font-size:15px;font-weight:700;color:var(--accent)">${dur}</span>
+        </div>` : ''}
+      </div>`;
     }).join('');
   }
 
@@ -4234,7 +4426,7 @@ function exportarHistoricoPDF() {
   const html = `<!DOCTYPE html>
 <html lang="pt-BR"><head>
 <meta charset="UTF-8"/>
-<title>Histórico de Ponto — Grupo M.S</title>
+<title>Histórico de Ponto — PJ Tecnologia</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; color: #111; padding: 28px 32px; font-size: 13px; }
@@ -4257,7 +4449,7 @@ function exportarHistoricoPDF() {
 </head><body>
 <div class="topo">
   <div>
-    <h1>Grupo M.S — Histórico de Ponto</h1>
+    <h1>PJ Tecnologia — Histórico de Ponto</h1>
     <p>${dados.length} registro(s) exportado(s)</p>
   </div>
   <div class="meta">Gerado em:<br>${agora}</div>
@@ -4268,7 +4460,7 @@ function exportarHistoricoPDF() {
   </thead>
   <tbody>${linhas}</tbody>
 </table>
-<div class="rodape">Grupo M.S Segurança e Serviços &nbsp;·&nbsp; Ponto Eletrônico &nbsp;·&nbsp; ${agora}</div>
+<div class="rodape">PJ Tecnologia e Sistemas &nbsp;·&nbsp; Ponto Eletrônico &nbsp;·&nbsp; ${agora}</div>
 
 </body></html>`;
   const win = window.open('', '_blank');
@@ -4283,7 +4475,7 @@ function exportarHistoricoPDF() {
 'use strict';
 var FT_FIREBASE_CONFIG={apiKey:"AIzaSyA6OzNUzlHVJaG3CsnQ3m-cfcuOkf6Ve-Q",authDomain:"nova-folga-trabalhada.firebaseapp.com",projectId:"nova-folga-trabalhada",storageBucket:"nova-folga-trabalhada.firebasestorage.app",messagingSenderId:"187145497152",appId:"1:187145497152:web:8f943193dffdadd2340da5"};
 var FT_COLLECTION='folga_trabalhada',FT_DOC_ID='dados';
-var ftS={ftsLocal:[],padroes:[],ftFirestore:[],dbFT:null,sync:false,ftSyncInicial:false};
+var ftS={ftsLocal:[],padroes:[],ftFirestore:[],dbFT:null,sync:false};
 var LS_LOCAL='ft_auto_local',LS_PAD='ft_auto_padroes',LS_MOTIVOS='ft_motivos_lista',LS_HORARIOS='ft_horarios_lista';
 var TURNOS=[{t:'06:00 – 18:00',i:6,f:18},{t:'18:00 – 06:00',i:18,f:6},{t:'07:00 – 17:00',i:7,f:17},{t:'07:00 – 16:00',i:7,f:16},{t:'18:00 – 07:00',i:18,f:7},{t:'18:00 – 08:30',i:18,f:8},{t:'17:00 – 07:00',i:17,f:7},{t:'22:00 – 07:20',i:22,f:7}];
 
@@ -4351,46 +4543,67 @@ function ftLimparFirebaseAntigos(){
   }).catch(function(e){console.warn('[FT] Erro ao ler ft_registros para limpeza:',e);});
 }
 
-// Remove duplicatas já existentes no ftsLocal.
-// Critério: mesmo colaboradorNome + posto + dia (yyyy-mm-dd).
-// Mantém a FT mais antiga (primeira gerada) e remove as demais pendentes.
-// FTs com status='enviada' nunca são removidas.
-function ftLimparDuplicatasLocal(){
-  var vistas={};
-  var antes=ftS.ftsLocal.length;
-  // Ordena: enviadas primeiro, depois por criadoEm asc (mais antigas primeiro)
-  var ordenado=ftS.ftsLocal.slice().sort(function(a,b){
-    if(a.status==='enviada'&&b.status!=='enviada')return -1;
-    if(b.status==='enviada'&&a.status!=='enviada')return 1;
-    return (a.criadoEm||a.dataHora||'').localeCompare(b.criadoEm||b.dataHora||'');
-  });
-  var idsRemover=new Set();
-  ordenado.forEach(function(f){
-    if(f.status==='enviada')return; // nunca remover enviadas
-    var dia=(f.dataHora||f.criadoEm||'').slice(0,10);
-    var key=(f.colaboradorNome||'').trim().toLowerCase()+'|'+(f.posto||'').trim().toLowerCase()+'|'+dia;
-    if(vistas[key]){
-      idsRemover.add(f.id); // duplicata — remover
-    } else {
-      vistas[key]=true;
-    }
-  });
-  if(idsRemover.size>0){
-    ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return !idsRemover.has(f.id);});
-    ftSalvarLocal();
-    console.log('[FT] Limpeza de duplicatas locais: '+idsRemover.size+' removidas (de '+antes+' → '+ftS.ftsLocal.length+')');
-  }
-}
-
 function ftInit(){
   ftS.ftsLocal=JSON.parse(localStorage.getItem(LS_LOCAL)||'[]');
   ftS.padroes=JSON.parse(localStorage.getItem(LS_PAD)||'[]');
   ftLimparLancamentosAntigosLocal();
-  ftLimparDuplicatasLocal(); // remove duplicatas já existentes no localStorage
   ftGerRenderMotivos();
   ftGerRenderHorarios();
   ftAplicarDataInicialNosFiltros();
   ftConectar();
+}
+
+// ── LIMPEZA DE FTs PENDENTES DUPLICADAS ─────────────────────────────────────
+// Remove do Firebase FTs pendentes com mesmo pontoId ou mesmo colab+dia que já existam duplicadas.
+// Executa apenas uma vez por sessão (flag _ftDupLimpezaFeita).
+function ftLimparDuplicadasFirebase(){
+  if(window._ftDupLimpezaFeita||!window._firebaseReady||!window._db)return;
+  window._ftDupLimpezaFeita=true;
+  window._fbGet(window._fbRef(window._db,"ft_registros")).then(function(snap){
+    if(!snap.exists())return;
+    var todos=Object.values(snap.val()||{});
+    // Filtra apenas pendentes
+    var pendentes=todos.filter(function(f){return (f.status||"pendente")==="pendente";});
+    // Agrupa por pontoId — mantém apenas o mais antigo de cada grupo
+    var porPontoId={};
+    pendentes.forEach(function(f){
+      var pid=f.pontoId||"";
+      if(!pid)return;
+      if(!porPontoId[pid])porPontoId[pid]=[];
+      porPontoId[pid].push(f);
+    });
+    var aRemover=[];
+    Object.keys(porPontoId).forEach(function(pid){
+      var grupo=porPontoId[pid].sort(function(a,b){return(a.criadoEm||"").localeCompare(b.criadoEm||"");});
+      // Mantém o primeiro (mais antigo), remove os demais
+      for(var i=1;i<grupo.length;i++)aRemover.push(grupo[i].id);
+    });
+    // Agrupa por colab+dia — se pontoId diferente mas mesmo colab+dia, remove os excedentes
+    var porColabDia={};
+    pendentes.forEach(function(f){
+      var chave=((f.colaboradorNome||"").trim().toLowerCase())+"|"+((f.dataHora||f.criadoEm||"").slice(0,10));
+      if(!porColabDia[chave])porColabDia[chave]=[];
+      porColabDia[chave].push(f);
+    });
+    Object.keys(porColabDia).forEach(function(chave){
+      var grupo=porColabDia[chave].sort(function(a,b){return(a.criadoEm||"").localeCompare(b.criadoEm||"");});
+      for(var i=1;i<grupo.length;i++){
+        if(!aRemover.includes(grupo[i].id))aRemover.push(grupo[i].id);
+      }
+    });
+    if(!aRemover.length){console.log("[FT] Nenhuma duplicata pendente encontrada.");return;}
+    console.warn("[FT] Removendo "+aRemover.length+" FT(s) pendente(s) duplicada(s) do Firebase:",aRemover);
+    var promises=aRemover.map(function(id){
+      return window._fbRemove(window._fbRef(window._db,"ft_registros/"+id)).catch(function(e){console.warn("[FT] Erro ao remover dup",id,e);});
+    });
+    Promise.all(promises).then(function(){
+      console.log("[FT] Limpeza de duplicatas concluída.");
+      // Limpa também ftsLocal
+      var remSet=new Set(aRemover);
+      ftS.ftsLocal=ftS.ftsLocal.filter(function(f){return !remSet.has(f.id);});
+      ftSalvarLocal();ftRenderLista();ftUpdateStats();
+    });
+  }).catch(function(e){console.warn("[FT] Erro na limpeza de duplicatas:",e);});
 }
 
 function ftConectar(){
@@ -4404,22 +4617,17 @@ function ftConectar(){
     ftS.dbFT=true; // sinaliza que a conexão está OK
     // Executa limpeza de histórico antigo no Firebase (apenas uma vez, controlado por flag)
     ftLimparFirebaseAntigos();
+    ftLimparDuplicadasFirebase();
     // Escuta mudanças na coleção FT em tempo real
     window._fbOnValue(window._fbRef(window._db,'ft_registros'),function(snap){
       var data=snap.val();
       var remotas=data?Object.values(data):[];
       ftS.ftFirestore=remotas;
-      ftS.ftSyncInicial=true; // marca que o primeiro snapshot foi recebido (dedup seguro a partir daqui)
       // Merge: incorpora no ftsLocal qualquer FT remota (pendente ou enviada) ainda não conhecida
       // Isso garante que todos os dispositivos vejam FTs pendentes geradas em outros celulares
       var idsLocais=ftS.ftsLocal.map(function(f){return f.id;});
-      var pontoIdsLocais=ftS.ftsLocal.map(function(f){return f.pontoId||'__none__';});
       var novas=remotas.filter(function(r){
-        // Exclui se já existe pelo id, _fbId ou pelo pontoId (evita duplicata quando FT local já foi criada para o mesmo ponto)
-        if(idsLocais.includes(r.id))return false;
-        if(idsLocais.includes(r._fbId||'__none__'))return false;
-        if(r.pontoId&&pontoIdsLocais.includes(r.pontoId))return false;
-        return true;
+        return !idsLocais.includes(r.id) && !idsLocais.includes(r._fbId||'__');
       });
       if(novas.length){
         ftS.ftsLocal=ftS.ftsLocal.concat(novas);
@@ -4427,22 +4635,7 @@ function ftConectar(){
       }
       // Atualiza status local de FTs que foram validadas em outro dispositivo
       ftS.ftsLocal=ftS.ftsLocal.map(function(f){
-        var remota=remotas.find(function(r){
-          if(r.id===f.id)return true;
-          if(f._fbId&&r.id===f._fbId)return true;
-          // pontoId local bate com _pontoId remoto (campo usado no payload do Firebase)
-          if(f.pontoId&&(r._pontoId===f.pontoId||r.pontoId===f.pontoId))return true;
-          // Fallback: mesmo colaborador + posto + horario + dia
-          // No Firebase o nome fica em 'substituto'; localmente fica em 'colaboradorNome'
-          if(f.colaboradorNome&&f.posto&&f.horario){
-            var fDia=(f.dataHora||f.criadoEm||'').slice(0,10);
-            var rDia=(r.dataHora||r.criadoEm||'').slice(0,10);
-            var rNome=(r.substituto||r.colaboradorNome||'').trim().toLowerCase();
-            var fNome=(f.colaboradorNome||'').trim().toLowerCase();
-            if(fDia&&rDia===fDia&&rNome===fNome&&(r.posto||'').trim().toLowerCase()===(f.posto||'').trim().toLowerCase()&&(r.horario||'').trim()===(f.horario||'').trim())return true;
-          }
-          return false;
-        });
+        var remota=remotas.find(function(r){return r.id===f.id||r.id===f._fbId||r._pontoId===f.pontoId;});
         if(remota&&remota.status==='enviada'&&f.status==='pendente'){
           return Object.assign({},f,{status:'enviada',enviadoEm:remota.enviadoEm,_fbId:remota.id,validadoPor:remota.validadoPor||'adm'});
         }
@@ -4450,7 +4643,6 @@ function ftConectar(){
       });
       ftSalvarLocal();
       ftAprenderComHistorico(ftS.ftFirestore);
-      ftLimparDuplicatasLocal(); // remove duplicatas que possam ter surgido após o merge
       ftRenderLista();if(typeof window.renderFTValidadas==='function')window.renderFTValidadas();ftUpdateStats();
       console.log('[FT] Firebase sync: '+remotas.length+' registros ('+novas.length+' novos incorporados)');
     },function(e){console.warn('[FT] onValue err',e);});
@@ -4529,31 +4721,59 @@ window.ftGerarDePonto=function(reg){
   if(!ftDentroPeriodoFT(ftDataDoRegistro(reg)))return;
 
   function _gerar(){
-    // Dedup 1: checa ftsLocal E ftFirestore pelo pontoId (evita regerar FT já existente)
+    // ── Dedup 1: pontoId já existe em memória ──────────────────────────────
     var jaExiste=ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;})
       ||ftS.ftFirestore.some(function(f){return f.pontoId===reg.id||f._pontoId===reg.id;});
-    if(jaExiste)return;
-    // Dedup 2: impede gerar FT duplicada para o mesmo colaborador + posto + dia
-    // A chave inclui o posto para não bloquear o mesmo colaborador em postos diferentes
+    if(jaExiste){console.log('[FT] Dedup1: pontoId já processado —',reg.id);return;}
+
+    // ── Dedup 2: já existe FT para este colaborador neste dia (memória) ────
     var colabNomeLower=(reg.colaboradorNome||'').trim().toLowerCase();
-    var regPosto=(reg.posto||'').trim().toLowerCase();
     var regDia=ftLocalISO(reg.timestamp).slice(0,10);
-    var jaGeradaRecente=ftS.ftsLocal.some(function(f){
-      if((f.colaboradorNome||'').trim().toLowerCase()!==colabNomeLower)return false;
-      if((f.dataHora||f.criadoEm||'').slice(0,10)!==regDia)return false;
-      if((f.posto||'').trim().toLowerCase()!==regPosto)return false;
-      return true; // mesma pessoa, mesmo posto, mesmo dia — é duplicata
+    var jaLocal=ftS.ftsLocal.some(function(f){
+      return (f.colaboradorNome||'').trim().toLowerCase()===colabNomeLower
+          && (f.dataHora||f.criadoEm||'').slice(0,10)===regDia;
     });
-    // Dedup 2b: também checa no Firebase remotas (cross-device)
-    if(!jaGeradaRecente){
-      jaGeradaRecente=ftS.ftFirestore.some(function(f){
-        if((f.colaboradorNome||f.substituto||'').trim().toLowerCase()!==colabNomeLower)return false;
-        if((f.dataHora||f.criadoEm||'').slice(0,10)!==regDia)return false;
-        if((f.posto||'').trim().toLowerCase()!==regPosto)return false;
-        return true;
+    if(jaLocal){console.warn('[FT] Dedup2: FT local já existe para',reg.colaboradorNome,'em',regDia);return;}
+    var jaFirebase=ftS.ftFirestore.some(function(f){
+      return (f.colaboradorNome||f.substituto||'').trim().toLowerCase()===colabNomeLower
+          && (f.dataHora||f.criadoEm||'').slice(0,10)===regDia;
+    });
+    if(jaFirebase){console.warn('[FT] Dedup2: FT Firebase já existe para',reg.colaboradorNome,'em',regDia);return;}
+
+    // ── Dedup 3: LOCK ATÔMICO no Firebase por pontoId ─────────────────────
+    // Usa ft_locks/{pontoId} como mutex — só o primeiro dispositivo que gravar cria a FT.
+    // Se Firebase não está disponível, prossegue localmente (modo offline).
+    if(window._firebaseReady&&window._db){
+      var lockRef=window._fbRef(window._db,'ft_locks/'+reg.id);
+      window._fbGet(lockRef).then(function(snap){
+        if(snap.exists()){
+          // Outro dispositivo já criou a FT para este pontoId
+          console.warn('[FT] Dedup3: lock já existe para pontoId',reg.id,'— ignorando.');
+          return;
+        }
+        // Grava o lock ANTES de criar a FT — reserva o "direito" de criá-la
+        return window._fbSet(lockRef,{criadoEm:new Date().toISOString(),colabNome:reg.colaboradorNome})
+          .then(function(){
+            _criarFT();
+            // Expira o lock após 10 minutos (limpeza automática via setTimeout)
+            setTimeout(function(){
+              window._fbRemove(lockRef).catch(function(){});
+            }, 10*60*1000);
+          });
+      }).catch(function(e){
+        // Falha no Firebase — gera localmente para não perder o lançamento
+        console.warn('[FT] Dedup3: erro ao verificar lock, gerando localmente:',e);
+        _criarFT();
       });
+    } else {
+      // Offline — gera localmente
+      _criarFT();
     }
-    if(jaGeradaRecente){console.warn('[FT] Dedup: FT já existe para '+reg.colaboradorNome+' / '+reg.posto+' no dia '+regDia+'. Ignorando.');return;}
+  }
+
+  function _criarFT(){
+    // Última verificação de memória (race condition local entre chamadas rápidas)
+    if(ftS.ftsLocal.some(function(f){return f.pontoId===reg.id;})){return;}
     var r=ftBuscarPadrao(reg),pad=r.padrao,turno=r.turnoDetectado;
     var ft={id:ftUid(),pontoId:reg.id,colaboradorId:reg.colaboradorId||'',colaboradorNome:reg.colaboradorNome||'',
       posto:(pad&&pad.posto)||reg.posto||'',horario:(pad&&pad.horario)||(turno?turno.t:''),
@@ -4565,18 +4785,17 @@ window.ftGerarDePonto=function(reg){
     ftS.ftsLocal.unshift(ft);ftSalvarLocal();ftRenderLista();ftUpdateStats();
     var ok=ft.posto&&ft.horario&&ft.motivo&&ft.valor;
     ftToast(ft.confianca>=80&&ok?'🤖 FT gerada: '+ft.colaboradorNome:'📋 FT pendente: '+ft.colaboradorNome,ft.confianca>=80&&ok?'success':'warn');
-    // Persiste FT pendente no Firebase para que outros dispositivos vejam em tempo real
+    // Persiste FT pendente no Firebase
     if(window._firebaseReady&&window._db){
       window._fbSet(window._fbRef(window._db,'ft_registros/'+ft.id),ft)
         .catch(function(e){console.warn('[FT] Erro ao salvar pendente no Firebase:',e);});
     }
   }
 
-  // Se Firebase já carregou e recebeu o primeiro snapshot, gera imediatamente (dedup seguro)
-  if(ftS.dbFT&&ftS.ftSyncInicial){
+  // Aguarda Firebase estar pronto para garantir dedup correto
+  if(ftS.dbFT){
     _gerar();
   } else {
-    // Firebase ainda não conectou — aguarda até 4s para garantir dedup correto
     var tentativas=0;
     var _intervalo=setInterval(function(){
       tentativas++;
@@ -4643,7 +4862,6 @@ function ftEnviarParaFirestore(ftId){
     autoNome:!!ft.autoNome,autoPosto:!!ft.autoPosto,
     autoHorario:!!ft.autoHorario,autoMotivo:!!ft.autoMotivo,autoValor:!!ft.autoValor,
     validadoPor:origemValidacao,validadoEm:agora,
-    colaboradorNome:ft.colaboradorNome||'',pontoId:ft.pontoId||'',
     _origem:'ponto-automatico',_pontoId:ft.pontoId||ft.id
   };
 
@@ -4809,7 +5027,6 @@ window.ftRenderLista=function(){
       +'<div class="ft-card-btns" style="margin-top:8px">'+btns+'</div>'
       +quickEdit+'</div>';
   }).join('');
-  ftUpdateStats();
 };
 
 window.renderFTValidadas=function(){
@@ -4992,7 +5209,7 @@ function ftvExportarPDF(){
         +'<td style="padding:9px 10px;color:#1e40af;font-weight:600">'+dtFmt+'</td>'
         +'<td style="padding:9px 10px">'+esc(ft.posto||'—')+'</td>'
         +'<td style="padding:9px 10px;color:#d97706">'+esc(ft.motivo||'—')+'</td>'
-        +'<td style="padding:9px 10px;color:#dc2626;font-size:11px">'+esc(ausente)+'</td>'
+        +'<td style="padding:9px 10px;color:#e8273f;font-size:11px">'+esc(ausente)+'</td>'
         +'<td style="padding:9px 10px;text-align:right;font-weight:700;color:#15803d">'+valorFmt+'</td>'
         +'</tr>';
     }).join('');
@@ -5082,7 +5299,7 @@ function ftvExportarPDF(){
   }
 
   var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">'
-    +'<title>Relatório de Lançamentos — Grupo M.S — '+dataHoje+'</title>'
+    +'<title>Relatório de Lançamentos — PJ Tecnologia — '+dataHoje+'</title>'
     +'<style>'
     +'*{box-sizing:border-box;margin:0;padding:0}'
     +'body{font-family:"Segoe UI",Arial,sans-serif;background:#f1f5f9;color:#1e293b;padding:28px 32px;font-size:13px}'
@@ -5188,31 +5405,15 @@ function ftvExportarExcel(){
   var url  = URL.createObjectURL(blob);
   var a    = document.createElement('a');
   var dataHoje = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
-  a.href = url; a.download = 'FTs_Validadas_GrupoMS_'+dataHoje+'.csv';
+  a.href = url; a.download = 'FTs_Validadas_PJTec_'+dataHoje+'.csv';
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   ftToast('✅ Excel exportado com '+lf.length+' registros!','success');
 }
 function ftUpdateStats(){
-  var fDtIni=(document.getElementById('ft-filter-data-ini')||{}).value||'';
-  var fDtFim=(document.getElementById('ft-filter-data-fim')||{}).value||'';
-  var p=ftS.ftsLocal.filter(function(f){
-    if(f.status!=='pendente')return false;
-    var d=ftDataDoRegistro(f);
-    if(!ftDentroPeriodoFT(d))return false;
-    if(fDtIni&&d<fDtIni)return false;
-    if(fDtFim&&d>fDtFim)return false;
-    return true;
-  }).length;
-  var e=ftS.ftsLocal.filter(function(f){
-    if(f.status!=='enviada')return false;
-    var d=ftDataDoRegistro(f);
-    if(!ftDentroPeriodoFT(d))return false;
-    if(fDtIni&&d<fDtIni)return false;
-    if(fDtFim&&d>fDtFim)return false;
-    return true;
-  }).length;
+  var p=ftS.ftsLocal.filter(function(f){return f.status==='pendente'&&ftFTDentroPeriodo(f);}).length;
+  var e=ftS.ftsLocal.filter(function(f){return f.status==='enviada'&&ftFTDentroPeriodo(f);}).length;
   var el1=document.getElementById('ft-stat-pendentes'),el2=document.getElementById('ft-stat-enviadas'),el3=document.getElementById('ft-stat-padroes');
   if(el1)el1.textContent=p;if(el2)el2.textContent=e;if(el3)el3.textContent=ftS.padroes.length;
 }
@@ -5243,7 +5444,7 @@ window.ftModalAbrir=function(ftId){
 };
 window.ftModalFechar=function(){document.getElementById('ft-modal-overlay').style.display='none';};
 
-// Preenche select de colaboradores ausentes (Atestado / Suspensão)
+// Preenche select de colaboradores ausentes (Atestado / Suspensão / Cobertura de Férias / Afastamento)
 function ftPopularColabAusente(selId, valorAtual){
   var sel=document.getElementById(selId);
   var ativos=(typeof colaboradores!=='undefined'?colaboradores:[]).filter(function(c){return c.ativo!==false;});
@@ -5252,7 +5453,7 @@ function ftPopularColabAusente(selId, valorAtual){
   }).join('');
 }
 function ftMotivoPrecisaColab(motivo){
-  return motivo==='Atestado'||motivo==='Suspensão';
+  return motivo==='Atestado'||motivo==='Suspensão'||motivo==='Cobertura de Férias'||motivo==='Afastamento';
 }
 window.ftModalMotivoChange=function(){
   var motivo=document.getElementById('ft-modal-motivo').value;
@@ -5536,7 +5737,7 @@ window.ftExportarPDF=function(){
   }).join('');
 
   var html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/>'
-    +'<title>FT Automática — Grupo M.S</title>'
+    +'<title>FT Automática — PJ Tecnologia</title>'
     +'<style>'
     +'*{box-sizing:border-box;margin:0;padding:0}'
     +'body{font-family:Arial,sans-serif;color:#111;padding:28px 32px;font-size:13px}'
@@ -5551,14 +5752,14 @@ window.ftExportarPDF=function(){
     +'@media print{body{padding:0 16px}}'
     +'</style></head><body>'
     +'<div class="topo"><div>'
-    +'<h1>Grupo M.S — Folha de Trabalho (FT)</h1>'
+    +'<h1>PJ Tecnologia — Folha de Trabalho (FT)</h1>'
     +(subtitulo.length?'<p>'+subtitulo.join(' &nbsp;·&nbsp; ')+'</p>':'')
     +'<p>'+lista.length+' registro(s)</p>'
     +'</div><div class="meta">Gerado em:<br>'+agora+'</div></div>'
     +'<table><thead><tr>'
     +'<th>Data / Hora</th><th>Colaborador</th><th>Posto</th><th>Horário</th><th>Motivo</th><th>Valor</th><th>Observação</th><th>Status</th><th style="width:160px">Assinatura</th>'
     +'</tr></thead><tbody>'+linhasHTML+'</tbody></table>'
-    +'<div class="rodape">Grupo M.S Segurança e Serviços &nbsp;·&nbsp; FT Automática &nbsp;·&nbsp; '+agora+'</div>'
+    +'<div class="rodape">PJ Tecnologia e Sistemas &nbsp;·&nbsp; FT Automática &nbsp;·&nbsp; '+agora+'</div>'
     +'</body></html>';
 
   var win=window.open('','_blank');
@@ -5940,7 +6141,7 @@ function exportarCredenciais() {
     </div>` : '';
 
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
-  <title>Credenciais — Grupo M.S — ${dataHoje}</title>
+  <title>Credenciais — PJ Tecnologia — ${dataHoje}</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background:#f8fafc; margin:0; padding:32px; color:#1e293b; }
     h1 { font-size:22px; margin:0 0 4px; } h2 { font-size:14px; font-weight:400; color:#64748b; margin:0 0 24px; }
@@ -5949,7 +6150,7 @@ function exportarCredenciais() {
     @media print { body{padding:16px} button{display:none!important} }
   </style></head><body>
   <div class="header">
-    <div><h1>🔐 Credenciais de Acesso</h1><h2>Grupo M.S · Gerado em ${dataHoje}</h2></div>
+    <div><h1>🔐 Credenciais de Acesso</h1><h2>PJ Tecnologia · Gerado em ${dataHoje}</h2></div>
     <div class="badge">${comAcesso.length} colaboradores</div>
   </div>
   <button onclick="window.print()" style="margin-bottom:20px;padding:10px 24px;background:#0f172a;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer">🖨️ Imprimir / Salvar PDF</button>
@@ -5963,7 +6164,7 @@ function exportarCredenciais() {
   window.open(url, '_blank');
 
   // Também copia texto simples para área de transferência
-  const texto = ['=== CREDENCIAIS DE ACESSO — GRUPO M.S ===', `Gerado em: ${dataHoje}`, `Link: ${linkSistema}`, '',
+  const texto = ['=== CREDENCIAIS DE ACESSO — PJ TECNOLOGIA ===', `Gerado em: ${dataHoje}`, `Link: ${linkSistema}`, '',
     ...comAcesso.map(l => `${l.nome}\n  Usuário: ${l.login}\n  Senha:   ${l.senha}`),
     semAcesso.length ? `\nSem acesso: ${semAcesso.map(l=>l.nome).join(', ')}` : ''
   ].join('\n');
@@ -6020,7 +6221,7 @@ function exportarCadastrosPDF() {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Cadastro de Colaboradores — Grupo M.S — ${dataHoje}</title>
+  <title>Cadastro de Colaboradores — PJ Tecnologia — ${dataHoje}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #f1f5f9; color: #1e293b; padding: 28px; font-size: 13px; }
@@ -6056,7 +6257,7 @@ function exportarCadastrosPDF() {
   <div class="page-header">
     <div>
       <h1>👥 Cadastro de Colaboradores</h1>
-      <h2>Grupo M.S &nbsp;·&nbsp; Gerado em ${dataHoje}</h2>
+      <h2>PJ Tecnologia e Sistemas &nbsp;·&nbsp; Gerado em ${dataHoje}</h2>
     </div>
     <div class="totais">
       <strong>${total}</strong> ativos<br>
@@ -6067,7 +6268,7 @@ function exportarCadastrosPDF() {
   <div class="cards-grid">
     ${cards}
   </div>
-  <div class="footer">Grupo M.S — Sistema de Ponto · ${dataHoje} · Total: ${total + inativos} colaboradores</div>
+  <div class="footer">PJ Tecnologia — Sistema de Ponto · ${dataHoje} · Total: ${total + inativos} colaboradores</div>
 </body>
 </html>`;
 
@@ -6181,7 +6382,7 @@ function salvarColaborador() {
   const login       = (document.getElementById('f-colab-login').value || '').trim().toLowerCase();
   const senha       = (document.getElementById('f-colab-senha').value || '').trim();
   const role        = document.getElementById('f-colab-role').value || 'colaborador';
-  if (!nome || !posto) return;
+  if (!nome) return;
 
   if (editId) {
     const colabAtualizado = { ...colaboradores.find(c => c.id === editId), nome, posto, rg, cpf, telefone, email, dataNasc, estadoCivil, endereco };
@@ -6431,38 +6632,67 @@ function excluirPosto(id) {
   renderPostos();
 }
 
+function toggleListaPostos() {
+  const wrap = document.getElementById('postos-lista-wrap');
+  const chevron = document.getElementById('postos-chevron');
+  const btn = document.getElementById('btn-toggle-postos');
+  const aberto = wrap.style.maxHeight !== '0px' && wrap.style.maxHeight !== '';
+  if (aberto) {
+    wrap.style.maxHeight = '0px';
+    chevron.style.transform = 'rotate(0deg)';
+    btn.style.borderColor = 'var(--border)';
+    btn.style.borderRadius = '12px';
+  } else {
+    wrap.style.maxHeight = wrap.scrollHeight + 2000 + 'px'; // 2000px extra p/ conteúdo dinâmico
+    chevron.style.transform = 'rotate(180deg)';
+    btn.style.borderColor = 'var(--accent2)';
+    btn.style.borderBottomLeftRadius = '0';
+    btn.style.borderBottomRightRadius = '0';
+    renderPostos();
+  }
+}
+
 function renderPostos() {
   const busca = (document.getElementById('f-busca-posto')?.value || '').toLowerCase();
   const lista = postos.filter(p => p.nome.toLowerCase().includes(busca))
     .sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'));
+
+  // Atualiza badge com total de postos cadastrados
+  const badge = document.getElementById('postos-badge');
+  if (badge) badge.textContent = postos.length;
 
   const container = document.getElementById('postos-admin-list');
   if (!container) return;
 
   if (!lista.length) {
     container.innerHTML = '<p style="color:var(--muted);text-align:center;padding:32px">Nenhum posto encontrado</p>';
-    return;
+  } else {
+    container.innerHTML = lista.map(p => {
+      const emUso = colaboradores.filter(c => c.ativo && c.posto === p.nome).length;
+      return `
+      <div class="colab-admin-item">
+        <div class="avatar" style="background:linear-gradient(135deg,var(--accent2),var(--accent));font-size:20px">📍</div>
+        <div class="colab-admin-info">
+          <div class="colab-name">${esc(p.nome)}</div>
+          <div class="colab-posto" style="margin-top:4px">
+            ${emUso > 0
+              ? `<span style="color:var(--green);font-family:var(--font-mono);font-size:12px">● ${emUso} colaborador(es) ativo(s)</span>`
+              : `<span style="color:var(--muted2);font-family:var(--font-mono);font-size:12px">○ Nenhum colaborador ativo</span>`}
+          </div>
+        </div>
+        <div class="colab-admin-actions">
+          <button class="btn-edit" onclick="editarPosto('${p.id}')">✏️ Editar</button>
+          <button class="btn-del" onclick="excluirPosto('${p.id}')">🗑️</button>
+        </div>
+      </div>`;
+    }).join('');
   }
 
-  container.innerHTML = lista.map(p => {
-    const emUso = colaboradores.filter(c => c.ativo && c.posto === p.nome).length;
-    return `
-    <div class="colab-admin-item">
-      <div class="avatar" style="background:linear-gradient(135deg,var(--accent2),var(--accent));font-size:20px">📍</div>
-      <div class="colab-admin-info">
-        <div class="colab-name">${esc(p.nome)}</div>
-        <div class="colab-posto" style="margin-top:4px">
-          ${emUso > 0
-            ? `<span style="color:var(--green);font-family:var(--font-mono);font-size:12px">● ${emUso} colaborador(es) ativo(s)</span>`
-            : `<span style="color:var(--muted2);font-family:var(--font-mono);font-size:12px">○ Nenhum colaborador ativo</span>`}
-        </div>
-      </div>
-      <div class="colab-admin-actions">
-        <button class="btn-edit" onclick="editarPosto('${p.id}')">✏️ Editar</button>
-        <button class="btn-del" onclick="excluirPosto('${p.id}')">🗑️</button>
-      </div>
-    </div>`;
-  }).join('');
+  // Reajusta altura se a lista já estiver aberta
+  const wrap = document.getElementById('postos-lista-wrap');
+  if (wrap && wrap.style.maxHeight !== '0px' && wrap.style.maxHeight !== '') {
+    wrap.style.maxHeight = 'none';
+  }
 }
 
 // ─── SUB-ABAS COLABORADORES ──────────────────────────────────────────────────
@@ -6508,30 +6738,86 @@ function renderRelatorio() {
   document.getElementById('rel-count').textContent = `${lista.length} colaborador(es) encontrado(s)`;
 
   const tbody = document.getElementById('rel-tbody');
+  const cardsElEmpty = document.getElementById('rel-cards');
   if (!lista.length) {
     tbody.innerHTML = '<tr class="empty-row"><td colspan="11">Nenhum colaborador encontrado</td></tr>';
+    cardsElEmpty.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:14px">🔍 Nenhum colaborador encontrado</div>';
     return;
   }
 
+  // Tabela oculta — usada por exportarPDF / exportarExcel
   tbody.innerHTML = lista.map((c, i) => `
     <tr>
-      <td class="td-data">${i + 1}</td>
-      <td class="td-nome">${esc(c.nome)}</td>
-      <td class="td-posto">${esc(c.posto)}</td>
-      <td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">${esc(c.rg || '—')}</td>
-      <td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">${esc(c.cpf || '—')}</td>
-      <td style="font-size:13px;color:var(--muted)">${esc(c.dataNasc ? fmtDataNasc(c.dataNasc) : '—')}</td>
-      <td style="font-size:13px;color:var(--muted)">${esc(c.estadoCivil || '—')}</td>
-      <td style="font-size:13px;color:var(--muted)">${esc(c.telefone || '—')}</td>
-      <td style="font-size:13px;color:var(--muted)">${esc(c.email || '—')}</td>
-      <td style="font-size:12px;color:var(--muted);max-width:200px">${esc(fmtEndereco(c.endereco) || '—')}</td>
-      <td>
-        <span class="tipo-tag ${c.ativo ? 'tipo-entrada' : 'tipo-saida'}">
-          ${c.ativo ? '✅ ATIVO' : '⛔ INATIVO'}
-        </span>
-      </td>
+      <td>${i + 1}</td>
+      <td>${esc(c.nome)}</td>
+      <td>${esc(c.posto)}</td>
+      <td>${esc(c.rg || '—')}</td>
+      <td>${esc(c.cpf || '—')}</td>
+      <td>${esc(c.dataNasc ? fmtDataNasc(c.dataNasc) : '—')}</td>
+      <td>${esc(c.estadoCivil || '—')}</td>
+      <td>${esc(c.telefone || '—')}</td>
+      <td>${esc(c.email || '—')}</td>
+      <td>${esc(fmtEndereco(c.endereco) || '—')}</td>
+      <td>${c.ativo ? 'ATIVO' : 'INATIVO'}</td>
     </tr>
   `).join('');
+
+  // Cards visuais — layout adaptado para mobile
+  const cardsEl = document.getElementById('rel-cards');
+  cardsEl.innerHTML = lista.map((c, i) => {
+    const statusCls = c.ativo ? 'tipo-entrada' : 'tipo-saida';
+    const statusTxt = c.ativo ? '✅ ATIVO' : '⛔ INATIVO';
+    const borderClr = c.ativo ? 'var(--green)' : 'var(--red)';
+    const ini = c.nome.trim().charAt(0).toUpperCase();
+    return `
+    <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${borderClr};
+      border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+      <!-- Cabeçalho do card -->
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:42px;height:42px;border-radius:10px;background:var(--surface2);
+          display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;
+          color:var(--accent);flex-shrink:0;font-family:var(--font-head)">${ini}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:15px;color:var(--text);white-space:nowrap;
+            overflow:hidden;text-overflow:ellipsis">${esc(c.nome)}</div>
+          <div style="font-size:12px;color:var(--accent2);margin-top:2px">📍 ${esc(c.posto || '—')}</div>
+        </div>
+        <span class="tipo-tag ${statusCls}" style="flex-shrink:0;font-size:11px;padding:4px 10px">${statusTxt}</span>
+      </div>
+      <!-- Grade de dados -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px">
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono)">RG</span>
+          <span style="font-size:13px;color:var(--text);font-family:var(--font-mono)">${esc(c.rg || '—')}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono)">CPF</span>
+          <span style="font-size:13px;color:var(--text);font-family:var(--font-mono)">${esc(c.cpf || '—')}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono)">Nascimento</span>
+          <span style="font-size:13px;color:var(--text)">${esc(c.dataNasc ? fmtDataNasc(c.dataNasc) : '—')}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono)">Est. Civil</span>
+          <span style="font-size:13px;color:var(--text)">${esc(c.estadoCivil || '—')}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono)">Telefone</span>
+          <span style="font-size:13px;color:var(--text)">${esc(c.telefone || '—')}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono)">E-mail</span>
+          <span style="font-size:13px;color:var(--text);word-break:break-all">${esc(c.email || '—')}</span>
+        </div>
+      </div>
+      ${fmtEndereco(c.endereco) ? `
+      <div style="border-top:1px solid var(--border2);padding-top:8px">
+        <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:var(--font-mono)">Endereço</span>
+        <div style="font-size:13px;color:var(--text);margin-top:2px;line-height:1.4">${esc(fmtEndereco(c.endereco))}</div>
+      </div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 // ─── EXPORTAR PDF ─────────────────────────────────────────────────────────────
@@ -6572,7 +6858,7 @@ function exportarPDF() {
 
   const html = `<!DOCTYPE html><html lang="pt-BR"><head>
     <meta charset="UTF-8"/>
-    <title>Relatório de Colaboradores — Grupo M.S</title>
+    <title>Relatório de Colaboradores — PJ Tecnologia</title>
     <style>
       body { font-family: Arial, sans-serif; color: #111; margin: 0; padding: 24px; }
       .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; border-bottom:2px solid #0ea5e9; padding-bottom:16px; }
@@ -6594,8 +6880,8 @@ function exportarPDF() {
   </head><body>
     <div class="header">
       <div class="logo-area">
-        <h1>🛡️ GRUPO M.S</h1>
-        <p>Segurança e Serviços · Ponto Eletrônico</p>
+        <h1>💻 PJ TECNOLOGIA</h1>
+        <p>Soluções em Sistemas · Marca Registrada ®</p>
         <p style="margin-top:8px;font-size:13px;color:#111;font-weight:700">Relatório de Colaboradores</p>
       </div>
       <div class="meta">
@@ -6606,7 +6892,7 @@ function exportarPDF() {
     <div class="stats">
       <div class="stat"><div class="stat-num">${lista.length}</div><div class="stat-label">Total</div></div>
       <div class="stat"><div class="stat-num" style="color:#16a34a">${ativos}</div><div class="stat-label">Ativos</div></div>
-      <div class="stat"><div class="stat-num" style="color:#dc2626">${inativos}</div><div class="stat-label">Inativos</div></div>
+      <div class="stat"><div class="stat-num" style="color:#e8273f">${inativos}</div><div class="stat-label">Inativos</div></div>
     </div>
     <table>
       <thead>
@@ -6616,7 +6902,7 @@ function exportarPDF() {
       </thead>
       <tbody>${linhas}</tbody>
     </table>
-    <div class="footer">Grupo M.S Segurança e Serviços · Ponto Eletrônico v7.3 · ${agora}</div>
+    <div class="footer">PJ Tecnologia e Sistemas · Soluções em Sistemas · Marca Registrada ® · ${agora}</div>
   </body></html>`;
 
   const win = window.open('', '_blank');
@@ -6963,6 +7249,14 @@ function copiarConfig(btn) {
     usuarios = [{ id: uid(), login: 'admin', senha: 'admin123', nome: 'Administrador', role: 'admin' }];
     localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
   }
+  // Garante que o admin padrão sempre existe na lista local
+  // (pode ter sumido se o Firebase sobrescreveu o localStorage sem ele)
+  if (!usuarios.find(u => u.login === 'admin')) {
+    const adminDefault = { id: 'admin-default', login: 'admin', senha: 'admin123', nome: 'Administrador', role: 'admin' };
+    usuarios.push(adminDefault);
+    localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+    console.warn('[Init] Admin restaurado no localStorage');
+  }
 })();
 
 // ─── PRIMEIRO ACESSO ──────────────────────────────────────────────────────────
@@ -7211,11 +7505,6 @@ async function finalizarCadastro() {
   el.classList.remove('show');
 
   const posto = document.getElementById('pa-posto').value.trim();
-  if (!posto) {
-    paShowError('Informe seu posto ou função.');
-    document.getElementById('pa-posto').classList.add('error');
-    return;
-  }
   document.getElementById('pa-posto').classList.remove('error');
 
   // Coletar todos os dados
@@ -7234,13 +7523,16 @@ async function finalizarCadastro() {
   const uf      = document.getElementById('pa-uf').value;
 
   // Gerar login: primeiro nome + primeiros 3 dígitos do CPF
+  // Usa \u0300-\u036f (unicode escape) para remover acentos — seguro em Android/iOS
   const primeiroNome = nome.split(' ')[0].toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
   const cpfSomenteDigitos = cpf.replace(/\D/g,'');
   const loginGerado = primeiroNome + cpfSomenteDigitos.slice(0, 3);
 
   // Gerar senha: 4 primeiros dígitos do CPF
   const senhaGerada = cpfSomenteDigitos.slice(0, 4);
+
+  console.log('[PrimeiroAcesso] Login gerado:', loginGerado, '| Senha:', senhaGerada);
 
   const idColab = uid();
   const idUser  = uid();
@@ -7276,11 +7568,44 @@ async function finalizarCadastro() {
     primeiroAcesso: true
   };
 
-  // Salvar individualmente — nunca sobrescreve outros cadastros
+  // Salvar individualmente — aguarda Firebase se necessário
   colaboradores.push(novoColab);
   usuarios.push(novoUser);
-  saveUmColab(novoColab);
-  saveUmUsuario(novoUser);
+
+  // Salva no localStorage imediatamente (garante offline)
+  localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+  localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+
+  // Salva no Firebase — se ainda não estiver pronto, aguarda até 8s
+  function salvarNoFirebase() {
+    if (window._firebaseReady && window._db) {
+      // Salva colaborador e usuário individualmente no Firebase
+      window._fbSet(window._fbRef(window._db, 'colaboradores/' + novoColab.id), novoColab)
+        .then(() => console.log('[PrimeiroAcesso] Colaborador salvo no Firebase:', novoColab.nome))
+        .catch(e => console.warn('[PrimeiroAcesso] Erro ao salvar colaborador:', e.message));
+      window._fbSet(window._fbRef(window._db, 'usuarios/' + novoUser.id), novoUser)
+        .then(() => console.log('[PrimeiroAcesso] Usuário salvo no Firebase:', novoUser.login))
+        .catch(e => console.warn('[PrimeiroAcesso] Erro ao salvar usuário:', e.message));
+    } else {
+      // Firebase ainda não pronto — agenda para quando estiver
+      console.warn('[PrimeiroAcesso] Firebase não pronto — agendando salvamento...');
+      let tentativas = 0;
+      const retry = setInterval(() => {
+        tentativas++;
+        if (window._firebaseReady && window._db) {
+          clearInterval(retry);
+          window._fbSet(window._fbRef(window._db, 'colaboradores/' + novoColab.id), novoColab)
+            .catch(e => console.warn('[PrimeiroAcesso] Retry colab:', e.message));
+          window._fbSet(window._fbRef(window._db, 'usuarios/' + novoUser.id), novoUser)
+            .catch(e => console.warn('[PrimeiroAcesso] Retry user:', e.message));
+        } else if (tentativas >= 16) { // 8s
+          clearInterval(retry);
+          console.warn('[PrimeiroAcesso] Firebase indisponível — dados apenas no localStorage');
+        }
+      }, 500);
+    }
+  }
+  salvarNoFirebase();
 
   // Guardar para entrar automaticamente
   paNovoCadastro = novoUser;
@@ -7298,6 +7623,16 @@ function entrarComNovoCadastro() {
   document.getElementById('primeiro-acesso-screen').style.display = 'none';
   currentUser = paNovoCadastro;
   sessionStorage.setItem('ms_session', JSON.stringify(paNovoCadastro));
+  // Garante que o colaboradorId está corretamente definido na sessão
+  // (precisa para que loadData filtre o histórico corretamente)
+  if (!currentUser.colaboradorId) {
+    // Tenta encontrar o colaborador recém-criado em memória
+    const colab = colaboradores.find(c => c.nome === paNovoCadastro.nome);
+    if (colab) {
+      currentUser = { ...currentUser, colaboradorId: colab.id };
+      sessionStorage.setItem('ms_session', JSON.stringify(currentUser));
+    }
+  }
   entrarSistema(paNovoCadastro);
 }
 
@@ -7602,7 +7937,7 @@ async function sincronizarFilaOffline() {
 function mostrarSyncToast(msg, cor) {
   const el = document.getElementById('sync-toast');
   if (!el) return;
-  const cores = { green: '#22c55e', gold: '#f59e0b', red: '#ff4466' };
+  const cores = { green: '#22c55e', gold: '#f59e0b', red: '#e8273f' };
   el.innerHTML = `<span style="color:${cores[cor]||cores.green}">${msg}</span>`;
   el.classList.add('show');
   clearTimeout(el._t);
@@ -7683,18 +8018,37 @@ function atualizarEstadoConexao(online) {
   }
 }
 
-window.addEventListener('online',  () => atualizarEstadoConexao(true));
+// Os eventos 'online'/'offline' do navegador controlam apenas o banner visual.
+// A sincronização real é controlada pelo fbConnectionChange (Firebase .info/connected).
+// Usamos _isOnline aqui somente como fallback rápido para o banner quando o Firebase
+// ainda não notificou — sem chamar loadData() nem sincronizarFilaOffline() aqui,
+// pois o fbConnectionChange já faz isso com mais confiabilidade.
+window.addEventListener('online',  () => {
+  if (!window._fbConectado) {
+    // Firebase ainda não confirmou — mostra banner otimista
+    atualizarEstadoConexao(true);
+  }
+  // Caso real de reconexão sem Firebase ainda pronto: drena fila
+  if (window._firebaseReady && currentUser) {
+    setTimeout(() => { try { sincronizarFilaOffline(); } catch(e){} }, 1500);
+  }
+});
 window.addEventListener('offline', () => atualizarEstadoConexao(false));
 
 // Verificação periódica (a cada 30s) — útil quando o evento nativo falha
 function iniciarVerificacaoConexao() {
   if (_syncInterval) clearInterval(_syncInterval);
   _syncInterval = setInterval(async () => {
+    // 1. Drena fila se houver pendentes e Firebase estiver pronto
     const fila = offlineQueueGet();
-    if (!fila.length) return;
-    // Tenta sincronizar se o Firebase estiver pronto e houver pendentes
-    if (window._firebaseReady && navigator.onLine) {
+    if (fila.length && window._firebaseReady && navigator.onLine) {
       await sincronizarFilaOffline();
+    }
+    // 2. Verifica se os listeners Firebase estão vivos — reativa se morreram
+    // Um listener morto = _fbUnsubs vazio mas Firebase pronto e usuário logado
+    if (window._firebaseReady && currentUser && _fbUnsubs.length === 0) {
+      console.warn('[Ponto] Listeners Firebase mortos detectados — recriando...');
+      loadData();
     }
   }, 30000);
 }
@@ -7787,24 +8141,37 @@ checkSession();
 mostrarSetupSeNecessario();
 
 // ─── AGUARDA FIREBASE ANTES DE CARREGAR DADOS ─────────────────────────────────
-// O script Firebase é type="module" (assíncrono). Esperamos o evento 'firebaseReady'
-// antes de chamar loadData(). Se demorar mais de 5s, usa localStorage como fallback.
 (function aguardarFirebase() {
   let resolvido = false;
 
   function iniciar() {
     if (resolvido) return;
     resolvido = true;
-    // Se o usuário já está logado (sessão restaurada), carrega os dados agora
     if (currentUser) loadData();
   }
 
-  // Ouve o evento que o módulo Firebase dispara ao terminar
+  // Ouve conexão REAL com o servidor (disparado pelo .info/connected)
   window.addEventListener('firebaseReady', iniciar, { once: true });
 
-  // Fallback: se o Firebase demorar mais de 4s, inicia com localStorage
-  setTimeout(iniciar, 4000);
+  // Fallback: se o Firebase demorar mais de 7s, inicia com localStorage
+  setTimeout(iniciar, 7000);
 })();
+
+// ─── SINCRONISMO EM TEMPO REAL ENTRE APARELHOS ────────────────────────────────
+// Quando a conexão com o Firebase muda, atualiza o banner de conexão.
+// NÃO chama loadData() aqui — os listeners onValue já estão vivos e recebem
+// as mudanças automaticamente quando o SDK reconecta ao servidor.
+// Só drena a fila offline ao reconectar.
+window.addEventListener('fbConnectionChange', function(e) {
+  const online = e.detail.online;
+  atualizarEstadoConexao(online);
+  if (online && currentUser && window._firebaseReady) {
+    // Listeners já estão ativos — só drena fila de pontos pendentes offline
+    setTimeout(() => {
+      try { sincronizarFilaOffline(); } catch(err) {}
+    }, 1200);
+  }
+});
 </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v833ccba57c9e4d2798f2e76cebdd09a11778172276447" integrity="sha512-57MDmcccJXYtNnH+ZiBwzC4jb2rvgVCEokYN+L/nLlmO8rfYT/gIpW2A569iJ/3b+0UEasghjuZH/ma3wIs/EQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
