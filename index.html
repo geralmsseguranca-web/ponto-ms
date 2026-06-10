@@ -1561,6 +1561,187 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   .login-title   { font-size: 20px; }
   .kpi-val       { font-size: 24px; }
 }
+
+/* ══════════════════════════════════════════
+   ABA GESTÃO — SUB-TABS
+══════════════════════════════════════════ */
+.gestao-subtabs {
+  display: flex; gap: 0; overflow-x: auto; margin-bottom: 20px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 4px;
+  scrollbar-width: none;
+}
+.gestao-subtabs::-webkit-scrollbar { display: none; }
+.gestao-subtab {
+  background: transparent; border: none; cursor: pointer;
+  padding: 9px 18px; font-family: var(--font-head);
+  font-size: 13px; font-weight: 600; letter-spacing: 0.5px;
+  color: var(--muted); border-radius: 10px;
+  transition: all .2s; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent; min-height: 38px;
+}
+.gestao-subtab:hover { color: var(--text); }
+.gestao-subtab.active {
+  background: #f59e0b18; color: var(--accent);
+  border: 1px solid var(--border);
+  box-shadow: 0 0 12px #f59e0b18;
+}
+
+/* Sub-seção oculta/visível */
+.gestao-section { display: none; }
+.gestao-section.active { display: block; }
+
+/* ══════════════════════════════════════════
+   GESTÃO — CARD NOVO COLABORADOR
+══════════════════════════════════════════ */
+.gc-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.gc-card-titulo {
+  font-family: var(--font-head); font-size: 12px; font-weight: 600;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
+}
+.gc-card-titulo::before {
+  content: ''; display: inline-block; width: 3px; height: 14px;
+  background: var(--accent); border-radius: 2px;
+}
+
+/* Grid de campos */
+.gc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media(max-width: 560px) {
+  .gc-grid { grid-template-columns: 1fr; }
+}
+.gc-full  { grid-column: 1 / -1; }
+.gc-field { display: flex; flex-direction: column; gap: 5px; }
+.gc-label {
+  font-size: 11px; color: var(--accent); font-family: var(--font-mono);
+  letter-spacing: 1.2px; text-transform: uppercase;
+}
+.gc-input {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; color: var(--text); padding: 12px 14px;
+  font-size: 14px; font-family: var(--font-body); outline: none;
+  width: 100%; transition: border-color .2s, box-shadow .2s;
+  -webkit-appearance: none;
+}
+.gc-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #f59e0b18; }
+.gc-input::placeholder { color: var(--muted); }
+.gc-input option { background: var(--surface2); }
+
+/* Seção de acesso (opcional) */
+.gc-acesso-section {
+  margin-top: 6px;
+  border: 1px solid #f59e0b22;
+  border-radius: 14px;
+  padding: 16px;
+  background: #f59e0b06;
+}
+.gc-acesso-titulo {
+  font-size: 11px; color: var(--accent); font-family: var(--font-mono);
+  letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 14px; display: flex; align-items: center; gap: 6px;
+}
+
+/* Ações do card */
+.gc-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 20px; flex-wrap: wrap;
+}
+.gc-btn-cancel {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); border-radius: 10px; padding: 11px 20px;
+  font-size: 13px; font-family: var(--font-head); font-weight: 600;
+  cursor: pointer; transition: all .2s; letter-spacing: 0.3px;
+  -webkit-tap-highlight-color: transparent;
+}
+.gc-btn-cancel:hover { border-color: var(--muted); color: var(--text); }
+.gc-btn-save {
+  background: linear-gradient(135deg, #b45309, #f59e0b);
+  color: #000; border: none; border-radius: 10px;
+  padding: 11px 24px; font-family: var(--font-head); font-size: 14px;
+  font-weight: 700; cursor: pointer; letter-spacing: 0.5px;
+  transition: all .2s; box-shadow: 0 2px 12px #f59e0b33;
+  -webkit-tap-highlight-color: transparent;
+}
+.gc-btn-save:hover { transform: translateY(-1px); box-shadow: 0 4px 20px #f59e0b55; }
+.gc-btn-save:active { transform: scale(.97); }
+.gc-btn-save:disabled { background: var(--surface2); color: var(--muted); box-shadow: none; cursor: not-allowed; transform: none; }
+
+/* Erro de validação */
+.gc-err {
+  font-size: 11px; color: var(--red); font-family: var(--font-mono);
+  min-height: 14px; margin-top: 2px; display: none;
+}
+.gc-err.show { display: block; }
+
+/* ═══ GESTÃO — SEÇÃO POSTOS ═══ */
+.gestao-postos-list { display: grid; gap: 10px; margin-top: 4px; }
+.gestao-posto-item {
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 12px; padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.gestao-posto-nome { flex: 1; font-size: 14px; color: var(--text); font-weight: 600; }
+.gestao-posto-meta { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+.gestao-posto-del {
+  background: none; border: 1px solid #e8273f44; color: var(--red);
+  border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer;
+  transition: all .15s; flex-shrink: 0;
+}
+.gestao-posto-del:hover { background: var(--red-bg); }
+
+/* ═══ GESTÃO — SEÇÃO MOTIVOS ═══ */
+.gestao-motivo-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 6px 14px; font-size: 13px; color: var(--text);
+}
+.gestao-motivo-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.gestao-motivo-del {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 14px; padding: 0 2px; line-height: 1;
+  transition: color .15s;
+}
+.gestao-motivo-del:hover { color: var(--red); }
+
+/* ═══ GESTÃO — SEÇÃO ACESSOS ═══ */
+.gestao-acesso-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px; margin-top: 4px;
+}
+.gestao-acesso-card {
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 14px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.gestao-acesso-nome { font-size: 14px; font-weight: 700; color: var(--text); }
+.gestao-acesso-login {
+  font-size: 12px; color: var(--accent); font-family: var(--font-mono);
+}
+.gestao-acesso-role {
+  font-size: 11px; padding: 2px 8px; border-radius: 5px; width: fit-content;
+  font-family: var(--font-mono); font-weight: 600;
+}
+.gestao-acesso-role.admin { background: #f59e0b18; color: var(--accent); border: 1px solid #f59e0b33; }
+.gestao-acesso-role.usuario { background: #38bdf818; color: #38bdf8; border: 1px solid #38bdf833; }
+
+/* ═══ GESTÃO — RELATÓRIO ═══ */
+.gestao-rel-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px; margin-bottom: 20px;
+}
+@media(max-width:500px) { .gestao-rel-kpi-grid { grid-template-columns: 1fr 1fr; } }
 </style>
 </head>
 <body>
@@ -1679,6 +1860,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
       <button class="tab-btn"           id="tab-btn-colaboradores"  onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft"             onclick="showTab('ft-auto',this)"        style="display:none">📋 FT Automática</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft-validadas"   onclick="showTab('ft-validadas',this)"   style="display:none">✅ FTs Validadas</button>
+      <button class="tab-btn admin-tab" id="tab-btn-gestao"         onclick="showTab('gestao',this)"         style="display:none">⚙️ Gestão</button>
     </nav>
   </div>
 </header>
@@ -2272,6 +2454,235 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     </div>
   </div>
 
+  <!-- ─────────────────────────────────────────────────────────────
+       ABA: GESTÃO
+  ───────────────────────────────────────────────────────────────── -->
+  <section id="tab-gestao" class="tab-content">
+
+    <!-- SUB-TABS -->
+    <div class="gestao-subtabs" role="tablist">
+      <button class="gestao-subtab active" onclick="gestaoShowSub('cadastro',this)">📋 Cadastro</button>
+      <button class="gestao-subtab"        onclick="gestaoShowSub('postos',this)">📍 Postos</button>
+      <button class="gestao-subtab"        onclick="gestaoShowSub('motivos',this)">📝 Motivos</button>
+      <button class="gestao-subtab"        onclick="gestaoShowSub('acessos',this)">🔑 Acessos</button>
+      <button class="gestao-subtab"        onclick="gestaoShowSub('relatorio',this)">📊 Relatório</button>
+    </div>
+
+    <!-- ─── SUB: CADASTRO ─── -->
+    <div class="gestao-section active" id="gestao-cadastro">
+
+      <div class="gc-card">
+        <div class="gc-card-titulo">NOVO COLABORADOR</div>
+
+        <div class="gc-grid">
+
+          <!-- Nome completo — linha inteira -->
+          <div class="gc-field gc-full">
+            <label class="gc-label">👤 Nome completo <span style="color:var(--red)">*</span></label>
+            <input id="gc-nome" class="gc-input" type="text"
+                   placeholder="Nome completo do colaborador"
+                   oninput="gcAtualizarPreview()" autocomplete="off"/>
+            <span class="gc-err" id="gc-nome-err">Campo obrigatório</span>
+          </div>
+
+          <!-- Posto de serviço -->
+          <div class="gc-field gc-full">
+            <label class="gc-label">📍 Posto de serviço</label>
+            <select id="gc-posto" class="gc-input">
+              <option value="">Posto de serviço...</option>
+            </select>
+          </div>
+
+          <!-- RG -->
+          <div class="gc-field">
+            <label class="gc-label">🪪 RG</label>
+            <input id="gc-rg" class="gc-input" type="text"
+                   placeholder="RG (ex: 12.345.678-9)" autocomplete="off"/>
+          </div>
+
+          <!-- CPF -->
+          <div class="gc-field">
+            <label class="gc-label">📄 CPF</label>
+            <input id="gc-cpf" class="gc-input" type="text"
+                   placeholder="CPF (ex: 000.000.000-00)"
+                   oninput="gcMascaraCPF(this)" autocomplete="off"/>
+          </div>
+
+          <!-- Telefone -->
+          <div class="gc-field">
+            <label class="gc-label">📱 Telefone</label>
+            <input id="gc-tel" class="gc-input" type="tel"
+                   placeholder="Telefone (ex: (11) 99999-9999)"
+                   oninput="gcMascaraTel(this)" autocomplete="off"/>
+          </div>
+
+          <!-- E-mail -->
+          <div class="gc-field">
+            <label class="gc-label">✉️ E-mail</label>
+            <input id="gc-email" class="gc-input" type="email"
+                   placeholder="E-mail" autocomplete="off"/>
+          </div>
+
+          <!-- Função / Cargo -->
+          <div class="gc-field">
+            <label class="gc-label">💼 Função / Cargo</label>
+            <select id="gc-funcao" class="gc-input">
+              <option value="">Selecione a função...</option>
+              <option value="Vigilante">Vigilante</option>
+              <option value="Supervisor">Supervisor</option>
+              <option value="Porteiro">Porteiro</option>
+              <option value="Recepcionista">Recepcionista</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+
+          <!-- Estado civil -->
+          <div class="gc-field">
+            <label class="gc-label">💍 Estado civil</label>
+            <select id="gc-estado-civil" class="gc-input">
+              <option value="">Estado civil...</option>
+              <option value="Solteiro(a)">Solteiro(a)</option>
+              <option value="Casado(a)">Casado(a)</option>
+              <option value="Divorciado(a)">Divorciado(a)</option>
+              <option value="Viúvo(a)">Viúvo(a)</option>
+              <option value="União Estável">União Estável</option>
+            </select>
+          </div>
+
+          <!-- Endereço — linha inteira -->
+          <div class="gc-field gc-full">
+            <label class="gc-label">🏠 Endereço</label>
+            <input id="gc-endereco" class="gc-input" type="text"
+                   placeholder="Endereço completo (Rua, Nº, Bairro, Cidade/UF)"
+                   autocomplete="off"/>
+          </div>
+
+        </div><!-- /gc-grid -->
+
+        <!-- Seção de acesso ao sistema (opcional) -->
+        <div class="gc-acesso-section">
+          <div class="gc-acesso-titulo">🔑 ACESSO AO SISTEMA (OPCIONAL)</div>
+          <div class="gc-grid">
+            <div class="gc-field">
+              <label class="gc-label">Usuário de acesso</label>
+              <input id="gc-login" class="gc-input" type="text"
+                     placeholder="Usuário de acesso (ex: carlos.silva)"
+                     autocomplete="off"/>
+              <span class="gc-err" id="gc-login-err">Login já existe</span>
+            </div>
+            <div class="gc-field">
+              <label class="gc-label">Senha</label>
+              <input id="gc-senha" class="gc-input" type="password"
+                     placeholder="Senha" autocomplete="new-password"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botões de ação -->
+        <div class="gc-actions">
+          <button class="gc-btn-cancel" onclick="gcLimparForm()">Limpar</button>
+          <button class="gc-btn-save" id="gc-btn-salvar" onclick="gcSalvar()">
+            💾 Salvar colaborador
+          </button>
+        </div>
+
+      </div><!-- /gc-card -->
+
+      <!-- Lista dos colaboradores já cadastrados (resumo) -->
+      <div class="gc-card">
+        <div class="gc-card-titulo">COLABORADORES CADASTRADOS</div>
+        <div id="gc-lista-resumo" style="display:grid;gap:10px;"></div>
+        <div id="gc-lista-vazio" style="text-align:center;padding:32px 20px;color:var(--muted);font-size:14px;display:none">
+          <div style="font-size:36px;margin-bottom:10px">👥</div>
+          Nenhum colaborador cadastrado
+        </div>
+      </div>
+
+    </div><!-- /gestao-cadastro -->
+
+    <!-- ─── SUB: POSTOS ─── -->
+    <div class="gestao-section" id="gestao-postos">
+      <div class="gc-card">
+        <div class="gc-card-titulo">GERENCIAR POSTOS DE SERVIÇO</div>
+        <div class="gc-grid" style="margin-bottom:16px">
+          <div class="gc-field gc-full">
+            <label class="gc-label">Nome do posto</label>
+            <div style="display:flex;gap:10px">
+              <input id="gc-posto-novo" class="gc-input" type="text"
+                     placeholder="Ex.: Marangoni, Jaguary..."
+                     onkeydown="if(event.key==='Enter')gcAdicionarPosto()"
+                     autocomplete="off"/>
+              <button class="gc-btn-save" style="white-space:nowrap;padding:11px 18px"
+                      onclick="gcAdicionarPosto()">＋ Adicionar</button>
+            </div>
+          </div>
+        </div>
+        <div id="gestao-postos-list" class="gestao-postos-list"></div>
+        <div id="gestao-postos-vazio" style="text-align:center;padding:32px;color:var(--muted);font-size:13px;display:none">
+          📍 Nenhum posto cadastrado
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SUB: MOTIVOS ─── -->
+    <div class="gestao-section" id="gestao-motivos">
+      <div class="gc-card">
+        <div class="gc-card-titulo">MOTIVOS DE FOLGA TRABALHADA</div>
+        <div style="display:flex;gap:10px;margin-bottom:8px">
+          <input id="gc-motivo-novo" class="gc-input" type="text"
+                 placeholder="Novo motivo..."
+                 onkeydown="if(event.key==='Enter')gcAdicionarMotivo()"
+                 autocomplete="off"/>
+          <button class="gc-btn-save" style="white-space:nowrap;padding:11px 18px"
+                  onclick="gcAdicionarMotivo()">＋</button>
+        </div>
+        <div class="gestao-motivo-tags" id="gestao-motivos-tags"></div>
+      </div>
+    </div>
+
+    <!-- ─── SUB: ACESSOS ─── -->
+    <div class="gestao-section" id="gestao-acessos">
+      <div class="gc-card">
+        <div class="gc-card-titulo" style="justify-content:space-between">
+          <span>USUÁRIOS DO SISTEMA</span>
+          <span id="gc-acessos-count" style="font-size:11px;color:var(--muted);font-family:var(--font-mono)"></span>
+        </div>
+        <div id="gestao-acesso-grid" class="gestao-acesso-grid"></div>
+        <div id="gestao-acesso-vazio" style="text-align:center;padding:32px;color:var(--muted);font-size:13px;display:none">
+          🔑 Nenhum usuário cadastrado
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── SUB: RELATÓRIO ─── -->
+    <div class="gestao-section" id="gestao-relatorio">
+      <div class="gc-card">
+        <div class="gc-card-titulo">RESUMO GERAL</div>
+        <div class="gestao-rel-kpi-grid" id="gc-rel-kpis">
+          <div class="kpi-card kpi-purple">
+            <div class="kpi-icon">👥</div>
+            <div class="kpi-val" id="gc-rel-total-colab">—</div>
+            <div class="kpi-label">Colaboradores</div>
+          </div>
+          <div class="kpi-card kpi-blue">
+            <div class="kpi-icon">📍</div>
+            <div class="kpi-val" id="gc-rel-total-postos">—</div>
+            <div class="kpi-label">Postos ativos</div>
+          </div>
+          <div class="kpi-card kpi-gold">
+            <div class="kpi-icon">🔑</div>
+            <div class="kpi-val" id="gc-rel-total-users">—</div>
+            <div class="kpi-label">Usuários</div>
+          </div>
+        </div>
+        <p style="text-align:center;font-size:13px;color:var(--muted);padding-top:8px">
+          Para relatórios detalhados de ponto, utilize a aba <strong style="color:var(--accent)">Histórico</strong> ou <strong style="color:var(--accent)">FTs Validadas</strong>.
+        </p>
+      </div>
+    </div>
+
+  </section><!-- /tab-gestao -->
+
 </main>
 
 <!-- ══ FOOTER ══ -->
@@ -2552,6 +2963,11 @@ function showTab(id, btn) {
   if (id === 'colaboradores') renderColaboradores();
   if (id === 'ft-auto')       renderFtAuto();
   if (id === 'ft-validadas')  ftvCarregar();
+  if (id === 'gestao') {
+    // Garante que o select de postos esteja populado ao abrir a aba
+    if (window.gcPopularSelectPostos) window.gcPopularSelectPostos();
+    if (window.gcRenderListaResumo)   window.gcRenderListaResumo();
+  }
 }
 
 // ─── LOADDATA ─────────────────────────────────────────────────────────────────
@@ -3160,6 +3576,7 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-dashboard').style.display     = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft').style.display            = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft-validadas').style.display  = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-gestao').style.display        = isAdmin ? '' : 'none';
 
   selectedColab = null;
   document.getElementById('ponto-btns').style.display   = 'none';
@@ -4740,6 +5157,328 @@ async function seedColaboradores() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 (function init() {
+
+// ════════════════════════════════════════════════════════════════════════
+// ABA GESTÃO — JavaScript
+// ════════════════════════════════════════════════════════════════════════
+
+// ─── Navegação sub-tabs ───────────────────────────────────────────────
+function gestaoShowSub(id, btn) {
+  document.querySelectorAll('.gestao-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.gestao-subtab').forEach(el => el.classList.remove('active'));
+  const sec = document.getElementById('gestao-' + id);
+  if (sec) sec.classList.add('active');
+  if (btn) btn.classList.add('active');
+
+  // Carrega dados para cada sub
+  if (id === 'cadastro')  gcRenderListaResumo();
+  if (id === 'postos')    gcRenderPostos();
+  if (id === 'motivos')   gcRenderMotivos();
+  if (id === 'acessos')   gcRenderAcessos();
+  if (id === 'relatorio') gcRenderRelatorio();
+}
+window.gestaoShowSub = gestaoShowSub;
+
+// ─── Populando o select de postos no form de cadastro ─────────────────
+function gcPopularSelectPostos() {
+  const sel = document.getElementById('gc-posto');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Posto de serviço...</option>';
+  postos.forEach(p => {
+    const nome = typeof p === 'string' ? p : (p.nome || p);
+    const opt = document.createElement('option');
+    opt.value = nome; opt.textContent = nome;
+    if (nome === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // Adiciona postos dos colaboradores existentes se não estiverem na lista
+  const postosExistentes = new Set(postos.map(p => typeof p === 'string' ? p : (p.nome || p)));
+  colaboradores.forEach(c => {
+    if (c.posto && !postosExistentes.has(c.posto)) {
+      const opt = document.createElement('option');
+      opt.value = c.posto; opt.textContent = c.posto;
+      sel.appendChild(opt);
+      postosExistentes.add(c.posto);
+    }
+  });
+}
+
+// ─── Atualiza preview do avatar no form ───────────────────────────────
+function gcAtualizarPreview() {
+  // sem side-effects pesados; pode ser usado para feedback futuro
+}
+window.gcAtualizarPreview = gcAtualizarPreview;
+
+// ─── Máscaras simples ─────────────────────────────────────────────────
+function gcMascaraCPF(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if (v.length > 9)      v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/,'$1.$2.$3-$4');
+  else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/,'$1.$2.$3');
+  else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/,'$1.$2');
+  el.value = v;
+}
+window.gcMascaraCPF = gcMascaraCPF;
+
+function gcMascaraTel(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if (v.length === 11)      v = v.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3');
+  else if (v.length === 10) v = v.replace(/(\d{2})(\d{4})(\d{4})/,'($1) $2-$3');
+  el.value = v;
+}
+window.gcMascaraTel = gcMascaraTel;
+
+// ─── Salvar colaborador ────────────────────────────────────────────────
+async function gcSalvar() {
+  const nome  = (document.getElementById('gc-nome')?.value || '').trim();
+  const posto = document.getElementById('gc-posto')?.value || '';
+  const rg    = (document.getElementById('gc-rg')?.value || '').trim();
+  const cpf   = (document.getElementById('gc-cpf')?.value || '').trim();
+  const tel   = (document.getElementById('gc-tel')?.value || '').trim();
+  const email = (document.getElementById('gc-email')?.value || '').trim();
+  const funcao= document.getElementById('gc-funcao')?.value || '';
+  const civil = document.getElementById('gc-estado-civil')?.value || '';
+  const ender = (document.getElementById('gc-endereco')?.value || '').trim();
+  const login = (document.getElementById('gc-login')?.value || '').trim().toLowerCase();
+  const senha = document.getElementById('gc-senha')?.value || '';
+
+  // Validação
+  let valido = true;
+  const errNome = document.getElementById('gc-nome-err');
+  if (!nome) {
+    if (errNome) { errNome.classList.add('show'); }
+    valido = false;
+  } else {
+    if (errNome) errNome.classList.remove('show');
+  }
+
+  const errLogin = document.getElementById('gc-login-err');
+  if (login && usuarios.find(u => u.login === login)) {
+    if (errLogin) { errLogin.classList.add('show'); errLogin.textContent = 'Login já existe'; }
+    valido = false;
+  } else {
+    if (errLogin) errLogin.classList.remove('show');
+  }
+  if (!valido) return;
+
+  const btn = document.getElementById('gc-btn-salvar');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Salvando...'; }
+
+  try {
+    const colabId = uid();
+    const colab = {
+      id: colabId, nome, posto, rg, cpf, tel, email,
+      funcao, estadoCivil: civil, endereco: ender,
+      ativo: true, obs: ''
+    };
+
+    if (window._firebaseReady && window._db) {
+      await window._fbSet(window._fbRef(window._db, 'colaboradores/' + colabId), colab);
+    } else {
+      colaboradores.push(colab);
+      localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+    }
+
+    // Criar usuário se login fornecido
+    if (login && senha) {
+      const novoUser = { id: uid(), login, nome, senha, role: 'usuario', colaboradorId: colabId };
+      usuarios.push(novoUser);
+      localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+      if (window._firebaseReady && window._db) {
+        await window._fbSet(window._fbRef(window._db, 'usuarios/' + novoUser.id), novoUser);
+      }
+    }
+
+    mostrarSyncToast('✅ Colaborador cadastrado com sucesso!', 'green');
+    gcLimparForm();
+    gcRenderListaResumo();
+    populatePostoSelects();
+    renderColabPonto();
+  } catch(e) {
+    mostrarSyncToast('❌ Erro: ' + e.message, 'red');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Salvar colaborador'; }
+  }
+}
+window.gcSalvar = gcSalvar;
+
+// ─── Limpar formulário ────────────────────────────────────────────────
+function gcLimparForm() {
+  ['gc-nome','gc-rg','gc-cpf','gc-tel','gc-email','gc-endereco','gc-login','gc-senha'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['gc-posto','gc-funcao','gc-estado-civil'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.selectedIndex = 0;
+  });
+  ['gc-nome-err','gc-login-err'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('show');
+  });
+}
+window.gcLimparForm = gcLimparForm;
+
+// ─── Lista resumo de colaboradores cadastrados ────────────────────────
+function gcRenderListaResumo() {
+  const grid  = document.getElementById('gc-lista-resumo');
+  const vazio = document.getElementById('gc-lista-vazio');
+  if (!grid) return;
+  const ativos = colaboradores.filter(c => c.ativo !== false);
+  if (!ativos.length) {
+    grid.innerHTML = '';
+    if (vazio) vazio.style.display = 'block';
+    return;
+  }
+  if (vazio) vazio.style.display = 'none';
+  grid.innerHTML = ativos.slice(0, 20).map(c => `
+    <div class="gestao-posto-item">
+      <div class="dash-colab-av" style="background:${avatarColor(c.nome)};width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:var(--font-head);font-size:16px;font-weight:700;color:#fff;flex-shrink:0">
+        ${c.nome.charAt(0)}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="gestao-posto-nome">${esc(c.nome)}</div>
+        <div class="gestao-posto-meta">${esc(c.posto || '—')}${c.funcao ? ' · ' + esc(c.funcao) : ''}</div>
+      </div>
+    </div>`).join('');
+  if (ativos.length > 20) {
+    grid.innerHTML += `<div style="text-align:center;font-size:12px;color:var(--muted);padding:8px;font-family:var(--font-mono)">… e mais ${ativos.length - 20} colaboradores. Veja a aba Colaboradores.</div>`;
+  }
+  gcPopularSelectPostos();
+}
+
+// ─── Postos ────────────────────────────────────────────────────────────
+function gcRenderPostos() {
+  const lista = document.getElementById('gestao-postos-list');
+  const vazio = document.getElementById('gestao-postos-vazio');
+  if (!lista) return;
+
+  // Coleta postos: da lista postos[] + dos colaboradores
+  const set = new Set();
+  postos.forEach(p => set.add(typeof p === 'string' ? p : (p.nome || p)));
+  colaboradores.forEach(c => { if (c.posto) set.add(c.posto); });
+  const arr = [...set].sort();
+
+  if (!arr.length) {
+    lista.innerHTML = '';
+    if (vazio) vazio.style.display = 'block';
+    return;
+  }
+  if (vazio) vazio.style.display = 'none';
+  const colabPorPosto = (nome) => colaboradores.filter(c => c.posto === nome && c.ativo !== false).length;
+  lista.innerHTML = arr.map(nome => `
+    <div class="gestao-posto-item">
+      <div style="font-size:20px">📍</div>
+      <div class="gestao-posto-nome">${esc(nome)}</div>
+      <div class="gestao-posto-meta">${colabPorPosto(nome)} colaborador(es)</div>
+    </div>`).join('');
+}
+
+async function gcAdicionarPosto() {
+  const inp = document.getElementById('gc-posto-novo');
+  const nome = (inp?.value || '').trim();
+  if (!nome) return;
+  const set = new Set(postos.map(p => typeof p === 'string' ? p : (p.nome || p)));
+  set.add(nome);
+  postos = [...set];
+  localStorage.setItem('ms_postos', JSON.stringify(postos));
+  if (window._firebaseReady && window._db) {
+    await window._fbSet(window._fbRef(window._db, 'postos'), postos.map(p => ({ nome: p })));
+  }
+  inp.value = '';
+  gcRenderPostos();
+  gcPopularSelectPostos();
+  populatePostoSelects();
+  mostrarSyncToast('📍 Posto adicionado!', 'green');
+}
+window.gcAdicionarPosto = gcAdicionarPosto;
+
+// ─── Motivos ────────────────────────────────────────────────────────────
+const GC_MOTIVOS_DEFAULT = ['Atestado','Afastamento','Cobertura de Férias','Suspensão','Bico Fixo','Folga do Vigia','Falta Justificada','Falta Injustificada','Atraso','Outro'];
+let _gcMotivos = (function(){
+  try { return JSON.parse(localStorage.getItem('ms_motivos_ft')) || [...GC_MOTIVOS_DEFAULT]; } catch { return [...GC_MOTIVOS_DEFAULT]; }
+})();
+
+function gcRenderMotivos() {
+  const wrap = document.getElementById('gestao-motivos-tags');
+  if (!wrap) return;
+  wrap.innerHTML = _gcMotivos.map((m,i) => `
+    <div class="gestao-motivo-tag">
+      ${esc(m)}
+      <button class="gestao-motivo-del" onclick="gcRemoverMotivo(${i})" title="Remover">✕</button>
+    </div>`).join('');
+}
+
+function gcAdicionarMotivo() {
+  const inp = document.getElementById('gc-motivo-novo');
+  const nome = (inp?.value || '').trim();
+  if (!nome || _gcMotivos.includes(nome)) return;
+  _gcMotivos.push(nome);
+  localStorage.setItem('ms_motivos_ft', JSON.stringify(_gcMotivos));
+  inp.value = '';
+  gcRenderMotivos();
+}
+window.gcAdicionarMotivo = gcAdicionarMotivo;
+
+function gcRemoverMotivo(i) {
+  _gcMotivos.splice(i, 1);
+  localStorage.setItem('ms_motivos_ft', JSON.stringify(_gcMotivos));
+  gcRenderMotivos();
+}
+window.gcRemoverMotivo = gcRemoverMotivo;
+
+// ─── Acessos ────────────────────────────────────────────────────────────
+function gcRenderAcessos() {
+  const grid  = document.getElementById('gestao-acesso-grid');
+  const vazio = document.getElementById('gestao-acesso-vazio');
+  const count = document.getElementById('gc-acessos-count');
+  if (!grid) return;
+  if (!usuarios.length) {
+    grid.innerHTML = '';
+    if (vazio) vazio.style.display = 'block';
+    if (count) count.textContent = '';
+    return;
+  }
+  if (vazio) vazio.style.display = 'none';
+  if (count) count.textContent = usuarios.length + ' usuário(s)';
+  grid.innerHTML = usuarios.map(u => `
+    <div class="gestao-acesso-card">
+      <div class="gestao-acesso-nome">${esc(u.nome || u.login)}</div>
+      <div class="gestao-acesso-login">@${esc(u.login)}</div>
+      <span class="gestao-acesso-role ${u.role === 'admin' ? 'admin' : 'usuario'}">
+        ${u.role === 'admin' ? '🛡️ Admin' : '👤 Usuário'}
+      </span>
+    </div>`).join('');
+}
+
+// ─── Relatório ────────────────────────────────────────────────────────
+function gcRenderRelatorio() {
+  const el = (id,v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+  const postosUnicos = new Set([...postos.map(p => typeof p === 'string' ? p : (p.nome||p)), ...colaboradores.map(c => c.posto).filter(Boolean)]);
+  el('gc-rel-total-colab',  colaboradores.filter(c => c.ativo !== false).length);
+  el('gc-rel-total-postos', postosUnicos.size);
+  el('gc-rel-total-users',  usuarios.length);
+}
+
+// ─── Hook: quando showTab('gestao') for chamado ───────────────────────
+const _origShowTab = window.showTab || function(){};
+// Sobrescreve showTab para incluir lógica da gestão
+// (A função showTab já está definida anteriormente no script)
+
+// ─── Mostrar/ocultar botão Gestão (admin-tab) ────────────────────────
+// Já controlado pelo sistema de admin-tabs existente (checkSession faz display dos admin-tab)
+
+// ─── Expor funções necessárias globalmente ────────────────────────────
+window.gcRenderListaResumo = gcRenderListaResumo;
+window.gcRenderPostos      = gcRenderPostos;
+window.gcRenderMotivos     = gcRenderMotivos;
+window.gcRenderAcessos     = gcRenderAcessos;
+window.gcRenderRelatorio   = gcRenderRelatorio;
+window.gcPopularSelectPostos = gcPopularSelectPostos;
+
+// ════════════════════════════════════════════════════════════════════════
+// FIM — ABA GESTÃO JS
+// ════════════════════════════════════════════════════════════════════════
   // Garante admin padrão no localStorage
   if (!usuarios.length) seedAdminUser();
   if (!usuarios.find(u => u.login === 'admin')) {
