@@ -307,6 +307,80 @@ body::before {
 }
 .login-error.show { display: block; }
 
+/* ── PRIMEIRO ACESSO ── */
+.primeiro-acesso-link {
+  text-align: center; margin-top: 18px;
+  font-size: 12px; color: var(--muted); font-family: var(--font-mono);
+}
+.primeiro-acesso-link button {
+  background: none; border: none; color: #38bdf8;
+  font-size: 12px; font-family: var(--font-mono);
+  cursor: pointer; text-decoration: underline; padding: 0;
+  transition: color .2s;
+}
+.primeiro-acesso-link button:hover { color: #7dd3fc; }
+
+#painel-primeiro-acesso {
+  display: none;
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+  animation: fadeUp .25s ease;
+}
+#painel-primeiro-acesso .pa-titulo {
+  font-family: var(--font-head); font-size: 14px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: #38bdf8; margin-bottom: 14px; text-align: center;
+}
+#painel-primeiro-acesso .pa-aviso {
+  background: #0d1e2e; border: 1px solid #38bdf844;
+  border-radius: 10px; padding: 12px 14px;
+  font-size: 12px; color: #94a3b8; line-height: 1.6;
+  margin-bottom: 16px; font-family: var(--font-mono);
+}
+#painel-primeiro-acesso .pa-field { margin-bottom: 14px; }
+#painel-primeiro-acesso .pa-label {
+  display: block; font-size: 11px; color: #38bdf8cc;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 7px; font-family: var(--font-mono);
+}
+#painel-primeiro-acesso .pa-input {
+  width: 100%; background: var(--surface2);
+  border: 1px solid #38bdf855; border-radius: 10px;
+  color: var(--text); padding: 12px 14px;
+  font-size: 14px; font-family: var(--font-body); outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+#painel-primeiro-acesso .pa-input:focus {
+  border-color: #38bdf8; box-shadow: 0 0 0 3px #38bdf820;
+}
+#painel-primeiro-acesso .pa-input.pa-error {
+  border-color: var(--red); box-shadow: 0 0 0 3px #e8273f20;
+}
+#painel-primeiro-acesso .pa-err-msg {
+  font-size: 11px; color: var(--red); margin-top: 4px;
+  font-family: var(--font-mono); display: none;
+}
+#painel-primeiro-acesso .pa-err-msg.show { display: block; }
+.btn-primeiro-acesso {
+  width: 100%; margin-top: 4px;
+  background: linear-gradient(135deg, #0c4a6e, #0284c7);
+  color: #fff; border: none; border-radius: 12px;
+  padding: 14px; font-family: var(--font-head); font-size: 17px;
+  font-weight: 700; cursor: pointer; letter-spacing: 1px;
+  transition: all .2s; box-shadow: 0 4px 20px #0284c744;
+}
+.btn-primeiro-acesso:hover { transform: translateY(-2px); box-shadow: 0 8px 32px #0284c766; }
+.btn-primeiro-acesso:active { transform: scale(.98); }
+.btn-primeiro-acesso:disabled { background: var(--surface2); color: var(--muted); transform: none; box-shadow: none; cursor: not-allowed; }
+#pa-erro-geral {
+  background: var(--red-bg); border: 1px solid #e8273f55;
+  color: var(--red); border-radius: 10px; padding: 11px 14px;
+  font-size: 13px; text-align: center; margin-bottom: 12px;
+  display: none; font-family: var(--font-mono);
+}
+#pa-erro-geral.show { display: block; }
+
 /* ══════════════════════════════════════════
    HEADER
 ══════════════════════════════════════════ */
@@ -1810,6 +1884,62 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
         onkeydown="if(event.key==='Enter') fazerLogin()"/>
     </div>
     <button class="btn-login" id="btn-entrar" onclick="fazerLogin()">🔐 ENTRAR</button>
+
+    <!-- ── PRIMEIRO ACESSO ── -->
+    <div class="primeiro-acesso-link" id="primeiro-acesso-link" style="display:none">
+      <button onclick="togglePrimeiroAcesso()">⚙️ Primeiro acesso — configurar sistema</button>
+    </div>
+
+    <div id="painel-primeiro-acesso">
+      <div class="pa-titulo">⚙️ CONFIGURAÇÃO INICIAL</div>
+      <div class="pa-aviso">
+        Nenhum administrador encontrado no banco de dados.<br>
+        Preencha os dados abaixo para criar o <strong style="color:#e2e8f0">primeiro administrador</strong> do sistema.
+      </div>
+
+      <div id="pa-erro-geral"></div>
+
+      <div class="pa-field">
+        <label class="pa-label" for="pa-nome">👤 Nome completo</label>
+        <input class="pa-input" id="pa-nome" type="text"
+               placeholder="Nome do administrador"
+               autocomplete="off"
+               onkeydown="if(event.key==='Enter')document.getElementById('pa-login').focus()"/>
+        <div class="pa-err-msg" id="pa-nome-err">Campo obrigatório</div>
+      </div>
+
+      <div class="pa-field">
+        <label class="pa-label" for="pa-login">🔑 Usuário (login)</label>
+        <input class="pa-input" id="pa-login" type="text"
+               placeholder="Ex: admin"
+               autocomplete="off"
+               oninput="this.value=this.value.replace(/\s/g,'')"
+               onkeydown="if(event.key==='Enter')document.getElementById('pa-senha').focus()"/>
+        <div class="pa-err-msg" id="pa-login-err">Campo obrigatório</div>
+      </div>
+
+      <div class="pa-field">
+        <label class="pa-label" for="pa-senha">🔒 Senha</label>
+        <input class="pa-input" id="pa-senha" type="password"
+               placeholder="Mínimo 4 caracteres"
+               autocomplete="new-password"
+               onkeydown="if(event.key==='Enter')document.getElementById('pa-senha2').focus()"/>
+        <div class="pa-err-msg" id="pa-senha-err">Mínimo 4 caracteres</div>
+      </div>
+
+      <div class="pa-field">
+        <label class="pa-label" for="pa-senha2">🔒 Confirmar senha</label>
+        <input class="pa-input" id="pa-senha2" type="password"
+               placeholder="Repita a senha"
+               autocomplete="new-password"
+               onkeydown="if(event.key==='Enter')primeiroAcessoSalvar()"/>
+        <div class="pa-err-msg" id="pa-senha2-err">As senhas não coincidem</div>
+      </div>
+
+      <button class="btn-primeiro-acesso" id="btn-pa-salvar" onclick="primeiroAcessoSalvar()">
+        ✅ CRIAR ADMINISTRADOR E ENTRAR
+      </button>
+    </div>
   </div>
 </div>
 
@@ -5856,6 +5986,111 @@ async function limparTodosDados() {
   }
 }
 window.limparTodosDados = limparTodosDados;
+
+// ════════════════════════════════════════════════════════════════════════
+// PRIMEIRO ACESSO — CONFIGURAÇÃO INICIAL DO SISTEMA
+// ════════════════════════════════════════════════════════════════════════
+
+async function verificarPrimeiroAcesso() {
+  if (!window._firebaseReady || !window._db) return;
+  try {
+    const snap = await window._fbGet(window._fbRef(window._db, 'usuarios'));
+    const data = snap.val();
+    const lista = data ? Object.values(data) : [];
+    const temAdmin = lista.some(u => u && u.role === 'admin');
+    if (!temAdmin) {
+      const link = document.getElementById('primeiro-acesso-link');
+      if (link) link.style.display = 'block';
+    }
+  } catch(e) {
+    console.warn('[PrimeiroAcesso] Erro ao verificar:', e.message);
+  }
+}
+
+function togglePrimeiroAcesso() {
+  const painel = document.getElementById('painel-primeiro-acesso');
+  const link   = document.getElementById('primeiro-acesso-link');
+  if (!painel) return;
+  const aberto = painel.style.display !== 'none';
+  painel.style.display = aberto ? 'none' : 'block';
+  if (!aberto) {
+    setTimeout(() => document.getElementById('pa-nome')?.focus(), 100);
+    if (link) link.style.display = 'none';
+  } else {
+    if (link) link.style.display = 'block';
+  }
+}
+window.togglePrimeiroAcesso = togglePrimeiroAcesso;
+
+function _paSetErr(id, msg) {
+  const inp = document.getElementById(id);
+  const err = document.getElementById(id + '-err');
+  if (inp) inp.classList.add('pa-error');
+  if (err) { if (msg) err.textContent = msg; err.classList.add('show'); }
+}
+function _paClrErr(id) {
+  const inp = document.getElementById(id);
+  const err = document.getElementById(id + '-err');
+  if (inp) inp.classList.remove('pa-error');
+  if (err) err.classList.remove('show');
+}
+function _paSetErroGeral(msg) {
+  const el = document.getElementById('pa-erro-geral');
+  if (!el) return;
+  el.textContent = '❌ ' + msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+async function primeiroAcessoSalvar() {
+  ['pa-nome','pa-login','pa-senha','pa-senha2'].forEach(_paClrErr);
+  document.getElementById('pa-erro-geral')?.classList.remove('show');
+
+  const nome   = (document.getElementById('pa-nome')?.value   || '').trim();
+  const login  = (document.getElementById('pa-login')?.value  || '').trim().toLowerCase();
+  const senha  = (document.getElementById('pa-senha')?.value  || '').trim();
+  const senha2 = (document.getElementById('pa-senha2')?.value || '').trim();
+
+  let valido = true;
+  if (!nome)            { _paSetErr('pa-nome',  'Campo obrigatório');        valido = false; }
+  if (!login)           { _paSetErr('pa-login', 'Campo obrigatório');        valido = false; }
+  if (senha.length < 4) { _paSetErr('pa-senha', 'Mínimo 4 caracteres');      valido = false; }
+  if (senha !== senha2) { _paSetErr('pa-senha2','As senhas não coincidem');   valido = false; }
+  if (!valido) return;
+
+  const btn = document.getElementById('btn-pa-salvar');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Salvando...'; }
+
+  const novoAdmin = { id: uid(), nome, login, senha, role: 'admin' };
+
+  try {
+    if (window._firebaseReady && window._db) {
+      await window._fbSet(window._fbRef(window._db, 'usuarios/' + novoAdmin.id), novoAdmin);
+    }
+    // Remove admin-default temporário e salva o novo
+    usuarios = usuarios.filter(u => u.id !== 'admin-default');
+    usuarios.push(novoAdmin);
+    localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+
+    const painel = document.getElementById('painel-primeiro-acesso');
+    if (painel) painel.style.display = 'none';
+
+    currentUser = novoAdmin;
+    sessionStorage.setItem('ms_session', JSON.stringify(novoAdmin));
+    entrarSistema(novoAdmin);
+    mostrarSyncToast('✅ Administrador criado! Bem-vindo ao sistema.', 'green');
+  } catch(e) {
+    console.error('[PrimeiroAcesso] Erro:', e.message);
+    _paSetErroGeral('Erro ao salvar: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '✅ CRIAR ADMINISTRADOR E ENTRAR'; }
+  }
+}
+window.primeiroAcessoSalvar = primeiroAcessoSalvar;
+
+// ════════════════════════════════════════════════════════════════════════
+// FIM — PRIMEIRO ACESSO
+// ════════════════════════════════════════════════════════════════════════
+
   // Garante admin padrão no localStorage
   if (!usuarios.length) seedAdminUser();
   if (!usuarios.find(u => u.login === 'admin')) {
@@ -5874,6 +6109,8 @@ window.limparTodosDados = limparTodosDados;
     jaChamou = true;
     seedColaboradores().catch(e => console.warn('[seed]', e.message));
     if (currentUser) loadData();
+    // Verifica primeiro acesso somente se ainda na tela de login
+    if (!currentUser) verificarPrimeiroAcesso();
   }
   window.addEventListener('firebaseReady', iniciar, { once: true });
   setTimeout(iniciar, 7000);
