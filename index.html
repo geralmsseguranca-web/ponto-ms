@@ -2065,10 +2065,10 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     <!-- ── LINKS INFERIORES ── -->
     <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px;text-align:center;">
       <div style="font-size:12px;color:var(--muted);font-family:var(--font-mono);margin-bottom:8px;">
-        Ainda não tem acesso? <a href="#" onclick="wizardAbrir();return false;" style="color:#38bdf8;text-decoration:underline;font-family:var(--font-mono);font-size:12px;">Criar cadastro →</a>
+        Ainda não tem acesso? <a href="#" onclick="wizAbrir();return false;" style="color:#38bdf8;text-decoration:underline;font-family:var(--font-mono);font-size:12px;">Criar cadastro →</a>
       </div>
       <div>
-        <a href="#" onclick="wizardEsqueceuSenha();return false;" style="color:#f59e0baa;text-decoration:underline;font-family:var(--font-mono);font-size:12px;">🔑 Esqueceu sua senha?</a>
+        <a href="#" onclick="wizEsqueceuSenha();return false;" style="color:#f59e0baa;text-decoration:underline;font-family:var(--font-mono);font-size:12px;">🔑 Esqueceu sua senha?</a>
       </div>
     </div>
 
@@ -6452,7 +6452,7 @@ function wizFechar() {
 window.wizFechar = wizFechar;
 
 function wizEsqueceuSenha() {
-  mostrarSyncToast('ℹ️ Solicite ao administrador a redefinição da senha.', 'info');
+  mostrarSyncToast('ℹ️ Solicite ao administrador a redefinição da senha.', 'green');
 }
 window.wizEsqueceuSenha = wizEsqueceuSenha;
 
