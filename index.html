@@ -1447,6 +1447,15 @@ input.hist-select[type="date"]::-webkit-calendar-picker-indicator { filter: inve
 }
 .colab-form-btn-del:hover { background: var(--red); color: #fff; }
 
+.btn-desvincular-posto {
+  border-color: #f59e0b55 !important;
+  color: var(--gold) !important;
+}
+.btn-desvincular-posto:hover {
+  background: #1a1000 !important;
+  border-color: var(--accent) !important;
+}
+
 /* Responsivo tablet */
 @media (max-width: 768px) {
   .colab-mgr-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
@@ -4901,6 +4910,29 @@ function colabMgrFecharForm() {
   _colabMgrEditandoId = null;
 }
 
+// ─── Desvincular colaborador do posto ────────────────────────────────────────
+async function colabMgrDesvincularPosto(id) {
+  const c = colaboradores.find(x => x.id === id);
+  if (!c || !c.posto) return;
+  if (!confirm(`Desvincular "${c.nome}" do posto "${c.posto}"?`)) return;
+
+  const atualizado = { ...c, posto: '' };
+  const idx = colaboradores.findIndex(x => x.id === id);
+  if (idx > -1) colaboradores[idx] = atualizado;
+  localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+
+  if (window._firebaseReady && window._db) {
+    try {
+      await window._fbUpdate(window._fbRef(window._db, 'colaboradores/' + id), { posto: '' });
+    } catch(e) { console.warn('[desvincularPosto]', e.message); }
+  }
+
+  colabMgrRenderGrid();
+  populatePostoSelects();
+  mostrarSyncToast(`📍 "${c.nome}" desvinculado do posto "${c.posto}"`, 'green');
+}
+window.colabMgrDesvincularPosto = colabMgrDesvincularPosto;
+
 function colabMgrAtualizarAvatar() {
   const nome = document.getElementById('cf-nome')?.value || '';
   const av   = document.getElementById('colab-form-av');
@@ -5181,6 +5213,7 @@ function colabMgrRenderGrid() {
       ${(telInfo || obsInfo) ? `<div class="colab-card-details">${telInfo}${obsInfo}</div>` : ''}
       <div class="colab-card-actions">
         <button class="colab-card-btn" onclick="colabMgrAbrirForm('${c.id}')">✏️ Editar</button>
+        ${c.posto ? `<button class="colab-card-btn btn-desvincular-posto" data-id="${c.id}" onclick="colabMgrDesvincularPosto('${c.id}')" title="Remover vínculo com posto">📍 Desvincular</button>` : ''}
         <button class="colab-card-btn btn-toggle-ativo" onclick="colabMgrToggleAtivo('${c.id}')">${toggleLabel}</button>
         <button class="colab-card-btn btn-del" onclick="colabMgrAbrirDel('${c.id}')">🗑️</button>
       </div>
@@ -6366,31 +6399,8 @@ function gcRenderPostos() {
       <div style="font-size:20px">📍</div>
       <div class="gestao-posto-nome">${esc(nome)}</div>
       <div class="gestao-posto-meta">${colabPorPosto(nome)} colaborador(es)</div>
-      <button class="gestao-posto-del" data-posto="${esc(nome)}" onclick="gcExcluirPosto(this.dataset.posto, this)" title="Excluir posto">🗑️</button>
     </div>`).join('');
 }
-
-async function gcExcluirPosto(nome, btn) {
-  const qtd = colaboradores.filter(c => c.posto === nome && c.ativo !== false).length;
-  const aviso = qtd > 0 ? `\n⚠️ ${qtd} colaborador(es) ainda alocado(s) neste posto.` : '';
-  if (!confirm(`Excluir o posto "${nome}"?${aviso}`)) return;
-
-  // Remove da lista postos[]
-  postos = postos.filter(p => (typeof p === 'string' ? p : (p.nome || p)) !== nome);
-  localStorage.setItem('ms_postos', JSON.stringify(postos));
-
-  if (window._firebaseReady && window._db) {
-    try {
-      await window._fbSet(window._fbRef(window._db, 'postos'), postos.length ? postos.map(p => ({ nome: p })) : null);
-    } catch(e) { console.warn('[gcExcluirPosto]', e.message); }
-  }
-
-  gcRenderPostos();
-  gcPopularSelectPostos();
-  populatePostoSelects();
-  mostrarSyncToast('🗑️ Posto removido!', 'red');
-}
-window.gcExcluirPosto = gcExcluirPosto;
 
 async function gcAdicionarPosto() {
   const inp = document.getElementById('gc-posto-novo');
