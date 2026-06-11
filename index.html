@@ -1059,6 +1059,9 @@ input.hist-select[type="date"]::-webkit-calendar-picker-indicator { filter: inve
 /* Ações do form */
 .colab-form-actions {
   display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
+  position: sticky; bottom: 0;
+  background: var(--surface); padding: 14px 0 4px;
+  margin-top: 8px; border-top: 1px solid var(--border);
 }
 .colab-form-btn-cancel {
   background: var(--surface2); border: 1px solid var(--border);
@@ -4236,7 +4239,7 @@ async function colabMgrSalvar() {
       // Editar colaborador existente
       const idx = colaboradores.findIndex(x => x.id === _colabMgrEditandoId);
       if (idx > -1) {
-        const atualizado = { ...colaboradores[idx], nome, posto, tel, obs, ativo };
+        const atualizado = { ...colaboradores[idx], nome, posto, tel, obs, ativo, role };
         colaboradores[idx] = atualizado;
         localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
         if (window._firebaseReady && window._db) {
@@ -4410,7 +4413,11 @@ function colabMgrRenderGrid() {
       ? '<span class="colab-card-badge badge-ativo">✅ ATIVO</span>'
       : '<span class="colab-card-badge badge-inativo">⛔ INATIVO</span>';
 
-    const user = usuarios.find(u => u.colaboradorId === c.id || (u.login && u.login === c.login) || (u.login && u.nome === c.nome));
+    const user = usuarios.find(u => u.colaboradorId === c.id)
+      || usuarios.find(u => c.login && u.login === c.login)
+      || usuarios.find(u => u.nome && c.nome && u.nome.toLowerCase() === c.nome.toLowerCase());
+    // Fallback: se encontrou usuario mas role diferente do salvo no colaborador, usa o do colaborador
+    if (user && c.role && user.role !== c.role) user.role = c.role;
     const isAdminUser = user?.role === 'admin';
     const roleBadge = user
       ? (isAdminUser
