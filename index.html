@@ -3027,9 +3027,6 @@ function loadData() {
               const roleMudou = atualizado.role !== currentUser.role;
               currentUser = atualizado;
               sessionStorage.setItem('ms_session', JSON.stringify(atualizado));
-              // Re-renderiza ponto para aplicar vínculo colaboradorId que pode
-              // ter chegado após o login (race condition Firebase)
-              renderColabPonto();
               // Se o role mudou (ex: admin→usuario ou vice-versa), reaplica visibilidade das abas
               if (roleMudou) {
                 const isAdm = atualizado.role === 'admin';
@@ -3039,6 +3036,9 @@ function loadData() {
                 document.getElementById('tab-btn-ft-validadas').style.display  = isAdm ? '' : 'none';
                 document.getElementById('tab-btn-gestao').style.display        = isAdm ? '' : 'none';
               }
+              // Re-renderiza ponto apenas se colaboradores já carregou (evita limpar a lista
+              // antes do listener u1 disparar, que é a causa do grid vazio)
+              if (colaboradores.length > 0) renderColabPonto();
             }
           }
         }
