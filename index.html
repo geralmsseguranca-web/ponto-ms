@@ -3024,21 +3024,8 @@ function loadData() {
           if (currentUser) {
             const atualizado = usuarios.find(x => x.id === currentUser.id);
             if (atualizado) {
-              const roleMudou = atualizado.role !== currentUser.role;
               currentUser = atualizado;
               sessionStorage.setItem('ms_session', JSON.stringify(atualizado));
-              // Se o role mudou (ex: admin→usuario ou vice-versa), reaplica visibilidade das abas
-              if (roleMudou) {
-                const isAdm = atualizado.role === 'admin';
-                document.getElementById('tab-btn-colaboradores').style.display = isAdm ? '' : 'none';
-                document.getElementById('tab-btn-dashboard').style.display     = isAdm ? '' : 'none';
-                document.getElementById('tab-btn-ft').style.display            = isAdm ? '' : 'none';
-                document.getElementById('tab-btn-ft-validadas').style.display  = isAdm ? '' : 'none';
-                document.getElementById('tab-btn-gestao').style.display        = isAdm ? '' : 'none';
-              }
-              // Re-renderiza ponto apenas se colaboradores já carregou (evita limpar a lista
-              // antes do listener u1 disparar, que é a causa do grid vazio)
-              if (colaboradores.length > 0) renderColabPonto();
             }
           }
         }
@@ -3170,15 +3157,12 @@ function renderColabPonto() {
 
   // Para não-admin: encontra o próprio colaborador
   if (!isAdmin && currentUser) {
-    // Garante que temos o objeto mais atualizado do usuário (com colaboradorId)
-    const userAtualizado = usuarios.find(u => u.id === currentUser.id) || currentUser;
-
-    if (userAtualizado.colaboradorId)
-      meuColab = ativos.find(c => c.id === userAtualizado.colaboradorId);
+    if (currentUser.colaboradorId)
+      meuColab = ativos.find(c => c.id === currentUser.colaboradorId);
     if (!meuColab)
-      meuColab = ativos.find(c => c.nome.toLowerCase() === (userAtualizado.nome||'').toLowerCase());
+      meuColab = ativos.find(c => c.nome.toLowerCase() === (currentUser.nome||'').toLowerCase());
     if (!meuColab) {
-      const pNome = (userAtualizado.nome||'').split(' ')[0].toLowerCase();
+      const pNome = (currentUser.nome||'').split(' ')[0].toLowerCase();
       if (pNome.length > 3)
         meuColab = ativos.find(c => c.nome.toLowerCase().startsWith(pNome));
     }
@@ -3618,11 +3602,7 @@ function checkSession() {
     const saved = sessionStorage.getItem('ms_session');
     if (saved) {
       const u = JSON.parse(saved);
-      // Busca primeiro no array em memória; se vazio (antes do Firebase carregar),
-      // usa o objeto salvo direto para não bloquear o login de quem recarregou a página
-      const valid = usuarios.length
-        ? (usuarios.find(x => x.id === u.id && x.login === u.login) || null)
-        : u; // ainda sem lista — confia no sessionStorage; u3 vai atualizar depois
+      const valid = usuarios.find(x => x.id === u.id && x.login === u.login && x.senha === u.senha);
       if (valid) { currentUser = valid; entrarSistema(valid); return; }
     }
   } catch {}
