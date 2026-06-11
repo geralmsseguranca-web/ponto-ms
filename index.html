@@ -3672,6 +3672,16 @@ function histPopularFiltros() {
   const selPosto = document.getElementById('hist-f-posto');
   if (!selColab || !selPosto) return;
 
+  const isAdmin = currentUser?.role === 'admin';
+
+  // Para não-admin: oculta os filtros de colaborador e posto (ele só vê os próprios registros)
+  const wrapColab = selColab.closest('.hist-filtro-grupo') || selColab.parentElement;
+  const wrapPosto = selPosto.closest('.hist-filtro-grupo') || selPosto.parentElement;
+  if (wrapColab) wrapColab.style.display = isAdmin ? '' : 'none';
+  if (wrapPosto) wrapPosto.style.display = isAdmin ? '' : 'none';
+
+  if (!isAdmin) return; // não precisa popular os selects para não-admin
+
   const valColab = selColab.value;
   const valPosto = selPosto.value;
 
@@ -3727,7 +3737,20 @@ function histAplicarFiltros() {
   const fTipo   = document.getElementById('hist-f-tipo')?.value   || '';
   const { inicio, fim } = histGetPeriodo();
 
+  // Se não for admin, restringe automaticamente ao colaborador logado
+  const isAdmin = currentUser?.role === 'admin';
+  let nomeRestrito = '';
+  if (!isAdmin && currentUser) {
+    const meuColab = colaboradores.find(c =>
+      c.id === currentUser.colaboradorId ||
+      c.login === currentUser.login ||
+      c.nome?.toLowerCase() === (currentUser.nome || '').toLowerCase()
+    );
+    nomeRestrito = meuColab?.nome || currentUser.nome || '';
+  }
+
   _histFiltrado = registros.filter(r => {
+    if (nomeRestrito && r.colaboradorNome !== nomeRestrito) return false;
     if (fColab && r.colaboradorNome !== fColab) return false;
     if (fPosto && r.posto           !== fPosto) return false;
     if (fTipo  && r.tipo            !== fTipo)  return false;
