@@ -236,6 +236,108 @@ body::before {
 }
 
 /* ══════════════════════════════════════════
+   MODAL RECUPERAÇÃO DE SENHA
+══════════════════════════════════════════ */
+#modal-recuperar-senha {
+  position: fixed; inset: 0; z-index: 1100;
+  background: rgba(0,0,0,.82);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+#modal-recuperar-senha.ativo { display: flex; }
+.rec-card {
+  background: #18161b;
+  border: 1.5px solid #f59e0b66;
+  border-radius: 22px;
+  padding: 32px 26px 28px;
+  width: 100%; max-width: 400px;
+  position: relative; z-index: 1;
+  box-shadow: 0 24px 64px #000b, 0 0 28px #f59e0b18;
+  animation: slideUp .3s ease;
+}
+.rec-icon {
+  width: 56px; height: 56px; border-radius: 16px;
+  background: linear-gradient(135deg, #b45309, #f59e0b);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; margin: 0 auto 14px;
+  box-shadow: 0 4px 18px #f59e0b44;
+}
+.rec-title {
+  font-family: var(--font-head); font-size: 20px; font-weight: 700;
+  text-align: center; color: var(--text); letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.rec-sub {
+  text-align: center; font-size: 13px; color: var(--muted);
+  line-height: 1.6; margin-bottom: 22px;
+}
+.rec-field { margin-bottom: 16px; }
+.rec-label {
+  display: block; font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 1.5px; text-transform: uppercase; color: #f59e0bcc; margin-bottom: 6px;
+}
+.rec-input {
+  width: 100%; background: #0f0e12; border: 1px solid #f59e0b33;
+  border-radius: 12px; color: #f1f5f9; padding: 14px 16px;
+  font-size: 16px; font-family: var(--font-body); outline: none;
+  transition: border-color .2s, box-shadow .2s; letter-spacing: 2px;
+}
+.rec-input:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px #f59e0b18; }
+.rec-input.err  { border-color: #e8273f; box-shadow: 0 0 0 3px #e8273f18; }
+.rec-err-msg { font-family: var(--font-mono); font-size: 10px; color: #e8273f; margin-top: 4px; display: none; }
+.rec-err-msg.show { display: block; }
+.btn-rec-buscar {
+  width: 100%; margin-top: 4px;
+  background: linear-gradient(135deg, #b45309, #f59e0b);
+  color: #000; border: none; border-radius: 12px; padding: 14px;
+  font-family: var(--font-head); font-size: 16px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.5px; transition: all .2s;
+  box-shadow: 0 4px 18px #f59e0b44;
+}
+.btn-rec-buscar:hover { transform: translateY(-1px); box-shadow: 0 6px 24px #f59e0b66; }
+.btn-rec-buscar:disabled { background: #2a2730; color: #555; transform: none; box-shadow: none; cursor: not-allowed; }
+.btn-rec-fechar {
+  width: 100%; margin-top: 10px; background: transparent; border: 1px solid #333;
+  border-radius: 12px; color: var(--muted); padding: 12px;
+  font-family: var(--font-head); font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all .2s;
+}
+.btn-rec-fechar:hover { border-color: #555; color: var(--text); }
+.rec-resultado {
+  display: none; margin-top: 18px;
+  background: #0a1a0d; border: 1.5px solid #22c55e55;
+  border-radius: 14px; padding: 18px 18px 16px;
+}
+.rec-resultado.show { display: block; animation: fadeUp .25s ease; }
+.rec-resultado-titulo {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: #22c55e; margin-bottom: 14px;
+}
+.rec-cred-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.rec-cred-row:last-child { margin-bottom: 0; }
+.rec-cred-label {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px;
+  text-transform: uppercase; color: #4ade80; display: flex; align-items: center; gap: 6px;
+}
+.rec-cred-valor { font-family: var(--font-mono); font-size: 17px; font-weight: 600; color: #f1f5f9; }
+.rec-alerta {
+  margin-top: 12px; background: #1a1000; border: 1px solid #f59e0b44;
+  border-radius: 10px; padding: 10px 13px;
+  font-size: 12px; color: #fbbf24; line-height: 1.6;
+}
+.btn-rec-usar {
+  width: 100%; margin-top: 14px;
+  background: linear-gradient(135deg, #15803d, #22c55e);
+  color: #fff; border: none; border-radius: 12px; padding: 14px;
+  font-family: var(--font-head); font-size: 16px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.5px; transition: all .2s;
+  box-shadow: 0 4px 18px #22c55e44;
+}
+.btn-rec-usar:hover { transform: translateY(-1px); box-shadow: 0 6px 24px #22c55e66; }
+
+/* ══════════════════════════════════════════
    WIZARD CADASTRO (PRIMEIRO ACESSO COLABORADOR)
 ══════════════════════════════════════════ */
 #tela-cadastro {
@@ -2279,6 +2381,44 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   </div>
 </div>
 
+<!-- ══ MODAL RECUPERAÇÃO DE SENHA ══ -->
+<div id="modal-recuperar-senha">
+  <div class="rec-card">
+    <div class="rec-icon">🔑</div>
+    <div class="rec-title">Recuperar Acesso</div>
+    <div class="rec-sub">Informe seu CPF cadastrado.<br>O sistema exibirá suas credenciais de acesso.</div>
+
+    <div class="rec-field">
+      <label class="rec-label" for="rec-cpf">CPF CADASTRADO</label>
+      <input class="rec-input" id="rec-cpf" type="text" placeholder="000.000.000-00"
+             inputmode="numeric" oninput="recMaskCPF(this)"
+             onkeydown="if(event.key==='Enter') recBuscar()"/>
+      <div class="rec-err-msg" id="rec-cpf-err">CPF não encontrado no sistema</div>
+    </div>
+
+    <button class="btn-rec-buscar" id="btn-rec-buscar" onclick="recBuscar()">🔍 Buscar credenciais</button>
+
+    <!-- Resultado -->
+    <div class="rec-resultado" id="rec-resultado">
+      <div class="rec-resultado-titulo">✅ CREDENCIAIS ENCONTRADAS</div>
+      <div class="rec-cred-row">
+        <span class="rec-cred-label">👤 USUÁRIO</span>
+        <span class="rec-cred-valor" id="rec-val-usuario">—</span>
+      </div>
+      <div class="rec-cred-row">
+        <span class="rec-cred-label">🔒 SENHA</span>
+        <span class="rec-cred-valor" id="rec-val-senha">—</span>
+      </div>
+      <div class="rec-alerta">
+        ⚠️ Anote suas credenciais e mantenha em local seguro. Se precisar alterar a senha, solicite ao administrador.
+      </div>
+      <button class="btn-rec-usar" onclick="recUsarCredenciais()">🔓 Usar e entrar agora</button>
+    </div>
+
+    <button class="btn-rec-fechar" onclick="recFechar()">← Voltar ao login</button>
+  </div>
+</div>
+
 <!-- ══ HEADER (oculto até login) ══ -->
 <header id="main-header" style="display:none">
   <div class="header-inner">
@@ -3527,6 +3667,8 @@ function loadData() {
     try { registros    = JSON.parse(localStorage.getItem('ms_registros'))||[]; }     catch { registros=[]; }
     try { usuarios     = JSON.parse(localStorage.getItem('ms_usuarios'))||[]; }      catch { usuarios=[]; }
     try { postos       = JSON.parse(localStorage.getItem('ms_postos'))||[]; }        catch { postos=[]; }
+    window._colaboradoresGlobal = colaboradores;
+    window._usuariosGlobal = usuarios;
     populatePostoSelects();
     renderColabPonto();
     _setSyncStatus('error');
@@ -3544,6 +3686,7 @@ function loadData() {
         const pendentes = colaboradores.filter(c => !idsFB.has(c.id));
         colaboradores = [...doFB, ...pendentes];
         localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+        window._colaboradoresGlobal = colaboradores;
       }
       _setSyncStatus('ok');
       populatePostoSelects();
@@ -3584,6 +3727,7 @@ function loadData() {
             usuarios.push({ id:'admin-default', login:'admin', senha:'admin123', nome:'Administrador', role:'admin' });
           }
           localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+          window._usuariosGlobal = usuarios;
           if (currentUser) {
             const atualizado = usuarios.find(x => x.id === currentUser.id);
             if (atualizado) {
@@ -5865,6 +6009,138 @@ async function seedColaboradores() {
   console.log('✅ Seed de colaboradores concluído.');
 }
 
+// ─── FUNÇÕES GLOBAIS DE UI (precisam estar disponíveis antes da IIFE) ─────────
+// Recuperação de senha e wizard — chamadas por onclick antes da IIFE executar
+window.wizEsqueceuSenha = function() {
+  const modal = document.getElementById('modal-recuperar-senha');
+  if (!modal) return;
+  const cpfEl = document.getElementById('rec-cpf');
+  const errEl = document.getElementById('rec-cpf-err');
+  const res   = document.getElementById('rec-resultado');
+  if (cpfEl) { cpfEl.value = ''; cpfEl.classList.remove('err'); }
+  if (errEl) errEl.classList.remove('show');
+  if (res)   res.classList.remove('show');
+  const btn = document.getElementById('btn-rec-buscar');
+  if (btn)   { btn.disabled = false; btn.textContent = '🔍 Buscar credenciais'; }
+  modal.classList.add('ativo');
+  setTimeout(() => cpfEl?.focus(), 200);
+};
+
+window.recFechar = function() {
+  const modal = document.getElementById('modal-recuperar-senha');
+  if (modal) modal.classList.remove('ativo');
+};
+
+window.recMaskCPF = function(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if (v.length > 9)      v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,'$1.$2.$3-$4');
+  else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{0,3})/,'$1.$2.$3');
+  else if (v.length > 3) v = v.replace(/(\d{3})(\d{0,3})/,'$1.$2');
+  el.value = v;
+  el.classList.remove('err');
+  document.getElementById('rec-cpf-err')?.classList.remove('show');
+  document.getElementById('rec-resultado')?.classList.remove('show');
+};
+
+window.recBuscar = async function() {
+  const cpfEl = document.getElementById('rec-cpf');
+  const errEl = document.getElementById('rec-cpf-err');
+  const res   = document.getElementById('rec-resultado');
+  const btn   = document.getElementById('btn-rec-buscar');
+  const cpfDigitado = (cpfEl?.value || '').replace(/\D/g,'');
+
+  cpfEl?.classList.remove('err');
+  errEl?.classList.remove('show');
+  res?.classList.remove('show');
+
+  if (cpfDigitado.length < 11) {
+    cpfEl?.classList.add('err');
+    if (errEl) { errEl.textContent = 'Digite o CPF completo (11 dígitos)'; errEl.classList.add('show'); }
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
+
+  // Listas locais disponíveis no escopo global
+  const _colab = window._colaboradoresGlobal || [];
+  const _usu   = window._usuariosGlobal || [];
+
+  try {
+    let colabEncontrado = null;
+
+    // Busca no Firebase
+    if (window._firebaseReady && window._db) {
+      const snap = await window._fbGet(window._fbRef(window._db, 'colaboradores'));
+      const data = snap.val();
+      if (data) {
+        colabEncontrado = Object.values(data).find(c =>
+          (c.cpf || '').replace(/\D/g,'') === cpfDigitado
+        ) || null;
+      }
+    }
+    // Fallback local
+    if (!colabEncontrado) {
+      colabEncontrado = _colab.find(c => (c.cpf || '').replace(/\D/g,'') === cpfDigitado) || null;
+    }
+
+    if (!colabEncontrado) {
+      cpfEl?.classList.add('err');
+      if (errEl) { errEl.textContent = 'CPF não encontrado no sistema'; errEl.classList.add('show'); }
+      if (btn) { btn.disabled = false; btn.textContent = '🔍 Buscar credenciais'; }
+      return;
+    }
+
+    let usuarioEncontrado = null;
+
+    if (window._firebaseReady && window._db) {
+      const snapU = await window._fbGet(window._fbRef(window._db, 'usuarios'));
+      const dataU = snapU.val();
+      if (dataU) {
+        usuarioEncontrado = Object.values(dataU).find(u =>
+          u.colaboradorId === colabEncontrado.id ||
+          (u.nome || '').trim().toLowerCase() === (colabEncontrado.nome || '').trim().toLowerCase()
+        ) || null;
+      }
+    }
+    if (!usuarioEncontrado) {
+      usuarioEncontrado = _usu.find(u =>
+        u.colaboradorId === colabEncontrado.id ||
+        (u.nome || '').trim().toLowerCase() === (colabEncontrado.nome || '').trim().toLowerCase()
+      ) || null;
+    }
+
+    if (!usuarioEncontrado || !usuarioEncontrado.login) {
+      cpfEl?.classList.add('err');
+      if (errEl) { errEl.textContent = 'Cadastro sem usuário vinculado. Fale com o administrador.'; errEl.classList.add('show'); }
+      if (btn) { btn.disabled = false; btn.textContent = '🔍 Buscar credenciais'; }
+      return;
+    }
+
+    document.getElementById('rec-val-usuario').textContent = usuarioEncontrado.login;
+    document.getElementById('rec-val-senha').textContent   = usuarioEncontrado.senha;
+    res?.classList.add('show');
+    window._recCredenciais = { login: usuarioEncontrado.login, senha: usuarioEncontrado.senha };
+
+  } catch(e) {
+    console.error('[RecSenha]', e.message);
+    if (errEl) { errEl.textContent = 'Erro ao buscar. Verifique a conexão.'; errEl.classList.add('show'); }
+    cpfEl?.classList.add('err');
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '🔍 Buscar credenciais'; }
+};
+
+window.recUsarCredenciais = function() {
+  if (!window._recCredenciais) return;
+  const { login, senha } = window._recCredenciais;
+  window.recFechar();
+  const userEl = document.getElementById('l-user');
+  const passEl = document.getElementById('l-pass');
+  if (userEl) userEl.value = login;
+  if (passEl) passEl.value = senha;
+  setTimeout(() => { if (typeof fazerLogin === 'function') fazerLogin(); }, 200);
+};
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 (function init() {
 
@@ -6452,9 +6728,167 @@ function wizFechar() {
 window.wizFechar = wizFechar;
 
 function wizEsqueceuSenha() {
-  mostrarSyncToast('ℹ️ Solicite ao administrador a redefinição da senha.', 'green');
+  recAbrir();
 }
 window.wizEsqueceuSenha = wizEsqueceuSenha;
+
+// ════════════════════════════════════════════════════════════════════════
+// RECUPERAÇÃO DE SENHA — verificação por CPF
+// ════════════════════════════════════════════════════════════════════════
+
+function recAbrir() {
+  const modal = document.getElementById('modal-recuperar-senha');
+  if (!modal) return;
+  // Limpa estado anterior
+  const cpfEl = document.getElementById('rec-cpf');
+  const errEl = document.getElementById('rec-cpf-err');
+  const res   = document.getElementById('rec-resultado');
+  if (cpfEl) { cpfEl.value = ''; cpfEl.classList.remove('err'); }
+  if (errEl) errEl.classList.remove('show');
+  if (res)   res.classList.remove('show');
+  const btn = document.getElementById('btn-rec-buscar');
+  if (btn)   { btn.disabled = false; btn.textContent = '🔍 Buscar credenciais'; }
+  modal.classList.add('ativo');
+  setTimeout(() => cpfEl?.focus(), 200);
+}
+window.recAbrir = recAbrir;
+
+function recFechar() {
+  const modal = document.getElementById('modal-recuperar-senha');
+  if (modal) modal.classList.remove('ativo');
+}
+window.recFechar = recFechar;
+
+function recMaskCPF(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if (v.length > 9)      v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,'$1.$2.$3-$4');
+  else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{0,3})/,'$1.$2.$3');
+  else if (v.length > 3) v = v.replace(/(\d{3})(\d{0,3})/,'$1.$2');
+  el.value = v;
+  // Limpa erro ao digitar
+  el.classList.remove('err');
+  document.getElementById('rec-cpf-err')?.classList.remove('show');
+  document.getElementById('rec-resultado')?.classList.remove('show');
+}
+window.recMaskCPF = recMaskCPF;
+
+async function recBuscar() {
+  const cpfEl = document.getElementById('rec-cpf');
+  const errEl = document.getElementById('rec-cpf-err');
+  const res   = document.getElementById('rec-resultado');
+  const btn   = document.getElementById('btn-rec-buscar');
+
+  const cpfDigitado = (cpfEl?.value || '').replace(/\D/g,'');
+
+  // Limpa estado
+  cpfEl?.classList.remove('err');
+  errEl?.classList.remove('show');
+  res?.classList.remove('show');
+
+  if (cpfDigitado.length < 11) {
+    cpfEl?.classList.add('err');
+    if (errEl) { errEl.textContent = 'Digite o CPF completo (11 dígitos)'; errEl.classList.add('show'); }
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Buscando...'; }
+
+  try {
+    // Busca colaborador pelo CPF no Firebase primeiro
+    let colabEncontrado = null;
+
+    if (window._firebaseReady && window._db) {
+      const snap = await window._fbGet(window._fbRef(window._db, 'colaboradores'));
+      const data = snap.val();
+      if (data) {
+        const lista = Object.values(data);
+        colabEncontrado = lista.find(c => {
+          const cpfC = (c.cpf || '').replace(/\D/g,'');
+          return cpfC === cpfDigitado;
+        }) || null;
+      }
+    }
+
+    // Fallback: busca no array local
+    if (!colabEncontrado) {
+      colabEncontrado = colaboradores.find(c => {
+        const cpfC = (c.cpf || '').replace(/\D/g,'');
+        return cpfC === cpfDigitado;
+      }) || null;
+    }
+
+    if (!colabEncontrado) {
+      cpfEl?.classList.add('err');
+      if (errEl) { errEl.textContent = 'CPF não encontrado no sistema'; errEl.classList.add('show'); }
+      if (btn) { btn.disabled = false; btn.textContent = '🔍 Buscar credenciais'; }
+      return;
+    }
+
+    // Busca o usuário vinculado ao colaborador
+    let usuarioEncontrado = null;
+
+    if (window._firebaseReady && window._db) {
+      const snapU = await window._fbGet(window._fbRef(window._db, 'usuarios'));
+      const dataU = snapU.val();
+      if (dataU) {
+        const listaU = Object.values(dataU);
+        usuarioEncontrado = listaU.find(u =>
+          u.colaboradorId === colabEncontrado.id ||
+          (u.nome || '').trim().toLowerCase() === (colabEncontrado.nome || '').trim().toLowerCase()
+        ) || null;
+      }
+    }
+
+    // Fallback: array local
+    if (!usuarioEncontrado) {
+      usuarioEncontrado = usuarios.find(u =>
+        u.colaboradorId === colabEncontrado.id ||
+        (u.nome || '').trim().toLowerCase() === (colabEncontrado.nome || '').trim().toLowerCase()
+      ) || null;
+    }
+
+    if (!usuarioEncontrado || !usuarioEncontrado.login) {
+      cpfEl?.classList.add('err');
+      if (errEl) { errEl.textContent = 'Cadastro encontrado, mas sem usuário vinculado. Fale com o administrador.'; errEl.classList.add('show'); }
+      if (btn) { btn.disabled = false; btn.textContent = '🔍 Buscar credenciais'; }
+      return;
+    }
+
+    // Exibe as credenciais
+    const valUser  = document.getElementById('rec-val-usuario');
+    const valSenha = document.getElementById('rec-val-senha');
+    if (valUser)  valUser.textContent  = usuarioEncontrado.login;
+    if (valSenha) valSenha.textContent = usuarioEncontrado.senha;
+    res?.classList.add('show');
+
+    // Guarda para uso posterior
+    window._recCredenciais = { login: usuarioEncontrado.login, senha: usuarioEncontrado.senha };
+
+  } catch(e) {
+    console.error('[RecSenha]', e.message);
+    if (errEl) { errEl.textContent = 'Erro ao buscar. Verifique a conexão.'; errEl.classList.add('show'); }
+    cpfEl?.classList.add('err');
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '🔍 Buscar credenciais'; }
+}
+window.recBuscar = recBuscar;
+
+function recUsarCredenciais() {
+  if (!window._recCredenciais) return;
+  const { login, senha } = window._recCredenciais;
+  recFechar();
+  const userEl = document.getElementById('l-user');
+  const passEl = document.getElementById('l-pass');
+  if (userEl) userEl.value = login;
+  if (passEl) passEl.value = senha;
+  setTimeout(() => fazerLogin(), 200);
+}
+window.recUsarCredenciais = recUsarCredenciais;
+
+// ════════════════════════════════════════════════════════════════════════
+// FIM — RECUPERAÇÃO DE SENHA
+// ════════════════════════════════════════════════════════════════════════
 
 // ─── Reset do wizard ──────────────────────────────────────────────────────────
 function wizReset() {
