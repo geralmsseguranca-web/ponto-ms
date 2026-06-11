@@ -2297,16 +2297,6 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           <label class="ft-modal-label">💬 Motivo <span style="color:var(--red)">*</span></label>
           <select id="ftm-motivo" class="ft-modal-input" onchange="ftToggleColabAusente()">
             <option value="">— Selecione —</option>
-            <option value="Atestado">Atestado médico</option>
-            <option value="Afastamento">Afastamento</option>
-            <option value="Cobertura de Férias">Cobertura de Férias</option>
-            <option value="Suspensão">Suspensão</option>
-            <option value="Bico Fixo">Bico Fixo</option>
-            <option value="Folga do Vigia">Folga do Vigia</option>
-            <option value="Falta Justificada">Falta justificada</option>
-            <option value="Falta Injustificada">Falta injustificada</option>
-            <option value="Atraso">Atraso</option>
-            <option value="Outro">Outro</option>
           </select>
         </div>
         <div class="ft-modal-field ft-modal-full" id="ftm-colab-ausente-wrap" style="display:none">
@@ -2421,16 +2411,6 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           <label class="ft-modal-label">💬 Motivo</label>
           <select id="ftvm-motivo" class="ft-modal-input">
             <option value="">— Selecione —</option>
-            <option value="Atestado">Atestado médico</option>
-            <option value="Afastamento">Afastamento</option>
-            <option value="Cobertura de Férias">Cobertura de Férias</option>
-            <option value="Suspensão">Suspensão</option>
-            <option value="Bico Fixo">Bico Fixo</option>
-            <option value="Folga do Vigia">Folga do Vigia</option>
-            <option value="Falta Justificada">Falta justificada</option>
-            <option value="Falta Injustificada">Falta injustificada</option>
-            <option value="Atraso">Atraso</option>
-            <option value="Outro">Outro</option>
           </select>
         </div>
       </div>
@@ -3044,8 +3024,21 @@ function loadData() {
           if (currentUser) {
             const atualizado = usuarios.find(x => x.id === currentUser.id);
             if (atualizado) {
+              const roleMudou = atualizado.role !== currentUser.role;
               currentUser = atualizado;
               sessionStorage.setItem('ms_session', JSON.stringify(atualizado));
+              // Se o role mudou (ex: admin→usuario ou vice-versa), reaplica visibilidade das abas
+              if (roleMudou) {
+                const isAdm = atualizado.role === 'admin';
+                document.getElementById('tab-btn-colaboradores').style.display = isAdm ? '' : 'none';
+                document.getElementById('tab-btn-dashboard').style.display     = isAdm ? '' : 'none';
+                document.getElementById('tab-btn-ft').style.display            = isAdm ? '' : 'none';
+                document.getElementById('tab-btn-ft-validadas').style.display  = isAdm ? '' : 'none';
+                document.getElementById('tab-btn-gestao').style.display        = isAdm ? '' : 'none';
+              }
+              // Re-renderiza ponto apenas se colaboradores já carregou (evita limpar a lista
+              // antes do listener u1 disparar, que é a causa do grid vazio)
+              if (colaboradores.length > 0) renderColabPonto();
             }
           }
         }
@@ -3177,12 +3170,15 @@ function renderColabPonto() {
 
   // Para não-admin: encontra o próprio colaborador
   if (!isAdmin && currentUser) {
-    if (currentUser.colaboradorId)
-      meuColab = ativos.find(c => c.id === currentUser.colaboradorId);
+    // Garante que temos o objeto mais atualizado do usuário (com colaboradorId)
+    const userAtualizado = usuarios.find(u => u.id === currentUser.id) || currentUser;
+
+    if (userAtualizado.colaboradorId)
+      meuColab = ativos.find(c => c.id === userAtualizado.colaboradorId);
     if (!meuColab)
-      meuColab = ativos.find(c => c.nome.toLowerCase() === (currentUser.nome||'').toLowerCase());
+      meuColab = ativos.find(c => c.nome.toLowerCase() === (userAtualizado.nome||'').toLowerCase());
     if (!meuColab) {
-      const pNome = (currentUser.nome||'').split(' ')[0].toLowerCase();
+      const pNome = (userAtualizado.nome||'').split(' ')[0].toLowerCase();
       if (pNome.length > 3)
         meuColab = ativos.find(c => c.nome.toLowerCase().startsWith(pNome));
     }
@@ -3622,7 +3618,11 @@ function checkSession() {
     const saved = sessionStorage.getItem('ms_session');
     if (saved) {
       const u = JSON.parse(saved);
-      const valid = usuarios.find(x => x.id === u.id && x.login === u.login && x.senha === u.senha);
+      // Busca primeiro no array em memória; se vazio (antes do Firebase carregar),
+      // usa o objeto salvo direto para não bloquear o login de quem recarregou a página
+      const valid = usuarios.length
+        ? (usuarios.find(x => x.id === u.id && x.login === u.login) || null)
+        : u; // ainda sem lista — confia no sessionStorage; u3 vai atualizar depois
       if (valid) { currentUser = valid; entrarSistema(valid); return; }
     }
   } catch {}
@@ -4709,6 +4709,8 @@ function ftAbrirModal(id) {
   document.getElementById('ftm-data').value         = ft.dataKey      || '';
   document.getElementById('ftm-obs').value          = ft.obs          || '';
   document.getElementById('ftm-valor').value        = ft.valor        || '';
+  // Popular select dinâmico de motivos antes de setar o value
+  gcPopularSelectsMotivo();
   document.getElementById('ftm-motivo').value       = ft.motivo       || '';
 
   // Popular select de colaboradores ausentes
@@ -4971,6 +4973,8 @@ function ftvAbrirEdicao(id) {
   document.getElementById('ftvm-data').value         = ft.dataKey     || '';
   document.getElementById('ftvm-obs').value          = ft.obs         || '';
   document.getElementById('ftvm-valor').value        = ft.valor       || '';
+  // Popular select dinâmico de motivos antes de setar o value
+  gcPopularSelectsMotivo();
   document.getElementById('ftvm-motivo').value       = ft.motivo      || '';
 
   document.getElementById('ftv-modal-overlay').style.display = 'flex';
@@ -5409,6 +5413,20 @@ function gcRenderMotivos() {
     </div>`).join('');
 }
 
+// Popula os selects de motivo nos modais de FT com a lista dinâmica _gcMotivos
+function gcPopularSelectsMotivo() {
+  const opts = '<option value="">— Selecione —</option>' +
+    _gcMotivos.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  ['ftm-motivo', 'ftvm-motivo'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const val = sel.value; // preserva seleção atual
+    sel.innerHTML = opts;
+    sel.value = val;
+  });
+}
+window.gcPopularSelectsMotivo = gcPopularSelectsMotivo;
+
 function gcAdicionarMotivo() {
   const inp = document.getElementById('gc-motivo-novo');
   const nome = (inp?.value || '').trim();
@@ -5417,6 +5435,7 @@ function gcAdicionarMotivo() {
   localStorage.setItem('ms_motivos_ft', JSON.stringify(_gcMotivos));
   inp.value = '';
   gcRenderMotivos();
+  gcPopularSelectsMotivo();
 }
 window.gcAdicionarMotivo = gcAdicionarMotivo;
 
@@ -5424,6 +5443,7 @@ function gcRemoverMotivo(i) {
   _gcMotivos.splice(i, 1);
   localStorage.setItem('ms_motivos_ft', JSON.stringify(_gcMotivos));
   gcRenderMotivos();
+  gcPopularSelectsMotivo();
 }
 window.gcRemoverMotivo = gcRemoverMotivo;
 
