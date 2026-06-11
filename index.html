@@ -630,7 +630,6 @@ footer {
   font-size: 12px; color: var(--muted2);
   border-top: 1px solid var(--border2);
   font-family: var(--font-mono); letter-spacing: 0.5px;
-  position: relative; z-index: 1;
 }
 
 /* ══════════════════════════════════════════
@@ -2116,7 +2115,10 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
         <button class="colab-mgr-filtro" onclick="colabMgrSetFiltro('ativo',this)">✅ Ativos</button>
         <button class="colab-mgr-filtro" onclick="colabMgrSetFiltro('inativo',this)">⛔ Inativos</button>
       </div>
-      <button onclick="colabMgrRemoverDuplicatas()" title="Verificar e remover cadastros duplicados" style="background:#18040a;border:1px solid #e8273f44;color:#f87171;font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;letter-spacing:.3px">🧹 Remover Duplicatas</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="colabMgrRepararVinculos()" title="Vincular colaboradores sem usuário pelo nome" style="background:#050e1a;border:1px solid #3b82f644;color:#60a5fa;font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;letter-spacing:.3px">🔗 Reparar Vínculos</button>
+        <button onclick="colabMgrRemoverDuplicatas()" title="Verificar e remover cadastros duplicados" style="background:#18040a;border:1px solid #e8273f44;color:#f87171;font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;letter-spacing:.3px">🧹 Remover Duplicatas</button>
+      </div>
     </div>
 
     <!-- Contador -->
@@ -4535,6 +4537,41 @@ async function colabMgrRemoverDuplicatas() {
   mostrarSyncToast('✅ ' + paraRemover.length + ' duplicata(s) removida(s)', 'green');
 }
 window.colabMgrRemoverDuplicatas = colabMgrRemoverDuplicatas;
+
+// ─── Reparar vínculos colaborador ↔ usuário ──────────────────────────────────
+async function colabMgrRepararVinculos() {
+  let reparados = 0;
+  for (const c of colaboradores) {
+    const jaVinculado = usuarios.find(u => u.colaboradorId === c.id);
+    if (jaVinculado) continue;
+    const nomeNorm = (c.nome || '').trim().toLowerCase();
+    const candidato = usuarios.find(u =>
+      !u.colaboradorId &&
+      u.login !== 'admin' &&
+      (u.nome || '').trim().toLowerCase() === nomeNorm
+    );
+    if (!candidato) continue;
+    candidato.colaboradorId = c.id;
+    if (!candidato.role) candidato.role = c.role || 'colaborador';
+    reparados++;
+    localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+    if (window._firebaseReady && window._db) {
+      try {
+        await window._fbUpdate(window._fbRef(window._db, 'usuarios/' + candidato.id), {
+          colaboradorId: candidato.colaboradorId,
+          role: candidato.role
+        });
+      } catch(e) { console.warn('[RepararVinculos]', e.message); }
+    }
+  }
+  colabMgrRenderGrid();
+  if (reparados > 0) {
+    mostrarSyncToast('🔗 ' + reparados + ' vínculo(s) reparado(s)', 'green');
+  } else {
+    mostrarSyncToast('✅ Nenhum vínculo pendente encontrado', 'green');
+  }
+}
+window.colabMgrRepararVinculos = colabMgrRepararVinculos;
 
 // ─── Init da aba ─────────────────────────────────────────────────────────────
 function renderColaboradores() {
