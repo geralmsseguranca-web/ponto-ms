@@ -236,6 +236,183 @@ body::before {
 }
 
 /* ══════════════════════════════════════════
+   WIZARD CADASTRO (PRIMEIRO ACESSO COLABORADOR)
+══════════════════════════════════════════ */
+#tela-cadastro {
+  position: fixed; inset: 0; z-index: 1000;
+  background: #111014;
+  display: none; align-items: flex-start; justify-content: center;
+  overflow-y: auto; padding: 20px 16px 40px;
+}
+#tela-cadastro.ativo { display: flex; }
+#tela-cadastro::before {
+  content:''; position:fixed; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(34,197,94,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34,197,94,.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 30%, transparent 100%);
+}
+.wiz-card {
+  background: #18161b;
+  border: 1.5px solid #22c55e55;
+  border-radius: 24px;
+  padding: 36px 28px 32px;
+  width: 100%; max-width: 440px;
+  position: relative; z-index: 1;
+  box-shadow: 0 32px 80px #000b, 0 0 32px #22c55e18;
+  animation: slideUp .35s ease;
+  margin: auto;
+}
+.wiz-icon {
+  width: 64px; height: 64px; border-radius: 18px;
+  background: linear-gradient(135deg, #15803d, #22c55e);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 30px; margin: 0 auto 16px;
+  box-shadow: 0 6px 24px #22c55e44;
+}
+.wiz-title {
+  font-family: var(--font-head); font-size: 26px; font-weight: 700;
+  text-align: center; color: var(--text); letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.wiz-sub {
+  text-align: center; font-size: 13px; color: var(--muted);
+  line-height: 1.6; margin-bottom: 24px; font-family: var(--font-body);
+}
+/* Steps indicator */
+.wiz-steps {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0; margin-bottom: 28px;
+}
+.wiz-step-dot {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head); font-size: 15px; font-weight: 700;
+  border: 2px solid #333; color: #555; background: #1c1a1f;
+  position: relative; z-index: 1; transition: all .3s;
+  flex-shrink: 0;
+}
+.wiz-step-dot.done   { background: #22c55e; border-color: #22c55e; color: #fff; box-shadow: 0 0 12px #22c55e66; }
+.wiz-step-dot.active { background: transparent; border-color: #f59e0b; color: #f59e0b; box-shadow: 0 0 12px #f59e0b44; }
+.wiz-step-line {
+  height: 2px; width: 40px; background: #2a2a2a; margin: 0 -1px; flex-shrink: 0; transition: background .3s;
+}
+.wiz-step-line.done { background: #22c55e; }
+/* Seções do form */
+.wiz-section-title {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 2px; text-transform: uppercase; color: #f59e0b;
+  margin-bottom: 16px; padding-bottom: 8px;
+  border-bottom: 1px solid #f59e0b33;
+}
+.wiz-field { margin-bottom: 14px; }
+.wiz-label {
+  display: block; font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 1.5px; text-transform: uppercase; color: #94a3b8;
+  margin-bottom: 6px;
+}
+.wiz-label .req { color: #f59e0b; }
+.wiz-input, .wiz-select {
+  width: 100%; background: #0f0e12; border: 1px solid #2a2730;
+  border-radius: 12px; color: #f1f5f9; padding: 14px 16px;
+  font-size: 15px; font-family: var(--font-body); outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.wiz-input:focus, .wiz-select:focus {
+  border-color: #38bdf8; box-shadow: 0 0 0 3px #38bdf815;
+  background: #13111a;
+}
+.wiz-input.filled, .wiz-select.filled { border-color: #22c55e44; }
+.wiz-input.err, .wiz-select.err { border-color: #e8273f; box-shadow: 0 0 0 3px #e8273f15; }
+.wiz-select option { background: #18161b; }
+.wiz-err-msg {
+  font-family: var(--font-mono); font-size: 10px; color: #e8273f;
+  margin-top: 4px; display: none;
+}
+.wiz-err-msg.show { display: block; }
+/* Botões navegação */
+.wiz-btns {
+  display: flex; gap: 10px; margin-top: 24px;
+}
+.btn-wiz-back {
+  flex: 0 0 120px; background: transparent; border: 1px solid #333;
+  border-radius: 12px; color: var(--muted); padding: 14px;
+  font-family: var(--font-head); font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all .2s; letter-spacing: 0.5px;
+}
+.btn-wiz-back:hover { border-color: #555; color: var(--text); }
+.btn-wiz-next {
+  flex: 1; background: linear-gradient(135deg, #b45309, #f59e0b);
+  color: #000; border: none; border-radius: 12px; padding: 14px;
+  font-family: var(--font-head); font-size: 16px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.5px; transition: all .2s;
+  box-shadow: 0 4px 20px #f59e0b44;
+}
+.btn-wiz-next:hover { transform: translateY(-1px); box-shadow: 0 6px 28px #f59e0b66; }
+.btn-wiz-next:active { transform: scale(.98); }
+.btn-wiz-next:disabled { background: #2a2730; color: #555; transform: none; box-shadow: none; cursor: not-allowed; }
+.btn-wiz-criar {
+  flex: 1; background: linear-gradient(135deg, #15803d, #22c55e);
+  color: #fff; border: none; border-radius: 12px; padding: 14px;
+  font-family: var(--font-head); font-size: 16px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.5px; transition: all .2s;
+  box-shadow: 0 4px 20px #22c55e44;
+}
+.btn-wiz-criar:hover { transform: translateY(-1px); box-shadow: 0 6px 28px #22c55e66; }
+.btn-wiz-criar:active { transform: scale(.98); }
+.btn-wiz-criar:disabled { background: #2a2730; color: #555; transform: none; box-shadow: none; cursor: not-allowed; }
+/* Aviso info box */
+.wiz-info-box {
+  background: #0a1f12; border: 1px solid #22c55e44; border-radius: 12px;
+  padding: 14px 16px; font-size: 13px; color: #86efac; line-height: 1.6;
+  margin-top: 4px; margin-bottom: 8px; font-family: var(--font-body);
+}
+.wiz-info-box strong { color: #f59e0b; }
+/* Tela de sucesso */
+.wiz-sucesso {
+  text-align: center; padding: 8px 0;
+}
+.wiz-sucesso-icon { font-size: 64px; margin-bottom: 12px; }
+.wiz-sucesso-titulo {
+  font-family: var(--font-head); font-size: 28px; font-weight: 700;
+  color: #22c55e; margin-bottom: 8px;
+}
+.wiz-sucesso-sub {
+  font-size: 14px; color: var(--muted); margin-bottom: 20px; line-height: 1.6;
+}
+.wiz-credencial-box {
+  background: #0a1f12; border: 2px solid #22c55e55; border-radius: 16px;
+  padding: 20px 22px; margin-bottom: 16px; text-align: left;
+}
+.wiz-credencial-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.wiz-credencial-row:last-child { margin-bottom: 0; }
+.wiz-cred-label {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: #4ade80; display: flex; align-items: center; gap: 8px;
+}
+.wiz-cred-valor {
+  font-family: var(--font-mono); font-size: 18px; font-weight: 600;
+  color: #f1f5f9;
+}
+.wiz-alerta-box {
+  background: #1a1000; border: 1px solid #f59e0b55; border-radius: 12px;
+  padding: 14px 16px; font-size: 13px; color: #fbbf24; line-height: 1.6;
+  margin-bottom: 20px; text-align: left;
+}
+.btn-wiz-entrar {
+  width: 100%; background: linear-gradient(135deg, #b45309, #f59e0b);
+  color: #000; border: none; border-radius: 12px; padding: 16px;
+  font-family: var(--font-head); font-size: 18px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.5px; transition: all .2s;
+  box-shadow: 0 4px 20px #f59e0b44;
+}
+.btn-wiz-entrar:hover { transform: translateY(-2px); box-shadow: 0 8px 32px #f59e0b66; }
+
+/* ══════════════════════════════════════════
    TELA DE LOGIN
 ══════════════════════════════════════════ */
 #login-screen {
@@ -1885,60 +2062,219 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     </div>
     <button class="btn-login" id="btn-entrar" onclick="fazerLogin()">🔐 ENTRAR</button>
 
-    <!-- ── PRIMEIRO ACESSO ── -->
+    <!-- ── LINKS INFERIORES ── -->
+    <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px;text-align:center;">
+      <div style="font-size:12px;color:var(--muted);font-family:var(--font-mono);margin-bottom:8px;">
+        Ainda não tem acesso? <a href="#" onclick="wizardAbrir();return false;" style="color:#38bdf8;text-decoration:underline;font-family:var(--font-mono);font-size:12px;">Criar cadastro →</a>
+      </div>
+      <div>
+        <a href="#" onclick="wizardEsqueceuSenha();return false;" style="color:#f59e0baa;text-decoration:underline;font-family:var(--font-mono);font-size:12px;">🔑 Esqueceu sua senha?</a>
+      </div>
+    </div>
+
+    <!-- ── PRIMEIRO ACESSO (admin — só aparece quando banco vazio) ── -->
     <div class="primeiro-acesso-link" id="primeiro-acesso-link" style="display:none">
       <button onclick="togglePrimeiroAcesso()">⚙️ Primeiro acesso — configurar sistema</button>
     </div>
-
-    <div id="painel-primeiro-acesso">
+    <div id="painel-primeiro-acesso" style="display:none">
       <div class="pa-titulo">⚙️ CONFIGURAÇÃO INICIAL</div>
       <div class="pa-aviso">
         Nenhum administrador encontrado no banco de dados.<br>
         Preencha os dados abaixo para criar o <strong style="color:#e2e8f0">primeiro administrador</strong> do sistema.
       </div>
-
       <div id="pa-erro-geral"></div>
-
       <div class="pa-field">
         <label class="pa-label" for="pa-nome">👤 Nome completo</label>
-        <input class="pa-input" id="pa-nome" type="text"
-               placeholder="Nome do administrador"
-               autocomplete="off"
+        <input class="pa-input" id="pa-nome" type="text" placeholder="Nome do administrador" autocomplete="off"
                onkeydown="if(event.key==='Enter')document.getElementById('pa-login').focus()"/>
         <div class="pa-err-msg" id="pa-nome-err">Campo obrigatório</div>
       </div>
-
       <div class="pa-field">
         <label class="pa-label" for="pa-login">🔑 Usuário (login)</label>
-        <input class="pa-input" id="pa-login" type="text"
-               placeholder="Ex: admin"
-               autocomplete="off"
+        <input class="pa-input" id="pa-login" type="text" placeholder="Ex: admin" autocomplete="off"
                oninput="this.value=this.value.replace(/\s/g,'')"
                onkeydown="if(event.key==='Enter')document.getElementById('pa-senha').focus()"/>
         <div class="pa-err-msg" id="pa-login-err">Campo obrigatório</div>
       </div>
-
       <div class="pa-field">
         <label class="pa-label" for="pa-senha">🔒 Senha</label>
-        <input class="pa-input" id="pa-senha" type="password"
-               placeholder="Mínimo 4 caracteres"
-               autocomplete="new-password"
+        <input class="pa-input" id="pa-senha" type="password" placeholder="Mínimo 4 caracteres" autocomplete="new-password"
                onkeydown="if(event.key==='Enter')document.getElementById('pa-senha2').focus()"/>
         <div class="pa-err-msg" id="pa-senha-err">Mínimo 4 caracteres</div>
       </div>
-
       <div class="pa-field">
         <label class="pa-label" for="pa-senha2">🔒 Confirmar senha</label>
-        <input class="pa-input" id="pa-senha2" type="password"
-               placeholder="Repita a senha"
-               autocomplete="new-password"
+        <input class="pa-input" id="pa-senha2" type="password" placeholder="Repita a senha" autocomplete="new-password"
                onkeydown="if(event.key==='Enter')primeiroAcessoSalvar()"/>
         <div class="pa-err-msg" id="pa-senha2-err">As senhas não coincidem</div>
       </div>
-
       <button class="btn-primeiro-acesso" id="btn-pa-salvar" onclick="primeiroAcessoSalvar()">
         ✅ CRIAR ADMINISTRADOR E ENTRAR
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ WIZARD CADASTRO COLABORADOR ══ -->
+<div id="tela-cadastro">
+  <div class="wiz-card">
+    <!-- Ícone -->
+    <div class="wiz-icon">📋</div>
+    <div class="wiz-title">Primeiro Acesso</div>
+    <div class="wiz-sub">Preencha seus dados para criar seu cadastro.<br>O sistema gerará seu usuário e senha automaticamente.</div>
+
+    <!-- Steps indicator -->
+    <div class="wiz-steps">
+      <div class="wiz-step-dot active" id="wiz-dot-1">1</div>
+      <div class="wiz-step-line" id="wiz-line-1"></div>
+      <div class="wiz-step-dot" id="wiz-dot-2">2</div>
+      <div class="wiz-step-line" id="wiz-line-2"></div>
+      <div class="wiz-step-dot" id="wiz-dot-3">3</div>
+    </div>
+
+    <!-- STEP 1: Dados Pessoais -->
+    <div id="wiz-step-1">
+      <div class="wiz-section-title">DADOS PESSOAIS</div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-nome">NOME COMPLETO <span class="req">*</span></label>
+        <input class="wiz-input" id="wiz-nome" type="text" placeholder="Digite seu nome completo" autocomplete="name"/>
+        <div class="wiz-err-msg" id="wiz-nome-err">Campo obrigatório</div>
+      </div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-cpf">CPF <span class="req">*</span></label>
+        <input class="wiz-input" id="wiz-cpf" type="text" placeholder="000.000.000-00" inputmode="numeric"
+               oninput="wizMaskCPF(this)"/>
+        <div class="wiz-err-msg" id="wiz-cpf-err">CPF inválido</div>
+      </div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-rg">RG <span class="req">*</span></label>
+        <input class="wiz-input" id="wiz-rg" type="text" placeholder="00.000.000-0" inputmode="numeric"
+               oninput="wizMaskRG(this)"/>
+        <div class="wiz-err-msg" id="wiz-rg-err">Campo obrigatório</div>
+      </div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-nasc">DATA DE NASCIMENTO <span class="req">*</span></label>
+        <input class="wiz-input" id="wiz-nasc" type="date"/>
+        <div class="wiz-err-msg" id="wiz-nasc-err">Data inválida</div>
+      </div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-ecivil">ESTADO CIVIL <span class="req">*</span></label>
+        <select class="wiz-select" id="wiz-ecivil">
+          <option value="">Selecione...</option>
+          <option value="Solteiro(a)">Solteiro(a)</option>
+          <option value="Casado(a)">Casado(a)</option>
+          <option value="Divorciado(a)">Divorciado(a)</option>
+          <option value="Viúvo(a)">Viúvo(a)</option>
+          <option value="União Estável">União Estável</option>
+        </select>
+        <div class="wiz-err-msg" id="wiz-ecivil-err">Selecione uma opção</div>
+      </div>
+      <div class="wiz-btns">
+        <button class="btn-wiz-back" onclick="wizFechar()">← Voltar</button>
+        <button class="btn-wiz-next" onclick="wizProximo(1)">Próximo →</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Contato e Endereço -->
+    <div id="wiz-step-2" style="display:none">
+      <div class="wiz-section-title">CONTATO</div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-tel">TELEFONE / WHATSAPP <span class="req">*</span></label>
+        <input class="wiz-input" id="wiz-tel" type="text" placeholder="(00) 00000-0000" inputmode="numeric"
+               oninput="wizMaskTel(this)"/>
+        <div class="wiz-err-msg" id="wiz-tel-err">Campo obrigatório</div>
+      </div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-email">E-MAIL</label>
+        <input class="wiz-input" id="wiz-email" type="email" placeholder="seu@email.com" inputmode="email"/>
+      </div>
+      <div class="wiz-section-title" style="margin-top:20px">ENDEREÇO</div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-cep">CEP <span class="req">*</span></label>
+        <input class="wiz-input" id="wiz-cep" type="text" placeholder="00000-000" inputmode="numeric"
+               oninput="wizMaskCEP(this)" onblur="wizBuscarCEP()"/>
+        <div class="wiz-err-msg" id="wiz-cep-err">CEP inválido</div>
+      </div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-num">NÚMERO <span class="req">*</span></label>
+        <input class="wiz-input" id="wiz-num" type="text" placeholder="Nº" inputmode="numeric"/>
+        <div class="wiz-err-msg" id="wiz-num-err">Campo obrigatório</div>
+      </div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-rua">RUA / LOGRADOURO <span class="req">*</span></label>
+        <input class="wiz-input" id="wiz-rua" type="text" placeholder="Rua, Avenida..."/>
+        <div class="wiz-err-msg" id="wiz-rua-err">Campo obrigatório</div>
+      </div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-bairro">BAIRRO <span class="req">*</span></label>
+        <input class="wiz-input" id="wiz-bairro" type="text" placeholder="Bairro"/>
+        <div class="wiz-err-msg" id="wiz-bairro-err">Campo obrigatório</div>
+      </div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-cidade">CIDADE <span class="req">*</span></label>
+        <input class="wiz-input" id="wiz-cidade" type="text" placeholder="Cidade"/>
+        <div class="wiz-err-msg" id="wiz-cidade-err">Campo obrigatório</div>
+      </div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-estado">ESTADO <span class="req">*</span></label>
+        <select class="wiz-select" id="wiz-estado">
+          <option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option>
+          <option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option>
+          <option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option>
+          <option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option>
+          <option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option>
+          <option value="PE">PE</option><option value="PI">PI</option><option value="PR">PR</option>
+          <option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option>
+          <option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option>
+          <option value="SE">SE</option><option value="SP" selected>SP</option><option value="TO">TO</option>
+        </select>
+      </div>
+      <div class="wiz-btns">
+        <button class="btn-wiz-back" onclick="wizVoltar(2)">← Voltar</button>
+        <button class="btn-wiz-next" onclick="wizProximo(2)">Próximo →</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: Posto / Função -->
+    <div id="wiz-step-3" style="display:none">
+      <div class="wiz-section-title">INFORMAÇÕES DE TRABALHO</div>
+      <div class="wiz-field">
+        <label class="wiz-label" for="wiz-posto">POSTO / FUNÇÃO <span class="req">*</span></label>
+        <select class="wiz-select" id="wiz-posto">
+          <option value="">Selecione o posto...</option>
+        </select>
+        <div class="wiz-err-msg" id="wiz-posto-err">Selecione um posto</div>
+      </div>
+      <div class="wiz-info-box">
+        ℹ️ Ao confirmar, seu cadastro será criado e o sistema gerará automaticamente seu <strong>usuário</strong> e uma <strong>senha temporária</strong>. Guarde bem essas informações.
+      </div>
+      <div class="wiz-btns">
+        <button class="btn-wiz-back" onclick="wizVoltar(3)">← Voltar</button>
+        <button class="btn-wiz-criar" id="btn-wiz-criar" onclick="wizCriarCadastro()">✅ Criar cadastro</button>
+      </div>
+    </div>
+
+    <!-- TELA SUCESSO -->
+    <div id="wiz-sucesso" style="display:none">
+      <div class="wiz-sucesso">
+        <div class="wiz-sucesso-icon">🎉</div>
+        <div class="wiz-sucesso-titulo">Cadastro criado!</div>
+        <div class="wiz-sucesso-sub">Seus dados foram registrados com sucesso.<br>Anote seu usuário e senha para acessar o sistema:</div>
+        <div class="wiz-credencial-box">
+          <div class="wiz-credencial-row">
+            <span class="wiz-cred-label">👤 USUÁRIO</span>
+            <span class="wiz-cred-valor" id="wiz-cred-usuario">—</span>
+          </div>
+          <div class="wiz-credencial-row">
+            <span class="wiz-cred-label">🔒 SENHA</span>
+            <span class="wiz-cred-valor" id="wiz-cred-senha">—</span>
+          </div>
+        </div>
+        <div class="wiz-alerta-box">
+          ⚠️ <strong>Guarde essas credenciais!</strong> Esta tela não aparecerá novamente. Se perder o acesso, solicite ao administrador.
+        </div>
+        <button class="btn-wiz-entrar" onclick="wizEntrarAgora()">🔓 Entrar agora</button>
+      </div>
     </div>
   </div>
 </div>
@@ -6089,6 +6425,321 @@ window.primeiroAcessoSalvar = primeiroAcessoSalvar;
 
 // ════════════════════════════════════════════════════════════════════════
 // FIM — PRIMEIRO ACESSO
+// ════════════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════════════
+// WIZARD CADASTRO COLABORADOR
+// ════════════════════════════════════════════════════════════════════════
+
+let _wizStep = 1;
+let _wizCredenciais = null; // { login, senha } gerados
+
+// ─── Abrir/Fechar ─────────────────────────────────────────────────────────────
+function wizAbrir() {
+  const tela = document.getElementById('tela-cadastro');
+  if (!tela) return;
+  wizReset();
+  wizPopularPostos();
+  tela.classList.add('ativo');
+  setTimeout(() => document.getElementById('wiz-nome')?.focus(), 200);
+}
+window.wizAbrir = wizAbrir;
+
+function wizFechar() {
+  const tela = document.getElementById('tela-cadastro');
+  if (tela) tela.classList.remove('ativo');
+}
+window.wizFechar = wizFechar;
+
+function wizEsqueceuSenha() {
+  mostrarSyncToast('ℹ️ Solicite ao administrador a redefinição da senha.', 'info');
+}
+window.wizEsqueceuSenha = wizEsqueceuSenha;
+
+// ─── Reset do wizard ──────────────────────────────────────────────────────────
+function wizReset() {
+  _wizStep = 1;
+  _wizCredenciais = null;
+  // Zera campos
+  ['wiz-nome','wiz-cpf','wiz-rg','wiz-nasc','wiz-tel','wiz-email',
+   'wiz-cep','wiz-num','wiz-rua','wiz-bairro','wiz-cidade'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.value = ''; el.classList.remove('err','filled'); }
+  });
+  ['wiz-ecivil','wiz-estado','wiz-posto'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.value = el.id === 'wiz-estado' ? 'SP' : ''; el.classList.remove('err'); }
+  });
+  // Mostra só step 1
+  document.getElementById('wiz-step-1').style.display = '';
+  document.getElementById('wiz-step-2').style.display = 'none';
+  document.getElementById('wiz-step-3').style.display = 'none';
+  document.getElementById('wiz-sucesso').style.display = 'none';
+  wizAtualizarDots(1);
+}
+
+// ─── Atualizar indicador de steps ────────────────────────────────────────────
+function wizAtualizarDots(step) {
+  for (let i = 1; i <= 3; i++) {
+    const dot  = document.getElementById('wiz-dot-' + i);
+    const line = document.getElementById('wiz-line-' + i);
+    if (!dot) continue;
+    dot.classList.remove('done','active');
+    if (i < step)  dot.classList.add('done');
+    if (i === step) dot.classList.add('active');
+    if (line) line.classList.toggle('done', i < step);
+  }
+}
+
+// ─── Popular postos a partir de colaboradores/postos do sistema ───────────────
+function wizPopularPostos() {
+  const sel = document.getElementById('wiz-posto');
+  if (!sel) return;
+  // Coleta postos únicos dos colaboradores cadastrados
+  const postos = [...new Set(
+    colaboradores.filter(c => c.posto && c.posto.trim())
+                 .map(c => c.posto.trim())
+  )].sort((a,b) => a.localeCompare(b,'pt-BR'));
+
+  // Fallback: postos da variável de postos globais se existir
+  let extras = [];
+  if (typeof postosCadastrados !== 'undefined') {
+    extras = postosCadastrados.filter(p => p && p.trim()).map(p => p.trim());
+  }
+
+  const todos = [...new Set([...postos, ...extras])];
+  sel.innerHTML = '<option value="">Selecione o posto...</option>' +
+    todos.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+}
+
+// ─── Máscaras ────────────────────────────────────────────────────────────────
+function wizMaskCPF(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if (v.length > 9) v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,'$1.$2.$3-$4');
+  else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{0,3})/,'$1.$2.$3');
+  else if (v.length > 3) v = v.replace(/(\d{3})(\d{0,3})/,'$1.$2');
+  el.value = v;
+}
+function wizMaskRG(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,9);
+  if (v.length > 8) v = v.replace(/(\d{2})(\d{3})(\d{3})(\d{1})/,'$1.$2.$3-$4');
+  else if (v.length > 5) v = v.replace(/(\d{2})(\d{3})(\d{0,3})/,'$1.$2.$3');
+  else if (v.length > 2) v = v.replace(/(\d{2})(\d{0,3})/,'$1.$2');
+  el.value = v;
+}
+function wizMaskTel(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if (v.length > 10) v = v.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3');
+  else if (v.length > 6) v = v.replace(/(\d{2})(\d{4,5})(\d{0,4})/,'($1) $2-$3');
+  else if (v.length > 2) v = v.replace(/(\d{2})(\d{0,5})/,'($1) $2');
+  el.value = v;
+}
+function wizMaskCEP(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,8);
+  if (v.length > 5) v = v.replace(/(\d{5})(\d{0,3})/,'$1-$2');
+  el.value = v;
+}
+window.wizMaskCPF = wizMaskCPF;
+window.wizMaskRG = wizMaskRG;
+window.wizMaskTel = wizMaskTel;
+window.wizMaskCEP = wizMaskCEP;
+
+// ─── Busca CEP ───────────────────────────────────────────────────────────────
+async function wizBuscarCEP() {
+  const cepEl = document.getElementById('wiz-cep');
+  if (!cepEl) return;
+  const cep = cepEl.value.replace(/\D/g,'');
+  if (cep.length !== 8) return;
+  try {
+    const res = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+    const d = await res.json();
+    if (d.erro) return;
+    if (d.logradouro) { document.getElementById('wiz-rua').value    = d.logradouro; }
+    if (d.bairro)     { document.getElementById('wiz-bairro').value = d.bairro; }
+    if (d.localidade) { document.getElementById('wiz-cidade').value = d.localidade; }
+    if (d.uf)         {
+      const sel = document.getElementById('wiz-estado');
+      if (sel) sel.value = d.uf;
+    }
+    document.getElementById('wiz-num')?.focus();
+  } catch(e) { /* ignora silenciosamente */ }
+}
+window.wizBuscarCEP = wizBuscarCEP;
+
+// ─── Validação por step ───────────────────────────────────────────────────────
+function wizValidarStep(step) {
+  let ok = true;
+  function err(id, msg) {
+    const inp = document.getElementById(id);
+    const errEl = document.getElementById(id + '-err');
+    if (inp) inp.classList.add('err');
+    if (errEl) { if (msg) errEl.textContent = msg; errEl.classList.add('show'); }
+    ok = false;
+  }
+  function clr(id) {
+    const inp = document.getElementById(id);
+    const errEl = document.getElementById(id + '-err');
+    if (inp) { inp.classList.remove('err'); inp.classList.add('filled'); }
+    if (errEl) errEl.classList.remove('show');
+  }
+
+  if (step === 1) {
+    const nome = (document.getElementById('wiz-nome')?.value||'').trim();
+    const cpf  = (document.getElementById('wiz-cpf')?.value||'').replace(/\D/g,'');
+    const rg   = (document.getElementById('wiz-rg')?.value||'').trim();
+    const nasc = (document.getElementById('wiz-nasc')?.value||'').trim();
+    const eciv = (document.getElementById('wiz-ecivil')?.value||'').trim();
+    if (!nome)        err('wiz-nome','Campo obrigatório');    else clr('wiz-nome');
+    if (cpf.length < 11) err('wiz-cpf','CPF inválido');      else clr('wiz-cpf');
+    if (!rg)          err('wiz-rg','Campo obrigatório');      else clr('wiz-rg');
+    if (!nasc)        err('wiz-nasc','Data inválida');        else clr('wiz-nasc');
+    if (!eciv)        err('wiz-ecivil','Selecione uma opção'); else clr('wiz-ecivil');
+  }
+
+  if (step === 2) {
+    const tel    = (document.getElementById('wiz-tel')?.value||'').replace(/\D/g,'');
+    const cep    = (document.getElementById('wiz-cep')?.value||'').replace(/\D/g,'');
+    const num    = (document.getElementById('wiz-num')?.value||'').trim();
+    const rua    = (document.getElementById('wiz-rua')?.value||'').trim();
+    const bairro = (document.getElementById('wiz-bairro')?.value||'').trim();
+    const cidade = (document.getElementById('wiz-cidade')?.value||'').trim();
+    if (tel.length < 10) err('wiz-tel','Telefone inválido'); else clr('wiz-tel');
+    if (cep.length < 8)  err('wiz-cep','CEP inválido');     else clr('wiz-cep');
+    if (!num)    err('wiz-num','Campo obrigatório');    else clr('wiz-num');
+    if (!rua)    err('wiz-rua','Campo obrigatório');    else clr('wiz-rua');
+    if (!bairro) err('wiz-bairro','Campo obrigatório'); else clr('wiz-bairro');
+    if (!cidade) err('wiz-cidade','Campo obrigatório'); else clr('wiz-cidade');
+  }
+
+  if (step === 3) {
+    const posto = (document.getElementById('wiz-posto')?.value||'').trim();
+    if (!posto) err('wiz-posto','Selecione um posto'); else clr('wiz-posto');
+  }
+
+  return ok;
+}
+
+// ─── Navegar steps ───────────────────────────────────────────────────────────
+function wizProximo(step) {
+  if (!wizValidarStep(step)) return;
+  document.getElementById('wiz-step-' + step).style.display = 'none';
+  _wizStep = step + 1;
+  const prox = document.getElementById('wiz-step-' + _wizStep);
+  if (prox) { prox.style.display = ''; prox.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  wizAtualizarDots(_wizStep);
+  if (_wizStep === 3) wizPopularPostos();
+}
+window.wizProximo = wizProximo;
+
+function wizVoltar(step) {
+  document.getElementById('wiz-step-' + step).style.display = 'none';
+  _wizStep = step - 1;
+  const ant = document.getElementById('wiz-step-' + _wizStep);
+  if (ant) { ant.style.display = ''; ant.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  wizAtualizarDots(_wizStep);
+}
+window.wizVoltar = wizVoltar;
+
+// ─── Gerar login/senha automático ────────────────────────────────────────────
+function wizGerarCredenciais(nome) {
+  // login: primeirnome + 3 dígitos aleatórios (sem acentos, minúsculo)
+  const primeiroNome = nome.trim().split(' ')[0]
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/[^a-z]/g,'');
+  const sufixo = String(Math.floor(100 + Math.random() * 900));
+  const login  = primeiroNome + sufixo;
+  // senha: 4 dígitos numéricos
+  const senha  = String(Math.floor(1000 + Math.random() * 9000));
+  return { login, senha };
+}
+
+// ─── Criar cadastro ───────────────────────────────────────────────────────────
+async function wizCriarCadastro() {
+  if (!wizValidarStep(3)) return;
+
+  const btn = document.getElementById('btn-wiz-criar');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Criando...'; }
+
+  const nome    = (document.getElementById('wiz-nome')?.value||'').trim();
+  const cpf     = (document.getElementById('wiz-cpf')?.value||'').trim();
+  const rg      = (document.getElementById('wiz-rg')?.value||'').trim();
+  const nasc    = (document.getElementById('wiz-nasc')?.value||'');
+  const ecivil  = (document.getElementById('wiz-ecivil')?.value||'');
+  const tel     = (document.getElementById('wiz-tel')?.value||'').trim();
+  const email   = (document.getElementById('wiz-email')?.value||'').trim();
+  const cep     = (document.getElementById('wiz-cep')?.value||'').trim();
+  const num     = (document.getElementById('wiz-num')?.value||'').trim();
+  const rua     = (document.getElementById('wiz-rua')?.value||'').trim();
+  const bairro  = (document.getElementById('wiz-bairro')?.value||'').trim();
+  const cidade  = (document.getElementById('wiz-cidade')?.value||'').trim();
+  const estado  = (document.getElementById('wiz-estado')?.value||'SP');
+  const posto   = (document.getElementById('wiz-posto')?.value||'').trim();
+
+  const creds = wizGerarCredenciais(nome);
+  _wizCredenciais = creds;
+
+  const novoId = uid();
+  const novoColab = {
+    id: novoId, nome, cpf, rg,
+    nascimento: nasc, estadoCivil: ecivil,
+    telefone: tel, email, cep,
+    endereco: `${rua}, ${num} - ${bairro}, ${cidade} - ${estado}`,
+    rua, numero: num, bairro, cidade, estado,
+    posto, role: 'colaborador', ativo: true,
+    criadoEm: Date.now()
+  };
+  const novoUsuario = {
+    id: uid(), nome, login: creds.login, senha: creds.senha,
+    role: 'colaborador', colaboradorId: novoId,
+    criadoEm: Date.now()
+  };
+
+  try {
+    if (window._firebaseReady && window._db) {
+      await window._fbSet(window._fbRef(window._db, 'colaboradores/' + novoColab.id), novoColab);
+      await window._fbSet(window._fbRef(window._db, 'usuarios/' + novoUsuario.id), novoUsuario);
+    }
+    colaboradores.push(novoColab);
+    usuarios.push(novoUsuario);
+    localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+    localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
+
+    // Mostra tela de sucesso
+    document.getElementById('wiz-step-3').style.display = 'none';
+    document.getElementById('wiz-cred-usuario').textContent = creds.login;
+    document.getElementById('wiz-cred-senha').textContent   = creds.senha;
+    document.getElementById('wiz-sucesso').style.display    = '';
+    // Marca todos os dots como done
+    for (let i = 1; i <= 3; i++) {
+      const dot = document.getElementById('wiz-dot-' + i);
+      if (dot) { dot.classList.remove('active'); dot.classList.add('done'); }
+      const line = document.getElementById('wiz-line-' + i);
+      if (line) line.classList.add('done');
+    }
+    document.getElementById('tela-cadastro').scrollTop = 0;
+  } catch(e) {
+    console.error('[WizCadastro]', e.message);
+    mostrarSyncToast('❌ Erro ao criar cadastro: ' + e.message, 'red');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Criar cadastro'; }
+  }
+}
+window.wizCriarCadastro = wizCriarCadastro;
+
+// ─── Entrar após cadastro ─────────────────────────────────────────────────────
+function wizEntrarAgora() {
+  if (!_wizCredenciais) return;
+  wizFechar();
+  const { login, senha } = _wizCredenciais;
+  const userEl = document.getElementById('l-user');
+  const passEl = document.getElementById('l-pass');
+  if (userEl) userEl.value = login;
+  if (passEl) passEl.value = senha;
+  setTimeout(() => fazerLogin(), 200);
+}
+window.wizEntrarAgora = wizEntrarAgora;
+
+// ════════════════════════════════════════════════════════════════════════
+// FIM — WIZARD CADASTRO COLABORADOR
 // ════════════════════════════════════════════════════════════════════════
 
   // Garante admin padrão no localStorage
