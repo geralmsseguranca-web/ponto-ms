@@ -2667,9 +2667,98 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           Para relatórios detalhados de ponto, utilize a aba <strong style="color:var(--accent)">Histórico</strong> ou <strong style="color:var(--accent)">FTs Validadas</strong>.
         </p>
       </div>
+
+      <!-- ─── ZONA DE PERIGO ─── -->
+      <div class="gc-card" style="border-color:#e8273f44;margin-top:20px">
+        <div class="gc-card-titulo" style="color:var(--red)">⚠️ ZONA DE PERIGO</div>
+        <div style="background:#18040a;border:1px solid #e8273f33;border-radius:12px;padding:18px 20px;margin-bottom:16px">
+          <div style="display:flex;align-items:flex-start;gap:14px">
+            <span style="font-size:28px;flex-shrink:0">🗑️</span>
+            <div>
+              <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--red);margin-bottom:6px">Limpar todos os dados operacionais</div>
+              <div style="font-size:13px;color:var(--muted);line-height:1.7">
+                Remove <strong style="color:var(--text)">todos os registros de ponto</strong>, <strong style="color:var(--text)">todas as FTs</strong> e a <strong style="color:var(--text)">fila offline</strong> do Firebase e do localStorage.<br>
+                <span style="color:#4ade80">✓ Preservados:</span> colaboradores, postos e usuários cadastrados.
+              </div>
+            </div>
+          </div>
+        </div>
+        <button onclick="abrirModalLimparDados()"
+          style="width:100%;background:linear-gradient(135deg,#5c0010,#c01030);color:#fff;border:none;
+                 border-radius:12px;padding:14px 20px;font-family:var(--font-head);font-size:16px;
+                 font-weight:700;cursor:pointer;letter-spacing:0.5px;
+                 box-shadow:0 4px 20px #e8273f44;transition:all .2s"
+          onmouseover="this.style.boxShadow='0 8px 32px #e8273f77'"
+          onmouseout="this.style.boxShadow='0 4px 20px #e8273f44'">
+          🗑️ Limpar todos os dados
+        </button>
+      </div>
     </div>
 
   </section><!-- /tab-gestao -->
+
+  <!-- ══ MODAL LIMPAR DADOS ══ -->
+  <div class="overlay" id="limpar-dados-overlay" style="display:none;z-index:2200"
+       onclick="if(event.target===this)fecharModalLimparDados()">
+    <div style="background:var(--surface);border:1.5px solid #e8273f88;border-radius:24px;padding:36px;
+                max-width:440px;width:94%;text-align:center;
+                box-shadow:0 32px 80px #000b,0 0 40px #e8273f22;animation:slideUp .25s ease">
+
+      <div style="font-size:48px;margin-bottom:12px">⚠️</div>
+      <h3 style="font-family:var(--font-head);font-size:20px;font-weight:700;color:var(--red);margin-bottom:10px;letter-spacing:1px">
+        AÇÃO IRREVERSÍVEL
+      </h3>
+      <p style="font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:20px">
+        Isso irá apagar <strong style="color:var(--text)">permanentemente</strong> todos os registros de ponto e FTs.<br>
+        Colaboradores, postos e usuários <strong style="color:#4ade80">serão mantidos</strong>.
+      </p>
+
+      <div style="background:#18040a;border:1px solid #e8273f44;border-radius:12px;padding:16px;margin-bottom:20px;text-align:left">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;font-family:var(--font-mono);letter-spacing:1px">SERÁ REMOVIDO:</div>
+        <div style="font-size:13px;color:var(--red);display:grid;gap:6px">
+          <span>🗑️ Todos os registros de ponto (entrada/saída)</span>
+          <span>🗑️ Todas as Folhas de Trabalho (FTs)</span>
+          <span>🗑️ Fila de registros offline pendentes</span>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--muted);font-family:var(--font-mono);letter-spacing:1px">SERÁ MANTIDO:</div>
+        <div style="font-size:13px;color:#4ade80;display:grid;gap:6px;margin-top:6px">
+          <span>✅ Colaboradores e cadastros</span>
+          <span>✅ Postos de serviço</span>
+          <span>✅ Usuários e senhas</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px;text-align:left">
+        <label style="font-size:12px;color:var(--muted);font-family:var(--font-mono);letter-spacing:1px;display:block;margin-bottom:8px">
+          CONFIRME DIGITANDO: <strong style="color:var(--red)">LIMPAR</strong>
+        </label>
+        <input id="limpar-dados-confirm-input" type="text"
+               placeholder="Digite LIMPAR para confirmar"
+               oninput="limparDadosVerificarInput(this)"
+               style="width:100%;background:var(--surface2);border:2px solid #e8273f55;
+                      border-radius:10px;color:var(--text);padding:12px 14px;
+                      font-size:15px;font-family:var(--font-mono);outline:none;
+                      transition:border-color .2s;letter-spacing:2px"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button onclick="fecharModalLimparDados()"
+          style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+                 border-radius:10px;padding:12px 18px;cursor:pointer;font-size:14px;transition:all .2s"
+          onmouseover="this.style.borderColor='var(--muted)';this.style.color='var(--text)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+          Cancelar
+        </button>
+        <button id="limpar-dados-btn-confirmar" onclick="limparTodosDados()" disabled
+          style="flex:1;background:#3a0008;border:1px solid #e8273f55;color:#e8273f99;
+                 border-radius:10px;padding:12px 18px;cursor:not-allowed;font-size:14px;
+                 font-family:var(--font-head);font-weight:700;letter-spacing:0.5px;transition:all .2s">
+          🗑️ Confirmar limpeza
+        </button>
+      </div>
+    </div>
+  </div>
 
 </main>
 
@@ -5659,6 +5748,114 @@ window.gcPopularSelectPostos = gcPopularSelectPostos;
 // ════════════════════════════════════════════════════════════════════════
 // FIM — ABA GESTÃO JS
 // ════════════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════════════
+// LIMPEZA TOTAL DE DADOS OPERACIONAIS
+// ════════════════════════════════════════════════════════════════════════
+
+function abrirModalLimparDados() {
+  const input = document.getElementById('limpar-dados-confirm-input');
+  const btn   = document.getElementById('limpar-dados-btn-confirmar');
+  if (input) input.value = '';
+  if (btn) {
+    btn.disabled = true;
+    btn.style.background   = '#3a0008';
+    btn.style.borderColor  = '#e8273f55';
+    btn.style.color        = '#e8273f99';
+    btn.style.cursor       = 'not-allowed';
+  }
+  document.getElementById('limpar-dados-overlay').style.display = 'flex';
+  setTimeout(() => { if (input) input.focus(); }, 150);
+}
+window.abrirModalLimparDados = abrirModalLimparDados;
+
+function fecharModalLimparDados() {
+  document.getElementById('limpar-dados-overlay').style.display = 'none';
+}
+window.fecharModalLimparDados = fecharModalLimparDados;
+
+function limparDadosVerificarInput(el) {
+  const btn = document.getElementById('limpar-dados-btn-confirmar');
+  if (!btn) return;
+  const ok = (el.value || '').trim().toUpperCase() === 'LIMPAR';
+  btn.disabled      = !ok;
+  btn.style.cursor  = ok ? 'pointer'      : 'not-allowed';
+  btn.style.background  = ok ? 'linear-gradient(135deg,#5c0010,#c01030)' : '#3a0008';
+  btn.style.borderColor = ok ? '#e8273f'  : '#e8273f55';
+  btn.style.color       = ok ? '#fff'     : '#e8273f99';
+  btn.style.boxShadow   = ok ? '0 4px 20px #e8273f44' : 'none';
+}
+window.limparDadosVerificarInput = limparDadosVerificarInput;
+
+async function limparTodosDados() {
+  const input = document.getElementById('limpar-dados-confirm-input');
+  if ((input?.value || '').trim().toUpperCase() !== 'LIMPAR') return;
+
+  fecharModalLimparDados();
+
+  const btn = document.querySelector('[onclick="abrirModalLimparDados()"]');
+  const textoOriginal = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Limpando...'; }
+
+  let erros = 0;
+
+  try {
+    // ── Firebase ──────────────────────────────────────────────────────────
+    if (window._firebaseReady && window._db) {
+      mostrarSyncToast('🗑️ Removendo registros do Firebase…', 'gold');
+
+      // Remove registros de ponto
+      try {
+        await window._fbRemove(window._fbRef(window._db, 'registros'));
+      } catch(e) {
+        console.warn('[Limpar] registros:', e.message); erros++;
+      }
+
+      // Remove FTs
+      try {
+        await window._fbRemove(window._fbRef(window._db, 'fts'));
+      } catch(e) {
+        console.warn('[Limpar] fts:', e.message); erros++;
+      }
+    } else {
+      mostrarSyncToast('⚠️ Firebase offline — limpando apenas localStorage', 'gold');
+    }
+
+    // ── localStorage / memória ────────────────────────────────────────────
+    registros = [];
+    _fts      = [];
+    localStorage.removeItem('ms_registros');
+    localStorage.removeItem(OFFLINE_QUEUE_KEY);
+    // Marca para que listeners não recriem FTs fantasma
+    window._ftsReparadas = false;
+
+    // ── Atualiza UI ───────────────────────────────────────────────────────
+    atualizarBadgeOffline();
+    renderColabPonto();
+
+    const tabDash = document.getElementById('tab-dashboard');
+    if (tabDash?.classList.contains('active')) renderDashboard();
+    const tabHist = document.getElementById('tab-historico');
+    if (tabHist?.classList.contains('active')) renderHistorico();
+    const tabFt = document.getElementById('tab-ft-auto');
+    if (tabFt?.classList.contains('active')) ftRenderLista();
+    const tabFtV = document.getElementById('tab-ft-validadas');
+    if (tabFtV?.classList.contains('active')) ftvCarregar();
+
+    if (erros === 0) {
+      mostrarSyncToast('✅ Dados limpos com sucesso!', 'green');
+    } else {
+      mostrarSyncToast('⚠️ Limpeza concluída com alguns erros no Firebase. Verifique a conexão.', 'gold');
+    }
+
+  } catch(e) {
+    console.error('[Limpar] Erro inesperado:', e.message);
+    mostrarSyncToast('❌ Erro ao limpar dados: ' + e.message, 'red');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = textoOriginal; }
+  }
+}
+window.limparTodosDados = limparTodosDados;
   // Garante admin padrão no localStorage
   if (!usuarios.length) seedAdminUser();
   if (!usuarios.find(u => u.login === 'admin')) {
