@@ -4374,10 +4374,24 @@ function colabMgrRenderGrid() {
       ? '<span class="colab-card-badge badge-ativo">✅ ATIVO</span>'
       : '<span class="colab-card-badge badge-inativo">⛔ INATIVO</span>';
 
-    const user = usuarios.find(u => u.colaboradorId === c.id || (u.login && u.nome === c.nome));
-    const loginInfo = user
-      ? `<div class="colab-card-detail-row">🔑 <span>${esc(user.login)}</span> <em style="color:var(--muted);font-size:10px">(${user.role === 'admin' ? 'admin' : 'usuário'})</em></div>`
+    const user = usuarios.find(u => u.colaboradorId === c.id || (u.login && u.login === c.login) || (u.login && u.nome === c.nome));
+    const isAdmin = user?.role === 'admin';
+    const roleBadge = user
+      ? (isAdmin
+          ? `<span style="display:inline-block;background:#1e1a05;border:1px solid #f59e0b;color:#fbbf24;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.5px">👑 Admin</span>`
+          : `<span style="display:inline-block;background:#0a1a0a;border:1px solid #22c55e;color:#4ade80;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.5px">👷 Colaborador</span>`)
       : '';
+    const loginInfo = user
+      ? `<div style="background:var(--surface2,#19161c);border:1px solid var(--border,#2a2535);border-radius:10px;padding:10px 14px;margin-top:10px;display:flex;flex-direction:column;gap:6px">
+           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+             <span style="color:#60a5fa;font-weight:700;font-size:13px">👤 ${esc(user.login)}</span>
+             <span style="color:var(--muted,#888);font-size:13px">🔒 ${esc(user.senha || '—')}</span>
+           </div>
+           ${roleBadge}
+         </div>`
+      : `<div style="background:var(--surface2,#19161c);border:1px solid #e8273f33;border-radius:10px;padding:10px 14px;margin-top:10px;font-size:12px;color:#f87171">
+           ⚠️ Sem usuário vinculado — execute "Reparar Vínculos"
+         </div>`;
     const telInfo = c.tel ? `<div class="colab-card-detail-row">📱 <span>${esc(c.tel)}</span></div>` : '';
     const obsInfo = c.obs ? `<div class="colab-card-detail-row">📝 <span style="white-space:normal;word-break:break-word">${esc(c.obs)}</span></div>` : '';
 
@@ -4389,10 +4403,17 @@ function colabMgrRenderGrid() {
         <div class="colab-card-info">
           <div class="colab-card-nome">${esc(c.nome)}</div>
           <div class="colab-card-posto">📍 ${esc(c.posto || '—')}</div>
+          ${c.estadoCivil ? `<div style="font-size:11px;color:var(--muted)">👰 ${esc(c.estadoCivil)}</div>` : ''}
+          ${c.rg || c.cpf ? `<div style="font-size:11px;color:var(--muted)">${c.rg ? 'RG: '+esc(c.rg) : ''}${c.rg && c.cpf ? ' &nbsp;·&nbsp; ' : ''}${c.cpf ? 'CPF: '+esc(c.cpf) : ''}</div>` : ''}
+          ${c.nascimento ? `<div style="font-size:11px;color:var(--muted)">🎂 ${esc(c.nascimento)}</div>` : ''}
+          ${c.telefone ? `<div style="font-size:11px;color:var(--muted)">📞 ${esc(c.telefone)}</div>` : ''}
+          ${c.email ? `<div style="font-size:11px;color:var(--muted)">✉️ ${esc(c.email)}</div>` : ''}
+          ${c.endereco ? `<div style="font-size:11px;color:var(--muted)">🏠 ${esc(c.endereco)}</div>` : ''}
         </div>
         ${badge}
       </div>
-      ${(loginInfo || telInfo || obsInfo) ? `<div class="colab-card-details">${loginInfo}${telInfo}${obsInfo}</div>` : ''}
+      ${loginInfo}
+      ${(telInfo || obsInfo) ? `<div class="colab-card-details">${telInfo}${obsInfo}</div>` : ''}
       <div class="colab-card-actions">
         <button class="colab-card-btn" onclick="colabMgrAbrirForm('${c.id}')">✏️ Editar</button>
         <button class="colab-card-btn btn-toggle-ativo" onclick="colabMgrToggleAtivo('${c.id}')">${toggleLabel}</button>
