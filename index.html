@@ -2297,6 +2297,16 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           <label class="ft-modal-label">💬 Motivo <span style="color:var(--red)">*</span></label>
           <select id="ftm-motivo" class="ft-modal-input" onchange="ftToggleColabAusente()">
             <option value="">— Selecione —</option>
+            <option value="Atestado">Atestado médico</option>
+            <option value="Afastamento">Afastamento</option>
+            <option value="Cobertura de Férias">Cobertura de Férias</option>
+            <option value="Suspensão">Suspensão</option>
+            <option value="Bico Fixo">Bico Fixo</option>
+            <option value="Folga do Vigia">Folga do Vigia</option>
+            <option value="Falta Justificada">Falta justificada</option>
+            <option value="Falta Injustificada">Falta injustificada</option>
+            <option value="Atraso">Atraso</option>
+            <option value="Outro">Outro</option>
           </select>
         </div>
         <div class="ft-modal-field ft-modal-full" id="ftm-colab-ausente-wrap" style="display:none">
@@ -2411,6 +2421,16 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           <label class="ft-modal-label">💬 Motivo</label>
           <select id="ftvm-motivo" class="ft-modal-input">
             <option value="">— Selecione —</option>
+            <option value="Atestado">Atestado médico</option>
+            <option value="Afastamento">Afastamento</option>
+            <option value="Cobertura de Férias">Cobertura de Férias</option>
+            <option value="Suspensão">Suspensão</option>
+            <option value="Bico Fixo">Bico Fixo</option>
+            <option value="Folga do Vigia">Folga do Vigia</option>
+            <option value="Falta Justificada">Falta justificada</option>
+            <option value="Falta Injustificada">Falta injustificada</option>
+            <option value="Atraso">Atraso</option>
+            <option value="Outro">Outro</option>
           </select>
         </div>
       </div>
@@ -4689,8 +4709,6 @@ function ftAbrirModal(id) {
   document.getElementById('ftm-data').value         = ft.dataKey      || '';
   document.getElementById('ftm-obs').value          = ft.obs          || '';
   document.getElementById('ftm-valor').value        = ft.valor        || '';
-  // Popular select dinâmico de motivos antes de setar o value
-  gcPopularSelectsMotivo();
   document.getElementById('ftm-motivo').value       = ft.motivo       || '';
 
   // Popular select de colaboradores ausentes
@@ -4953,8 +4971,6 @@ function ftvAbrirEdicao(id) {
   document.getElementById('ftvm-data').value         = ft.dataKey     || '';
   document.getElementById('ftvm-obs').value          = ft.obs         || '';
   document.getElementById('ftvm-valor').value        = ft.valor       || '';
-  // Popular select dinâmico de motivos antes de setar o value
-  gcPopularSelectsMotivo();
   document.getElementById('ftvm-motivo').value       = ft.motivo      || '';
 
   document.getElementById('ftv-modal-overlay').style.display = 'flex';
@@ -5393,20 +5409,6 @@ function gcRenderMotivos() {
     </div>`).join('');
 }
 
-// Popula os selects de motivo nos modais de FT com a lista dinâmica _gcMotivos
-function gcPopularSelectsMotivo() {
-  const opts = '<option value="">— Selecione —</option>' +
-    _gcMotivos.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
-  ['ftm-motivo', 'ftvm-motivo'].forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    const val = sel.value; // preserva seleção atual
-    sel.innerHTML = opts;
-    sel.value = val;
-  });
-}
-window.gcPopularSelectsMotivo = gcPopularSelectsMotivo;
-
 function gcAdicionarMotivo() {
   const inp = document.getElementById('gc-motivo-novo');
   const nome = (inp?.value || '').trim();
@@ -5415,7 +5417,6 @@ function gcAdicionarMotivo() {
   localStorage.setItem('ms_motivos_ft', JSON.stringify(_gcMotivos));
   inp.value = '';
   gcRenderMotivos();
-  gcPopularSelectsMotivo();
 }
 window.gcAdicionarMotivo = gcAdicionarMotivo;
 
@@ -5423,7 +5424,6 @@ function gcRemoverMotivo(i) {
   _gcMotivos.splice(i, 1);
   localStorage.setItem('ms_motivos_ft', JSON.stringify(_gcMotivos));
   gcRenderMotivos();
-  gcPopularSelectsMotivo();
 }
 window.gcRemoverMotivo = gcRemoverMotivo;
 
