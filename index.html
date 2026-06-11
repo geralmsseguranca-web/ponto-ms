@@ -2239,7 +2239,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     <div id="wiz-step-3" style="display:none">
       <div class="wiz-section-title">INFORMAÇÕES DE TRABALHO</div>
       <div class="wiz-field">
-        <label class="wiz-label" for="wiz-posto">POSTO / FUNÇÃO <span class="req">*</span></label>
+        <label class="wiz-label" for="wiz-posto">POSTO / FUNÇÃO</label>
         <select class="wiz-select" id="wiz-posto">
           <option value="">Selecione o posto...</option>
         </select>
@@ -6612,8 +6612,7 @@ function wizValidarStep(step) {
   }
 
   if (step === 3) {
-    const posto = (document.getElementById('wiz-posto')?.value||'').trim();
-    if (!posto) err('wiz-posto','Selecione um posto'); else clr('wiz-posto');
+    // posto opcional — sem validação obrigatória
   }
 
   return ok;
