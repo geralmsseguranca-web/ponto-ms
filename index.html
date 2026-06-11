@@ -3491,7 +3491,9 @@ function fazerLogin() {
   btn.textContent = '⏳ Verificando...';
 
   function tentarLogin(lista) {
-    const usuario = lista.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaVal);
+    // Filtra entradas sem login antes de comparar (evita TypeError em u.login.toLowerCase())
+    const listaValida = lista.filter(u => u && u.login);
+    const usuario = listaValida.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaVal);
     if (usuario) {
       currentUser = usuario;
       sessionStorage.setItem('ms_session', JSON.stringify(usuario));
@@ -3511,7 +3513,7 @@ function fazerLogin() {
   todosIds.forEach(id => {
     const m = usuarios.find(u=>u.id===id);
     const l = localCache.find(u=>u.id===id);
-    cacheBase.push(m || l);
+    if (m || l) cacheBase.push(m || l);
   });
 
   if (!navigator.onLine || !window._firebaseReady || !window._db) {
@@ -3529,12 +3531,17 @@ function fazerLogin() {
     if (resolvido) return;
     resolvido = true;
     clearTimeout(timeout);
-    const data = snap.val();
-    const listaFb = data ? fromFirebaseObj(data) : [];
-    const idsFb = new Set(listaFb.map(u=>u.id));
-    const merged = [...listaFb, ...cacheBase.filter(u=>!idsFb.has(u.id))];
-    if (merged.length) { usuarios = merged; localStorage.setItem('ms_usuarios', JSON.stringify(usuarios)); }
-    tentarLogin(merged.length ? merged : cacheBase);
+    try {
+      const data = snap.val();
+      const listaFb = data ? fromFirebaseObj(data) : [];
+      const idsFb = new Set(listaFb.map(u=>u.id));
+      const merged = [...listaFb, ...cacheBase.filter(u=>!idsFb.has(u.id))];
+      if (merged.length) { usuarios = merged; localStorage.setItem('ms_usuarios', JSON.stringify(usuarios)); }
+      tentarLogin(merged.length ? merged : cacheBase);
+    } catch(e) {
+      console.warn('[login] erro ao processar usuários do Firebase:', e.message);
+      tentarLogin(cacheBase);
+    }
   }).catch(() => {
     if (!resolvido) { resolvido = true; clearTimeout(timeout); tentarLogin(cacheBase); }
   });
