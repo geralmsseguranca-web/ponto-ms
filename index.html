@@ -2110,13 +2110,10 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     </div>
 
     <!-- Filtros de status -->
-    <div class="colab-mgr-filtros" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="colab-mgr-filtro active" onclick="colabMgrSetFiltro('todos',this)">Todos</button>
-        <button class="colab-mgr-filtro" onclick="colabMgrSetFiltro('ativo',this)">✅ Ativos</button>
-        <button class="colab-mgr-filtro" onclick="colabMgrSetFiltro('inativo',this)">⛔ Inativos</button>
-      </div>
-      <button onclick="colabMgrRemoverDuplicatas()" title="Verificar e remover cadastros duplicados" style="background:#18040a;border:1px solid #e8273f44;color:#f87171;font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;letter-spacing:.3px">🧹 Remover Duplicatas</button>
+    <div class="colab-mgr-filtros">
+      <button class="colab-mgr-filtro active" onclick="colabMgrSetFiltro('todos',this)">Todos</button>
+      <button class="colab-mgr-filtro" onclick="colabMgrSetFiltro('ativo',this)">✅ Ativos</button>
+      <button class="colab-mgr-filtro" onclick="colabMgrSetFiltro('inativo',this)">⛔ Inativos</button>
     </div>
 
     <!-- Contador -->
@@ -3491,9 +3488,7 @@ function fazerLogin() {
   btn.textContent = '⏳ Verificando...';
 
   function tentarLogin(lista) {
-    // Filtra entradas sem login antes de comparar (evita TypeError em u.login.toLowerCase())
-    const listaValida = lista.filter(u => u && u.login);
-    const usuario = listaValida.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaVal);
+    const usuario = lista.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaVal);
     if (usuario) {
       currentUser = usuario;
       sessionStorage.setItem('ms_session', JSON.stringify(usuario));
@@ -3513,7 +3508,7 @@ function fazerLogin() {
   todosIds.forEach(id => {
     const m = usuarios.find(u=>u.id===id);
     const l = localCache.find(u=>u.id===id);
-    if (m || l) cacheBase.push(m || l);
+    cacheBase.push(m || l);
   });
 
   if (!navigator.onLine || !window._firebaseReady || !window._db) {
@@ -3531,17 +3526,12 @@ function fazerLogin() {
     if (resolvido) return;
     resolvido = true;
     clearTimeout(timeout);
-    try {
-      const data = snap.val();
-      const listaFb = data ? fromFirebaseObj(data) : [];
-      const idsFb = new Set(listaFb.map(u=>u.id));
-      const merged = [...listaFb, ...cacheBase.filter(u=>!idsFb.has(u.id))];
-      if (merged.length) { usuarios = merged; localStorage.setItem('ms_usuarios', JSON.stringify(usuarios)); }
-      tentarLogin(merged.length ? merged : cacheBase);
-    } catch(e) {
-      console.warn('[login] erro ao processar usuários do Firebase:', e.message);
-      tentarLogin(cacheBase);
-    }
+    const data = snap.val();
+    const listaFb = data ? fromFirebaseObj(data) : [];
+    const idsFb = new Set(listaFb.map(u=>u.id));
+    const merged = [...listaFb, ...cacheBase.filter(u=>!idsFb.has(u.id))];
+    if (merged.length) { usuarios = merged; localStorage.setItem('ms_usuarios', JSON.stringify(usuarios)); }
+    tentarLogin(merged.length ? merged : cacheBase);
   }).catch(() => {
     if (!resolvido) { resolvido = true; clearTimeout(timeout); tentarLogin(cacheBase); }
   });
@@ -4239,14 +4229,6 @@ async function colabMgrSalvar() {
     setErr('cf-login-err', '');
     setErr('cf-senha-err', '');
   }
-  // Verificar duplicata de nome para novo colaborador
-  if (!_colabMgrEditandoId && nome) {
-    const nomeNorm = nome.trim().toLowerCase();
-    const duplicado = colaboradores.find(c => (c.nome || '').trim().toLowerCase() === nomeNorm);
-    if (duplicado) {
-      setErr('cf-nome-err', 'Já existe um colaborador com este nome');
-    }
-  }
   if (!ok) return;
 
   const btn = document.getElementById('colab-form-btn-save');
@@ -4270,13 +4252,10 @@ async function colabMgrSalvar() {
       // Novo colaborador
       const novoId = uid();
       const novo = { id: novoId, nome, posto, tel, obs, ativo };
+      colaboradores.push(novo);
+      localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
       if (window._firebaseReady && window._db) {
-        // Firebase disponível: salva direto; o listener onValue atualiza o array automaticamente
         await window._fbSet(window._fbRef(window._db, 'colaboradores/' + novoId), novo);
-      } else {
-        // Offline: adiciona localmente
-        colaboradores.push(novo);
-        localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
       }
       await colabMgrSalvarUsuario(novoId, nome, login, senha, role);
     }
@@ -4486,55 +4465,6 @@ function colabMgrRenderGrid() {
     </div>`;
   }).join('');
 }
-
-// ─── Remover duplicatas de colaboradores (mesmo nome) ────────────────────────
-async function colabMgrRemoverDuplicatas() {
-  const vistos = new Map(); // nome normalizado → colaborador com mais campos (prioritário)
-  const paraRemover = [];
-
-  colaboradores.forEach(c => {
-    const chave = (c.nome || '').trim().toLowerCase();
-    if (!chave) return;
-    const existente = vistos.get(chave);
-    if (!existente) {
-      vistos.set(chave, c);
-    } else {
-      // Mantém o registro com mais campos preenchidos (rg, cpf, email, endereco etc.)
-      const score = o => ['rg','cpf','email','endereco','telefone','estadoCivil','nascimento'].filter(k => o[k] && String(o[k]).trim()).length;
-      if (score(c) > score(existente)) {
-        paraRemover.push(existente.id);
-        vistos.set(chave, c);
-      } else {
-        paraRemover.push(c.id);
-      }
-    }
-  });
-
-  if (!paraRemover.length) {
-    mostrarSyncToast('✅ Nenhuma duplicata encontrada', 'green');
-    return;
-  }
-
-  if (!confirm()) return;
-
-  for (const id of paraRemover) {
-    colaboradores = colaboradores.filter(c => c.id !== id);
-    if (window._firebaseReady && window._db) {
-      try { await window._fbRemove(window._fbRef(window._db, 'colaboradores/' + id)); } catch(e) {}
-      // Remove também o usuário vinculado duplicado
-      const uDup = usuarios.find(u => u.colaboradorId === id);
-      if (uDup) {
-        usuarios = usuarios.filter(u => u.id !== uDup.id);
-        try { await window._fbRemove(window._fbRef(window._db, 'usuarios/' + uDup.id)); } catch(e) {}
-      }
-    }
-  }
-  localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
-  localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
-  colabMgrRenderGrid();
-  mostrarSyncToast(, 'green');
-}
-window.colabMgrRemoverDuplicatas = colabMgrRemoverDuplicatas;
 
 // ─── Init da aba ─────────────────────────────────────────────────────────────
 function renderColaboradores() {
@@ -5376,15 +5306,6 @@ async function gcSalvar() {
     valido = false;
   } else {
     if (errLogin) errLogin.classList.remove('show');
-  }
-  // Verificar duplicata de nome
-  if (nome) {
-    const nomeNorm = nome.trim().toLowerCase();
-    const duplicado = colaboradores.find(c => (c.nome || '').trim().toLowerCase() === nomeNorm);
-    if (duplicado) {
-      if (errNome) { errNome.classList.add('show'); errNome.textContent = 'Já existe um colaborador com este nome'; }
-      valido = false;
-    }
   }
   if (!valido) return;
 
