@@ -4532,7 +4532,7 @@ async function colabMgrRemoverDuplicatas() {
   localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
   localStorage.setItem('ms_usuarios', JSON.stringify(usuarios));
   colabMgrRenderGrid();
-  mostrarSyncToast(, 'green');
+  mostrarSyncToast('✅ ' + paraRemover.length + ' duplicata(s) removida(s)', 'green');
 }
 window.colabMgrRemoverDuplicatas = colabMgrRemoverDuplicatas;
 
