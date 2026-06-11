@@ -6399,8 +6399,30 @@ function gcRenderPostos() {
       <div style="font-size:20px">📍</div>
       <div class="gestao-posto-nome">${esc(nome)}</div>
       <div class="gestao-posto-meta">${colabPorPosto(nome)} colaborador(es)</div>
+      <button class="gestao-posto-del" data-posto="${esc(nome)}" onclick="gcExcluirPosto(this.dataset.posto)" title="Excluir posto">🗑️</button>
     </div>`).join('');
 }
+
+async function gcExcluirPosto(nome) {
+  const qtd = colaboradores.filter(c => c.posto === nome && c.ativo !== false).length;
+  const aviso = qtd > 0 ? `\n⚠️ ${qtd} colaborador(es) ainda alocado(s) neste posto.` : '';
+  if (!confirm(`Excluir o posto "${nome}"?${aviso}`)) return;
+
+  postos = postos.filter(p => (typeof p === 'string' ? p : (p.nome || p)) !== nome);
+  localStorage.setItem('ms_postos', JSON.stringify(postos));
+
+  if (window._firebaseReady && window._db) {
+    try {
+      await window._fbSet(window._fbRef(window._db, 'postos'), postos.length ? postos.map(p => ({ nome: p })) : null);
+    } catch(e) { console.warn('[gcExcluirPosto]', e.message); }
+  }
+
+  gcRenderPostos();
+  gcPopularSelectPostos();
+  populatePostoSelects();
+  mostrarSyncToast('🗑️ Posto removido!', 'red');
+}
+window.gcExcluirPosto = gcExcluirPosto;
 
 async function gcAdicionarPosto() {
   const inp = document.getElementById('gc-posto-novo');
