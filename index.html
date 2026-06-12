@@ -2884,7 +2884,6 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
       <div class="ft-topbar-right">
         <div class="ft-filtro-grupo">
           <button class="ft-filtro-btn active" onclick="ftSetFiltro('pendente',this)">⏳ Pendentes</button>
-          <button class="ft-filtro-btn" onclick="ftSetFiltro('validada',this)">✅ Validadas</button>
           <button class="ft-filtro-btn" onclick="ftSetFiltro('rejeitada',this)">❌ Rejeitadas</button>
           <button class="ft-filtro-btn" onclick="ftSetFiltro('todas',this)">📋 Todas</button>
         </div>
@@ -5530,9 +5529,11 @@ function ftRenderLista() {
   const nPendentes = _fts.filter(ft => ft.status === 'pendente').length;
   if (badge) badge.textContent = nPendentes + ' pendente' + (nPendentes !== 1 ? 's' : '');
 
+  // FTs validadas pertencem exclusivamente à aba "FT Validadas" — nunca aparecem aqui
+  const ftsSemValidadas = _fts.filter(ft => ft.status !== 'validada');
   const filtradas = _ftFiltro === 'todas'
-    ? _fts
-    : _fts.filter(ft => ft.status === _ftFiltro);
+    ? ftsSemValidadas
+    : ftsSemValidadas.filter(ft => ft.status === _ftFiltro);
 
   if (!filtradas.length) {
     lista.innerHTML = '';
