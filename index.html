@@ -202,6 +202,14 @@ body::before {
 .feed-par-label.sai { background: var(--red-bg);   color: var(--red); }
 .feed-par-hora  { font-size: 12px; font-family: var(--font-mono); color: var(--muted); white-space: nowrap; }
 .feed-par-sep   { font-size: 12px; color: var(--muted2); flex-shrink: 0; }
+.feed-secao-div {
+  display: flex; align-items: center; gap: 8px;
+  margin: 4px 0 2px; padding: 0 2px;
+}
+.feed-secao-div span { font-size: 10px; font-family: var(--font-mono); color: var(--muted2); white-space: nowrap; }
+.feed-secao-div::before, .feed-secao-div::after {
+  content: ''; flex: 1; height: 1px; background: var(--border2);
+}
 
 .dash-colab-grid {
   display: grid;
@@ -4778,32 +4786,30 @@ function renderDashFeed() {
     return tsB - tsA;
   });
 
-  feed.innerHTML = grupos.map(g => {
-    const completo = g.entrada && g.saida;
-    if (completo) {
-      return `<div class="feed-item completo">
-        <div style="min-width:0;flex:1">
-          <div class="feed-nome">${esc(g.nome)}</div>
-          <div class="feed-meta" style="margin-bottom:6px">📍 ${esc(g.posto||'—')}</div>
-          <div class="feed-par">
-            <div class="feed-par-bloco">
-              <span class="feed-par-label ent">▲ ENT</span>
-              <span class="feed-par-hora">${g.entrada.hora}</span>
-            </div>
-            <span class="feed-par-sep">→</span>
-            <div class="feed-par-bloco">
-              <span class="feed-par-label sai">▼ SAÍ</span>
-              <span class="feed-par-hora">${g.saida.hora}</span>
-            </div>
-          </div>
+  const renderCompleto = g => `<div class="feed-item completo">
+    <div style="min-width:0;flex:1">
+      <div class="feed-nome">${esc(g.nome)}</div>
+      <div class="feed-meta" style="margin-bottom:6px">📍 ${esc(g.posto||'—')}</div>
+      <div class="feed-par">
+        <div class="feed-par-bloco">
+          <span class="feed-par-label ent">▲ ENT</span>
+          <span class="feed-par-hora">${g.entrada.hora}</span>
         </div>
-      </div>`;
-    }
-    const r     = g.saida || g.entrada;
-    const icon  = g.entrada && !g.saida ? '▲' : '▼';
-    const cor   = g.entrada && !g.saida ? 'var(--green)' : 'var(--red)';
-    const tipo  = g.entrada && !g.saida ? 'entrada' : 'saida';
-    const hora  = r ? r.hora : '—';
+        <span class="feed-par-sep">→</span>
+        <div class="feed-par-bloco">
+          <span class="feed-par-label sai">▼ SAÍ</span>
+          <span class="feed-par-hora">${g.saida.hora}</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  const renderSimples = g => {
+    const r    = g.saida || g.entrada;
+    const icon = g.entrada && !g.saida ? '▲' : '▼';
+    const cor  = g.entrada && !g.saida ? 'var(--green)' : 'var(--red)';
+    const tipo = g.entrada && !g.saida ? 'entrada' : 'saida';
+    const hora = r ? r.hora : '—';
     return `<div class="feed-item ${tipo}">
       <span class="feed-icon" style="color:${cor}">${icon}</span>
       <div style="min-width:0">
@@ -4811,7 +4817,19 @@ function renderDashFeed() {
         <div class="feed-meta">📍 ${esc(g.posto||'—')} &nbsp;·&nbsp; ${hora}</div>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  const completos = grupos.filter(g => g.entrada && g.saida);
+  const simples   = grupos.filter(g => !(g.entrada && g.saida));
+
+  const divCompletos = completos.length
+    ? `<div class="feed-secao-div"><span>✅ SAÍRAM</span></div>` : '';
+  const divSimples = simples.length && completos.length
+    ? `<div class="feed-secao-div"><span>🟢 EM ANDAMENTO</span></div>` : '';
+
+  feed.innerHTML =
+    divCompletos + completos.map(renderCompleto).join('') +
+    divSimples   + simples.map(renderSimples).join('');
 }
 
 function renderDashColabs(filtro) {
