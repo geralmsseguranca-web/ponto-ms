@@ -189,6 +189,19 @@ body::before {
 .feed-icon { font-size: 18px; flex-shrink: 0; }
 .feed-nome { font-size: 13px; font-weight: 700; color: var(--text); }
 .feed-meta { font-size: 11px; color: var(--muted); font-family: var(--font-mono); margin-top: 2px; }
+.feed-item.completo { border-left-color: #6366f1; }
+.feed-par {
+  display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
+  margin-top: 4px;
+}
+.feed-par-bloco {
+  display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0;
+}
+.feed-par-label { font-size: 10px; font-family: var(--font-mono); font-weight: 600; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.feed-par-label.ent { background: var(--green-bg); color: var(--green); }
+.feed-par-label.sai { background: var(--red-bg);   color: var(--red); }
+.feed-par-hora  { font-size: 12px; font-family: var(--font-mono); color: var(--muted); white-space: nowrap; }
+.feed-par-sep   { font-size: 12px; color: var(--muted2); flex-shrink: 0; }
 
 .dash-colab-grid {
   display: grid;
@@ -4748,15 +4761,54 @@ function renderDashFeed() {
     return;
   }
 
-  feed.innerHTML = recentes.map(r => {
-    const icon = r.tipo === 'entrada' ? '▲' : '▼';
-    const cor  = r.tipo === 'entrada' ? 'var(--green)' : 'var(--red)';
-    const hora = fmtHora(r.timestamp);
-    return `<div class="feed-item ${r.tipo}">
+  // Agrupar por colaborador: quem tem entrada+saída hoje vira card completo
+  const porColab = {};
+  recentes.forEach(r => {
+    if (!porColab[r.colaboradorId]) porColab[r.colaboradorId] = { nome: r.colaboradorNome, posto: r.posto, entrada: null, saida: null };
+    if (r.tipo === 'entrada' && (!porColab[r.colaboradorId].entrada || r.timestamp > porColab[r.colaboradorId].entrada.ts))
+      porColab[r.colaboradorId].entrada = { ts: r.timestamp, hora: fmtHora(r.timestamp) };
+    if (r.tipo === 'saida' && (!porColab[r.colaboradorId].saida || r.timestamp > porColab[r.colaboradorId].saida.ts))
+      porColab[r.colaboradorId].saida = { ts: r.timestamp, hora: fmtHora(r.timestamp) };
+  });
+
+  // Ordenar: completos (saída mais recente) primeiro, depois só-entrada, depois só-saída
+  const grupos = Object.values(porColab).sort((a, b) => {
+    const tsA = (a.saida || a.entrada || { ts: 0 }).ts;
+    const tsB = (b.saida || b.entrada || { ts: 0 }).ts;
+    return tsB - tsA;
+  });
+
+  feed.innerHTML = grupos.map(g => {
+    const completo = g.entrada && g.saida;
+    if (completo) {
+      return `<div class="feed-item completo">
+        <div style="min-width:0;flex:1">
+          <div class="feed-nome">${esc(g.nome)}</div>
+          <div class="feed-meta" style="margin-bottom:6px">📍 ${esc(g.posto||'—')}</div>
+          <div class="feed-par">
+            <div class="feed-par-bloco">
+              <span class="feed-par-label ent">▲ ENT</span>
+              <span class="feed-par-hora">${g.entrada.hora}</span>
+            </div>
+            <span class="feed-par-sep">→</span>
+            <div class="feed-par-bloco">
+              <span class="feed-par-label sai">▼ SAÍ</span>
+              <span class="feed-par-hora">${g.saida.hora}</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+    const r     = g.saida || g.entrada;
+    const icon  = g.entrada && !g.saida ? '▲' : '▼';
+    const cor   = g.entrada && !g.saida ? 'var(--green)' : 'var(--red)';
+    const tipo  = g.entrada && !g.saida ? 'entrada' : 'saida';
+    const hora  = r ? r.hora : '—';
+    return `<div class="feed-item ${tipo}">
       <span class="feed-icon" style="color:${cor}">${icon}</span>
       <div style="min-width:0">
-        <div class="feed-nome">${esc(r.colaboradorNome)}</div>
-        <div class="feed-meta">📍 ${esc(r.posto||'—')} &nbsp;·&nbsp; ${hora}</div>
+        <div class="feed-nome">${esc(g.nome)}</div>
+        <div class="feed-meta">📍 ${esc(g.posto||'—')} &nbsp;·&nbsp; ${hora}</div>
       </div>
     </div>`;
   }).join('');
