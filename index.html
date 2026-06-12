@@ -1772,6 +1772,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
 .ftv-chip-motivo { background: #0f1c2e; color: #38bdf8; border: 1px solid #38bdf833; }
 .ftv-chip-ia     { background: #0a1a10; color: var(--green); border: 1px solid #22c55e33; }
 .ftv-chip-valor  { background: #1a1000; color: var(--gold); border: 1px solid #f59e0b33; }
+.ftv-chip-ausente { background: #1a0a1a; color: #c084fc; border: 1px solid #c084fc33; }
 
 /* Barra de confiança IA */
 .ftv-ia-bar-wrap { margin-bottom: 12px; }
@@ -5800,6 +5801,8 @@ function ftvRenderCard(ft) {
     : '';
   const chipValor = valorDisp ? `<span class="ftv-chip ftv-chip-valor">💰 ${valorDisp}</span>` : '';
   const chipMotivo = ft.motivo ? `<span class="ftv-chip ftv-chip-motivo">💬 ${esc(ft.motivo)}</span>` : '';
+  const chipAusente = (FT_MOTIVOS_COM_AUSENTE.includes(ft.motivo) && ft.colaboradorAusente)
+    ? `<span class="ftv-chip ftv-chip-ausente">👤 ${esc(ft.colaboradorAusente)}</span>` : '';
 
   const barraIA = confianca !== null ? `
     <div class="ftv-ia-bar-wrap">
@@ -5820,6 +5823,7 @@ function ftvRenderCard(ft) {
       <span class="ftv-chip ftv-chip-posto">📍 ${esc(ft.posto || '—')}</span>
       <span class="ftv-chip ftv-chip-hora">🕐 ${esc(horario)}</span>
       ${chipMotivo}
+      ${chipAusente}
       ${chipIA}
       ${chipValor}
     </div>
