@@ -199,9 +199,9 @@ body::before {
 .dash-colab-card {
   background: var(--surface2);
   border: 1px solid var(--border2);
-  border-radius: 12px; padding: 12px 14px;
+  border-radius: 12px; padding: 10px 12px;
   display: flex; align-items: center; gap: 10px;
-  transition: border-color .2s;
+  transition: border-color .2s; min-width: 0;
 }
 .dash-colab-card.status-ok     { border-left: 3px solid var(--green); }
 .dash-colab-card.status-warn   { border-left: 3px solid var(--gold); }
@@ -211,10 +211,15 @@ body::before {
   display: flex; align-items: center; justify-content: center;
   font-family: var(--font-head); font-size: 16px; font-weight: 700; color: #fff;
 }
-.dash-colab-nome { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-colab-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.dash-colab-row1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dash-colab-row2 { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.dash-colab-nome { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
 .dash-colab-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--font-mono); }
-.dash-colab-tag  { margin-left: auto; font-size: 10px; font-family: var(--font-mono); font-weight: 600;
-  padding: 3px 8px; border-radius: 5px; flex-shrink: 0; }
+.dash-colab-tag  { font-size: 10px; font-family: var(--font-mono); font-weight: 600;
+  padding: 2px 7px; border-radius: 5px; flex-shrink: 0; white-space: nowrap; }
+.dash-colab-hora { font-size: 11px; color: var(--muted); font-family: var(--font-mono); white-space: nowrap; }
+.dash-colab-posto-label { font-size: 11px; color: var(--muted); font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 .dash-filter {
   background: var(--surface2); border: 1px solid var(--border);
@@ -1772,7 +1777,6 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
 .ftv-chip-motivo { background: #0f1c2e; color: #38bdf8; border: 1px solid #38bdf833; }
 .ftv-chip-ia     { background: #0a1a10; color: var(--green); border: 1px solid #22c55e33; }
 .ftv-chip-valor  { background: #1a1000; color: var(--gold); border: 1px solid #f59e0b33; }
-.ftv-chip-ausente { background: #1a0a1a; color: #c084fc; border: 1px solid #c084fc33; }
 
 /* Barra de confiança IA */
 .ftv-ia-bar-wrap { margin-bottom: 12px; }
@@ -4799,13 +4803,17 @@ function renderDashColabs(filtro) {
                      tagLabel.includes('+8H')    ? 'var(--gold)'  :
                      tagLabel.includes('FORA')   ? 'var(--red)'   : 'var(--red)';
 
+    const postoLabel = c.posto ? `<span class="dash-colab-posto-label">📍 ${esc(c.posto)}</span>` : '';
+    const horaLabel  = hora    ? `<span class="dash-colab-hora">🕐 ${hora}</span>` : '';
     cards.push(`<div class="dash-colab-card ${statusClass}">
       <div class="dash-colab-av" style="background:${avatarColor(c.nome)}">${c.nome.charAt(0)}</div>
-      <div style="min-width:0;flex:1">
-        <div class="dash-colab-nome">${esc(c.nome)}</div>
-        <div class="dash-colab-sub">${hora || '—'}</div>
+      <div class="dash-colab-body">
+        <div class="dash-colab-row1">
+          <div class="dash-colab-nome">${esc(c.nome)}</div>
+          <span class="dash-colab-tag" style="background:${tagBg};color:${tagColor};border:1px solid ${tagColor}33">${tagLabel}</span>
+        </div>
+        <div class="dash-colab-row2">${postoLabel}${horaLabel}</div>
       </div>
-      <span class="dash-colab-tag" style="background:${tagBg};color:${tagColor};border:1px solid ${tagColor}33">${tagLabel}</span>
     </div>`);
   });
 
@@ -5801,8 +5809,6 @@ function ftvRenderCard(ft) {
     : '';
   const chipValor = valorDisp ? `<span class="ftv-chip ftv-chip-valor">💰 ${valorDisp}</span>` : '';
   const chipMotivo = ft.motivo ? `<span class="ftv-chip ftv-chip-motivo">💬 ${esc(ft.motivo)}</span>` : '';
-  const chipAusente = (FT_MOTIVOS_COM_AUSENTE.includes(ft.motivo) && ft.colaboradorAusente)
-    ? `<span class="ftv-chip ftv-chip-ausente">👤 ${esc(ft.colaboradorAusente)}</span>` : '';
 
   const barraIA = confianca !== null ? `
     <div class="ftv-ia-bar-wrap">
@@ -5823,7 +5829,6 @@ function ftvRenderCard(ft) {
       <span class="ftv-chip ftv-chip-posto">📍 ${esc(ft.posto || '—')}</span>
       <span class="ftv-chip ftv-chip-hora">🕐 ${esc(horario)}</span>
       ${chipMotivo}
-      ${chipAusente}
       ${chipIA}
       ${chipValor}
     </div>
