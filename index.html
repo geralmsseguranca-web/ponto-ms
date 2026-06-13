@@ -4175,8 +4175,9 @@ function registrarPonto() {
       .then(() => {
         _syncDone();
         // Cria FT imediatamente após salvar o registro, sem aguardar o listener u2
-        // Isso garante que o posto esteja preenchido antes de qualquer race condition
-        if (reg.tipo === 'entrada') ftCriarSeNecessario(reg);
+        // Isso garante que o posto esteja preenchido antes de qualquer race condition.
+        // Para saída, preenche horaSaida na FT pendente do dia.
+        if (reg.tipo === 'entrada' || reg.tipo === 'saida') ftCriarSeNecessario(reg);
       })
       .catch(e => {
         _syncErr();
@@ -5462,10 +5463,60 @@ async function ftRepararPostosVazios() {
   }
 }
 
+// ─── Preencher horaSaida na FT do dia quando um registro de saída é criado ────
+// Procura a FT (pendente) do mesmo colaborador e mesma data e grava a hora de saída.
+async function ftPreencherSaidaSeNecessario(reg) {
+  if (!window._firebaseReady || !window._db) return;
+  if (reg.tipo !== 'saida') return;
+
+  const dataReg = new Date(reg.timestamp);
+  const dataKey = dataReg.toISOString().slice(0, 10); // YYYY-MM-DD
+  const horaSaidaFmt = dataReg.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+
+  // Procura FT pendente do colaborador na mesma data, sem horaSaida ainda preenchida
+  let ft = _fts.find(f =>
+    f.colaboradorId === reg.colaboradorId &&
+    f.dataKey === dataKey &&
+    f.status !== 'rejeitada' &&
+    !f.horaSaida
+  );
+
+  // Fallback: se não achou local (pode ainda não ter sincronizado), consulta direto no Firebase
+  if (!ft) {
+    try {
+      const snapFTs = await window._fbGet(window._fbRef(window._db, 'fts'));
+      const data = snapFTs.exists() ? snapFTs.val() : null;
+      if (data) {
+        ft = Object.values(data).find(f =>
+          f.colaboradorId === reg.colaboradorId &&
+          f.dataKey === dataKey &&
+          f.status !== 'rejeitada' &&
+          !f.horaSaida
+        );
+      }
+    } catch(e) {
+      console.warn('[FT] Erro ao buscar FT para preencher saída:', e.message);
+    }
+  }
+
+  if (!ft) return; // não há FT pendente para esse colaborador/data
+
+  try {
+    await window._fbUpdate(window._fbRef(window._db, 'fts/' + ft.id), { horaSaida: horaSaidaFmt });
+  } catch(e) {
+    console.warn('[FT] Erro ao preencher horaSaida:', e.message);
+  }
+}
+
 // ─── Criar FT automaticamente quando um registro de ponto é criado ────────────
 // Chamado pelo listener u2 de registros (apenas para registros genuinamente novos)
 async function ftCriarSeNecessario(reg) {
   if (!window._firebaseReady || !window._db) return;
+  // Saída: tenta preencher horaSaida na FT do dia e encerra aqui
+  if (reg.tipo === 'saida') {
+    await ftPreencherSaidaSeNecessario(reg);
+    return;
+  }
   // Só cria FT para entradas
   if (reg.tipo !== 'entrada') return;
 
