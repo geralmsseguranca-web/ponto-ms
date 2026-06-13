@@ -4847,18 +4847,36 @@ function renderDashFeed() {
     return;
   }
 
-  // Agrupar por colaborador: quem tem entrada+saída hoje vira card completo
+  // Agrupar por pares entrada→saída sequenciais por colaborador
+  // Garante que múltiplos turnos no mesmo dia não se misturem
   const porColab = {};
-  recentes.forEach(r => {
-    if (!porColab[r.colaboradorId]) porColab[r.colaboradorId] = { nome: r.colaboradorNome, posto: r.posto, entrada: null, saida: null };
-    if (r.tipo === 'entrada' && (!porColab[r.colaboradorId].entrada || r.timestamp > porColab[r.colaboradorId].entrada.ts))
-      porColab[r.colaboradorId].entrada = { ts: r.timestamp, hora: fmtHora(r.timestamp) };
-    if (r.tipo === 'saida' && (!porColab[r.colaboradorId].saida || r.timestamp > porColab[r.colaboradorId].saida.ts))
-      porColab[r.colaboradorId].saida = { ts: r.timestamp, hora: fmtHora(r.timestamp) };
+  // Ordenar por timestamp crescente para parear corretamente
+  const ordenados = [...recentes].sort((a, b) => a.timestamp - b.timestamp);
+  ordenados.forEach(r => {
+    const cid = r.colaboradorId;
+    if (!porColab[cid]) porColab[cid] = { nome: r.colaboradorNome, posto: r.posto, pares: [], _entradaAberta: null };
+    if (r.tipo === 'entrada') {
+      // Nova entrada: empilha como aberta (pode haver múltiplas entradas no dia)
+      porColab[cid]._entradaAberta = { ts: r.timestamp, hora: fmtHora(r.timestamp) };
+    } else if (r.tipo === 'saida') {
+      if (porColab[cid]._entradaAberta) {
+        // Fecha o par com a entrada aberta mais recente anterior a esta saída
+        porColab[cid].pares.push({ entrada: porColab[cid]._entradaAberta, saida: { ts: r.timestamp, hora: fmtHora(r.timestamp) } });
+        porColab[cid]._entradaAberta = null;
+      } else {
+        // Saída sem entrada conhecida hoje (turno iniciado ontem)
+        porColab[cid].pares.push({ entrada: null, saida: { ts: r.timestamp, hora: fmtHora(r.timestamp) } });
+      }
+    }
   });
 
-  // Ordenar: completos (saída mais recente) primeiro, depois só-entrada, depois só-saída
-  const grupos = Object.values(porColab).sort((a, b) => {
+  // Montar grupos: cada par vira um item; entrada aberta vira item simples
+  const grupos = [];
+  Object.values(porColab).forEach(c => {
+    c.pares.forEach(p => grupos.push({ nome: c.nome, posto: c.posto, entrada: p.entrada, saida: p.saida }));
+    if (c._entradaAberta) grupos.push({ nome: c.nome, posto: c.posto, entrada: c._entradaAberta, saida: null });
+  });
+  grupos.sort((a, b) => {
     const tsA = (a.saida || a.entrada || { ts: 0 }).ts;
     const tsB = (b.saida || b.entrada || { ts: 0 }).ts;
     return tsB - tsA;
@@ -5609,12 +5627,8 @@ async function ftCriarSeNecessario(reg) {
     console.warn('[FT] Erro ao verificar FT existente:', e.message);
   }
 
-  // ── Fallback: verificação por colaborador+data no array local
-  const jaExiste = _fts.some(ft =>
-    ft.colaboradorId === reg.colaboradorId &&
-    ft.dataKey === dataKey &&
-    ft.status !== 'rejeitada'
-  );
+  // ── Fallback: verificação por registroId no array local (permite múltiplos turnos no mesmo dia)
+  const jaExiste = _fts.some(ft => ft.registroId === reg.id);
   if (jaExiste) return;
 
   // ── Posto: prioridade → reg.posto → posto cadastrado do colaborador → ''
