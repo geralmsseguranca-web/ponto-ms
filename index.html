@@ -581,7 +581,7 @@ body::before {
 }
 .login-field { margin-bottom: 16px; }
 .login-label {
-  display: block; font-size: 12px; color: #f59e0bcc;
+  display: block; font-size: 12px; color: #ef4444cc;
   letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px;
   font-family: var(--font-mono);
 }
@@ -2180,7 +2180,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     <div class="login-title">PJ TECNOLOGIA E SISTEMAS</div>
     <div class="login-subtitle">
       <span style="color:#7ab3cc">INOVAÇÃO QUE CONECTA.</span>
-      <span style="color:#f59e0b"> TECNOLOGIA QUE TRANSFORMA.</span>
+      <span style="color:#ef4444"> TECNOLOGIA QUE TRANSFORMA.</span>
     </div>
 
     <div class="login-error" id="login-error">❌ Usuário ou senha incorretos</div>
@@ -3839,7 +3839,9 @@ function ultimoReg(colabId) {
   const regs = registros.filter(r => r.colaboradorId === colabId);
   if (!regs.length) return null;
   const ult = regs.reduce((a,b) => a.timestamp > b.timestamp ? a : b);
-  if (ult.tipo === 'entrada' && (Date.now() - ult.timestamp) > JANELA_TURNO_MS) return null;
+  // Só descarta entrada expirada se já houver uma saída posterior a ela
+  // (ou seja: se o último registro for saída, o turno terminou)
+  // Se o último for entrada, o colaborador ainda está dentro — sem limite de tempo
   return ult;
 }
 
@@ -3954,17 +3956,18 @@ function renderColabPonto() {
   ativos.sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR',{sensitivity:'base'})).forEach(c => {
     const ult = ultimoReg(c.id);
     const isSelected = selectedColab?.id === c.id;
-    const ultHoje = ult && ult.timestamp >= HOJE_INI.getTime();
 
     let statusClass, tagClass, tagLabel;
-    if (!ult || !ultHoje) {
+    if (!ult) {
       statusClass = 'status-absent'; tagClass = 'tag-absent'; tagLabel = '⚠ SEM REG.';
     } else if (ult.tipo === 'entrada' && (agora - ult.timestamp) > OITO_H) {
       statusClass = 'status-warn'; tagClass = 'tag-warn'; tagLabel = '⏱ +8H DENTRO';
     } else if (ult.tipo === 'entrada') {
       statusClass = 'status-ok'; tagClass = 'tag-in'; tagLabel = '▲ DENTRO';
-    } else {
+    } else if (ult.timestamp >= HOJE_INI.getTime()) {
       statusClass = 'status-warn'; tagClass = 'tag-out'; tagLabel = '▼ FORA';
+    } else {
+      statusClass = 'status-absent'; tagClass = 'tag-absent'; tagLabel = '⚠ SEM REG.';
     }
 
     const div = document.createElement('div');
@@ -4672,14 +4675,16 @@ function calcDashStats() {
 
   ativos.forEach(c => {
     const ult = ultimoReg(c.id);
-    const ultHoje = ult && ult.timestamp >= HOJEts;
-    if (!ultHoje) { ausentes++; return; }
+    if (!ult) { ausentes++; return; }
     if (ult.tipo === 'entrada') {
+      // Entrada sem saída = ainda dentro (independente de quando entrou)
       const delta = agora - ult.timestamp;
       if (delta > OITO_H) { mais8++; dentro++; }
       else dentro++;
     } else {
-      fora++;
+      // Saída: só "fora" se saiu hoje; senão ausente (saiu ontem ou antes)
+      if (ult.timestamp >= HOJEts) fora++;
+      else ausentes++;
     }
   });
 
@@ -4843,20 +4848,27 @@ function renderDashColabs(filtro) {
   const cards = [];
   ativos.forEach(c => {
     const ult = ultimoReg(c.id);
-    const ultHoje = ult && ult.timestamp >= HOJEts;
     let statusClass, tagClass, tagLabel, hora = '';
 
-    if (!ultHoje) {
+    if (!ult) {
       statusClass = 'status-absent'; tagClass = 'tag-absent'; tagLabel = '⚠ SEM REG.';
-    } else if (ult.tipo === 'entrada' && (agora - ult.timestamp) > OITO_H) {
-      statusClass = 'status-warn'; tagClass = 'tag-warn'; tagLabel = '⏱ +8H';
-      hora = fmtHora(ult.timestamp);
     } else if (ult.tipo === 'entrada') {
-      statusClass = 'status-ok'; tagClass = 'tag-in'; tagLabel = '▲ DENTRO';
+      // Entrada sem saída = DENTRO, independente de quando entrou
       hora = fmtHora(ult.timestamp);
+      if ((agora - ult.timestamp) > OITO_H) {
+        statusClass = 'status-warn'; tagClass = 'tag-warn'; tagLabel = '⏱ +8H';
+      } else {
+        statusClass = 'status-ok'; tagClass = 'tag-in'; tagLabel = '▲ DENTRO';
+      }
     } else {
-      statusClass = 'status-warn'; tagClass = 'tag-out'; tagLabel = '▼ FORA';
+      // Última foi saída: FORA se saiu hoje, AUSENTE se saiu ontem/antes
       hora = fmtHora(ult.timestamp);
+      if (ult.timestamp >= HOJEts) {
+        statusClass = 'status-warn'; tagClass = 'tag-out'; tagLabel = '▼ FORA';
+      } else {
+        statusClass = 'status-absent'; tagClass = 'tag-absent'; tagLabel = '⚠ SEM REG.';
+        hora = '';
+      }
     }
 
     const status = tagLabel.includes('DENTRO') ? 'dentro' :
