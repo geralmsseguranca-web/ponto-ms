@@ -1740,6 +1740,32 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   -webkit-tap-highlight-color: transparent;
 }
 .ftv-btn-atualizar:hover { border-color: var(--accent); color: var(--accent); }
+.ftv-busca-wrap {
+  display: flex; gap: 8px; align-items: center;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.ftv-busca-input {
+  flex: 1; min-width: 200px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); padding: 10px 14px;
+  font-size: 13px; font-family: var(--font-body); outline: none;
+  transition: border-color .2s;
+}
+.ftv-busca-input:focus { border-color: var(--accent); }
+.ftv-busca-input::placeholder { color: var(--muted2); }
+.ftv-busca-btn-pdf {
+  background: linear-gradient(135deg,#7f1d1d,#e8273f); color:#fff;
+  border:none; border-radius:10px; padding:10px 18px;
+  font-size:13px; font-family:var(--font-head); font-weight:700;
+  cursor:pointer; white-space:nowrap; transition:all .2s;
+  -webkit-tap-highlight-color:transparent;
+  box-shadow: 0 4px 12px #e8273f33;
+}
+.ftv-busca-btn-pdf:hover { transform:translateY(-1px); box-shadow:0 6px 20px #e8273f55; }
+.ftv-busca-resultado {
+  font-size: 11px; font-family: var(--font-mono); color: var(--muted);
+  padding: 2px 6px; white-space: nowrap;
+}
 
 /* Botões exportar */
 .ftv-export-row {
@@ -2990,6 +3016,16 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
         <div class="ftv-kpi-val" id="ftv-kpi-ia">—</div>
         <div class="ftv-kpi-label">VALIDADAS PELA INTELIGÊNCIA</div>
       </div>
+    </div>
+
+    <!-- Busca rápida por colaborador -->
+    <div class="ftv-busca-wrap">
+      <input type="text" id="ftv-busca-nome" class="ftv-busca-input"
+        placeholder="🔍 Buscar colaborador para PDF…"
+        oninput="ftvBuscaFiltrar()"
+        autocomplete="off" autocorrect="off" spellcheck="false"/>
+      <span class="ftv-busca-resultado" id="ftv-busca-count"></span>
+      <button class="ftv-busca-btn-pdf" onclick="ftvBuscaPDF()">🖨️ PDF do Colaborador</button>
     </div>
 
     <!-- Filtros -->
@@ -6155,6 +6191,37 @@ async function ftvConfirmarDel() {
   } catch(e) {
     mostrarSyncToast('❌ Erro ao excluir: ' + e.message, 'red');
   }
+}
+
+// ─── Busca rápida por colaborador ─────────────────────────────────────────────
+let _ftvBuscaFiltradas = null; // null = sem busca ativa
+
+function ftvBuscaFiltrar() {
+  const q     = (document.getElementById('ftv-busca-nome')?.value || '').trim().toLowerCase();
+  const count = document.getElementById('ftv-busca-count');
+  if (!q) {
+    _ftvBuscaFiltradas = null;
+    if (count) count.textContent = '';
+    return;
+  }
+  const base = _fts.filter(ft => ft.status === 'validada');
+  _ftvBuscaFiltradas = base.filter(ft => ft.colaboradorNome.toLowerCase().includes(q));
+  if (count) count.textContent = _ftvBuscaFiltradas.length + ' FT(s)';
+}
+
+function ftvBuscaPDF() {
+  const q = (document.getElementById('ftv-busca-nome')?.value || '').trim();
+  if (!q) { mostrarSyncToast('⚠️ Digite o nome do colaborador', 'gold'); return; }
+  ftvBuscaFiltrar();
+  if (!_ftvBuscaFiltradas || !_ftvBuscaFiltradas.length) {
+    mostrarSyncToast('⚠️ Nenhuma FT encontrada para "' + q + '"', 'gold');
+    return;
+  }
+  // Gera PDF com os dados filtrados pela busca
+  const lista_orig = _ftvFiltradas;
+  _ftvFiltradas = _ftvBuscaFiltradas;
+  ftvExportarPDF();
+  _ftvFiltradas = lista_orig;
 }
 
 // ─── Exportar PDF robusto ─────────────────────────────────────────────────────
