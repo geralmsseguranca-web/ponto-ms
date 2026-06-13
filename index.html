@@ -2082,6 +2082,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
 }
 .gestao-posto-nome { flex: 1; font-size: 14px; color: var(--text); font-weight: 600; }
 .gestao-posto-meta { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+.gestao-posto-colabs { font-size: 11px; font-family: var(--font-mono); margin-top: 2px; }
 .gestao-posto-del {
   background: none; border: 1px solid #e8273f44; color: var(--red);
   border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer;
@@ -6557,13 +6558,23 @@ function gcRenderPostos() {
   }
   if (vazio) vazio.style.display = 'none';
   const colabPorPosto = (nome) => colaboradores.filter(c => c.posto === nome && c.ativo !== false).length;
-  lista.innerHTML = arr.map(nome => `
+  const nomesPorPosto = (nome) => colaboradores.filter(c => c.posto === nome && c.ativo !== false).map(c => c.nome);
+  lista.innerHTML = arr.map(nome => {
+    const nomes = nomesPorPosto(nome);
+    const nomesHtml = nomes.length
+      ? `<div class="gestao-posto-colabs" style="color:var(--green)">${nomes.map(esc).join(', ')}</div>`
+      : '';
+    return `
     <div class="gestao-posto-item">
       <div style="font-size:20px">📍</div>
-      <div class="gestao-posto-nome">${esc(nome)}</div>
-      <div class="gestao-posto-meta">${colabPorPosto(nome)} colaborador(es)</div>
+      <div style="flex:1;min-width:0">
+        <div class="gestao-posto-nome">${esc(nome)}</div>
+        <div class="gestao-posto-meta">${colabPorPosto(nome)} colaborador(es)</div>
+        ${nomesHtml}
+      </div>
       <button class="gestao-posto-del" data-posto="${esc(nome)}" onclick="gcExcluirPosto(this.dataset.posto)" title="Excluir posto">🗑️</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function gcExcluirPosto(nome) {
