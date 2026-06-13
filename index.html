@@ -4953,8 +4953,8 @@ function renderDashFeed() {
     ? `<div class="feed-secao-div"><span>🟢 EM ANDAMENTO</span></div>` : '';
 
   feed.innerHTML =
-    divSairam    + sairaTotal.map(g => g.entrada && g.saida ? renderCompleto(g) : renderSimples(g)).join('') +
-    divAndamento + emAndamento.map(renderSimples).join('');
+    divAndamento + emAndamento.map(renderSimples).join('') +
+    divSairam    + sairaTotal.map(g => g.entrada && g.saida ? renderCompleto(g) : renderSimples(g)).join('');
 }
 
 function renderDashColabs(filtro) {
