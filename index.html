@@ -4862,6 +4862,8 @@ function renderDashFeed() {
   ordenados.forEach(r => {
     const cid = r.colaboradorId;
     if (!porColab[cid]) porColab[cid] = { nome: r.colaboradorNome, posto: r.posto, pares: [], _entradaAberta: null };
+    // Sempre atualiza posto com o registro mais recente (ordenados é crescente, último sobrescreve)
+    if (r.posto) porColab[cid].posto = r.posto;
     if (r.tipo === 'entrada') {
       // Nova entrada: empilha como aberta (pode haver múltiplas entradas no dia)
       porColab[cid]._entradaAberta = { ts: r.timestamp, hora: fmtHora(r.timestamp) };
