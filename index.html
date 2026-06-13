@@ -4935,17 +4935,26 @@ function renderDashFeed() {
     </div>`;
   };
 
-  const completos = grupos.filter(g => g.entrada && g.saida);
-  const simples   = grupos.filter(g => !(g.entrada && g.saida));
+  // Completos: entrada + saída no mesmo turno
+  const completos    = grupos.filter(g => g.entrada && g.saida);
+  // Em andamento: entrada hoje SEM saída — ainda de serviço
+  const emAndamento  = grupos.filter(g => g.entrada && !g.saida);
+  // Saída sem entrada hoje: turno iniciado ontem, já encerrado — vai junto com saíram
+  const soSaida      = grupos.filter(g => !g.entrada && g.saida);
+  const sairaTotal   = [...completos, ...soSaida].sort((a, b) => {
+    const tsA = (a.saida || { ts: 0 }).ts;
+    const tsB = (b.saida || { ts: 0 }).ts;
+    return tsB - tsA;
+  });
 
-  const divCompletos = completos.length
+  const divSairam    = sairaTotal.length
     ? `<div class="feed-secao-div"><span>✅ SAÍRAM</span></div>` : '';
-  const divSimples = simples.length && completos.length
+  const divAndamento = emAndamento.length
     ? `<div class="feed-secao-div"><span>🟢 EM ANDAMENTO</span></div>` : '';
 
   feed.innerHTML =
-    divCompletos + completos.map(renderCompleto).join('') +
-    divSimples   + simples.map(renderSimples).join('');
+    divSairam    + sairaTotal.map(g => g.entrada && g.saida ? renderCompleto(g) : renderSimples(g)).join('') +
+    divAndamento + emAndamento.map(renderSimples).join('');
 }
 
 function renderDashColabs(filtro) {
