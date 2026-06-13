@@ -4871,8 +4871,14 @@ function renderDashFeed() {
         porColab[cid].pares.push({ entrada: porColab[cid]._entradaAberta, saida: { ts: r.timestamp, hora: fmtHora(r.timestamp) } });
         porColab[cid]._entradaAberta = null;
       } else {
-        // Saída sem entrada conhecida hoje (turno iniciado ontem)
-        porColab[cid].pares.push({ entrada: null, saida: { ts: r.timestamp, hora: fmtHora(r.timestamp) } });
+        // Saída sem entrada hoje — busca entrada anterior no histórico global
+        const entAnterior = registros
+          .filter(x => x.colaboradorId === cid && x.tipo === 'entrada' && x.timestamp < r.timestamp)
+          .sort((a, b) => b.timestamp - a.timestamp)[0];
+        const entObj = entAnterior
+          ? { ts: entAnterior.timestamp, hora: fmtHora(entAnterior.timestamp), dataLabel: new Date(entAnterior.timestamp).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) }
+          : null;
+        porColab[cid].pares.push({ entrada: entObj, saida: { ts: r.timestamp, hora: fmtHora(r.timestamp) } });
       }
     }
   });
@@ -4890,9 +4896,10 @@ function renderDashFeed() {
   });
 
   const renderCompleto = g => {
-    const inicial = g.nome ? g.nome.charAt(0).toUpperCase() : '?';
-    const entHora = g.entrada ? g.entrada.hora : '—';
-    const saiHora = g.saida   ? g.saida.hora   : '—';
+    const inicial   = g.nome ? g.nome.charAt(0).toUpperCase() : '?';
+    const entHora   = g.entrada ? g.entrada.hora : '—';
+    const saiHora   = g.saida   ? g.saida.hora   : '—';
+    const entData   = g.entrada && g.entrada.dataLabel ? `<span style="font-size:10px;color:var(--muted2);margin-left:3px">(${g.entrada.dataLabel})</span>` : '';
     return `<div class="feed-item completo">
       <div class="feed-av" style="background:${avatarColor(g.nome)}">${inicial}</div>
       <div class="feed-body">
@@ -4901,7 +4908,7 @@ function renderDashFeed() {
         <div class="feed-par">
           <div class="feed-par-bloco">
             <span class="feed-par-label ent">▲ ENT</span>
-            <span class="feed-par-hora">${entHora}</span>
+            <span class="feed-par-hora">${entHora}</span>${entData}
           </div>
           <span class="feed-par-sep">→</span>
           <div class="feed-par-bloco">
