@@ -5943,6 +5943,9 @@ function ftvRenderCard(ft) {
     : '';
   const chipValor = valorDisp ? `<span class="ftv-chip ftv-chip-valor">💰 ${valorDisp}</span>` : '';
   const chipMotivo = ft.motivo ? `<span class="ftv-chip ftv-chip-motivo">💬 ${esc(ft.motivo)}</span>` : '';
+  const chipAusente = (ft.colaboradorAusente && FT_MOTIVOS_COM_AUSENTE.includes(ft.motivo))
+    ? `<span class="ftv-chip ftv-chip-motivo">👤 Ausente: ${esc(ft.colaboradorAusente)}</span>`
+    : '';
 
   const barraIA = confianca !== null ? `
     <div class="ftv-ia-bar-wrap">
@@ -5963,6 +5966,7 @@ function ftvRenderCard(ft) {
       <span class="ftv-chip ftv-chip-posto">📍 ${esc(ft.posto || '—')}</span>
       <span class="ftv-chip ftv-chip-hora">🕐 ${esc(horario)}</span>
       ${chipMotivo}
+      ${chipAusente}
       ${chipIA}
       ${chipValor}
     </div>
