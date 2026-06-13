@@ -183,32 +183,39 @@ body::before {
   display: flex; align-items: center; gap: 10px;
   background: var(--surface2); border-radius: 10px; padding: 10px 12px;
   border-left: 3px solid transparent; animation: fadeUp .2s ease;
+  min-width: 0;
 }
-.feed-item.entrada { border-left-color: var(--green); }
-.feed-item.saida   { border-left-color: var(--red); }
-.feed-icon { font-size: 18px; flex-shrink: 0; }
-.feed-nome { font-size: 13px; font-weight: 700; color: var(--text); }
-.feed-meta { font-size: 11px; color: var(--muted); font-family: var(--font-mono); margin-top: 2px; }
+.feed-item.entrada  { border-left-color: var(--green); }
+.feed-item.saida    { border-left-color: var(--red); }
 .feed-item.completo { border-left-color: #6366f1; }
+.feed-icon { font-size: 16px; flex-shrink: 0; }
+.feed-av {
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff; font-family: var(--font-head);
+}
+.feed-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.feed-nome { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feed-meta { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
 .feed-par {
-  display: flex; align-items: center; gap: 10px; flex-wrap: nowrap;
-  margin-top: 4px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: nowrap;
+  margin-top: 2px;
 }
 .feed-par-bloco {
-  display: flex; align-items: center; gap: 5px; flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0;
 }
-.feed-par-label { font-size: 10px; font-family: var(--font-mono); font-weight: 600; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.feed-par-label { font-size: 10px; font-family: var(--font-mono); font-weight: 700; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
 .feed-par-label.ent { background: var(--green-bg); color: var(--green); }
 .feed-par-label.sai { background: var(--red-bg);   color: var(--red); }
-.feed-par-hora  { font-size: 12px; font-family: var(--font-mono); color: var(--muted); white-space: nowrap; }
-.feed-par-sep   { font-size: 12px; color: var(--muted2); flex-shrink: 0; }
+.feed-par-hora  { font-size: 12px; font-family: var(--font-mono); color: var(--text); white-space: nowrap; }
+.feed-par-sep   { font-size: 11px; color: var(--muted2); flex-shrink: 0; }
 .hist-card-right .feed-par,
 .hist-cell .feed-par { width: auto; }
 .hist-card-right .feed-par-bloco,
 .hist-cell .feed-par-bloco { flex: 0 0 auto; }
 .feed-secao-div {
   display: flex; align-items: center; gap: 8px;
-  margin: 4px 0 2px; padding: 0 2px;
+  margin: 6px 0 2px; padding: 0 2px;
 }
 .feed-secao-div span { font-size: 10px; font-family: var(--font-mono); color: var(--muted2); white-space: nowrap; }
 .feed-secao-div::before, .feed-secao-div::after {
@@ -4882,35 +4889,48 @@ function renderDashFeed() {
     return tsB - tsA;
   });
 
-  const renderCompleto = g => `<div class="feed-item completo">
-    <div style="min-width:0;flex:1">
-      <div class="feed-nome">${esc(g.nome)}</div>
-      <div class="feed-meta" style="margin-bottom:6px">📍 ${esc(g.posto||'—')}</div>
-      <div class="feed-par">
-        <div class="feed-par-bloco">
-          <span class="feed-par-label ent">▲ ENT</span>
-          <span class="feed-par-hora">${g.entrada.hora}</span>
-        </div>
-        <span class="feed-par-sep">→</span>
-        <div class="feed-par-bloco">
-          <span class="feed-par-label sai">▼ SAÍ</span>
-          <span class="feed-par-hora">${g.saida.hora}</span>
+  const renderCompleto = g => {
+    const inicial = g.nome ? g.nome.charAt(0).toUpperCase() : '?';
+    const entHora = g.entrada ? g.entrada.hora : '—';
+    const saiHora = g.saida   ? g.saida.hora   : '—';
+    return `<div class="feed-item completo">
+      <div class="feed-av" style="background:${avatarColor(g.nome)}">${inicial}</div>
+      <div class="feed-body">
+        <div class="feed-nome">${esc(g.nome)}</div>
+        <div class="feed-meta">📍 ${esc(g.posto||'—')}</div>
+        <div class="feed-par">
+          <div class="feed-par-bloco">
+            <span class="feed-par-label ent">▲ ENT</span>
+            <span class="feed-par-hora">${entHora}</span>
+          </div>
+          <span class="feed-par-sep">→</span>
+          <div class="feed-par-bloco">
+            <span class="feed-par-label sai">▼ SAÍ</span>
+            <span class="feed-par-hora">${saiHora}</span>
+          </div>
         </div>
       </div>
-    </div>
-  </div>`;
+    </div>`;
+  };
 
   const renderSimples = g => {
-    const r    = g.saida || g.entrada;
-    const icon = g.entrada && !g.saida ? '▲' : '▼';
-    const cor  = g.entrada && !g.saida ? 'var(--green)' : 'var(--red)';
-    const tipo = g.entrada && !g.saida ? 'entrada' : 'saida';
-    const hora = r ? r.hora : '—';
+    const r     = g.saida || g.entrada;
+    const icon  = g.entrada && !g.saida ? '▲' : '▼';
+    const cor   = g.entrada && !g.saida ? 'var(--green)' : 'var(--red)';
+    const tipo  = g.entrada && !g.saida ? 'entrada' : 'saida';
+    const hora  = r ? r.hora : '—';
+    const inicial = g.nome ? g.nome.charAt(0).toUpperCase() : '?';
     return `<div class="feed-item ${tipo}">
-      <span class="feed-icon" style="color:${cor}">${icon}</span>
-      <div style="min-width:0">
+      <div class="feed-av" style="background:${avatarColor(g.nome)}">${inicial}</div>
+      <div class="feed-body">
         <div class="feed-nome">${esc(g.nome)}</div>
-        <div class="feed-meta">📍 ${esc(g.posto||'—')} &nbsp;·&nbsp; ${hora}</div>
+        <div class="feed-meta">📍 ${esc(g.posto||'—')}</div>
+        <div class="feed-par">
+          <div class="feed-par-bloco">
+            <span class="feed-par-label ${tipo === 'entrada' ? 'ent' : 'sai'}">${icon} ${tipo === 'entrada' ? 'ENT' : 'SAÍ'}</span>
+            <span class="feed-par-hora">${hora}</span>
+          </div>
+        </div>
       </div>
     </div>`;
   };
