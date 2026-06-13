@@ -202,6 +202,10 @@ body::before {
 .feed-par-label.sai { background: var(--red-bg);   color: var(--red); }
 .feed-par-hora  { font-size: 12px; font-family: var(--font-mono); color: var(--muted); white-space: nowrap; }
 .feed-par-sep   { font-size: 12px; color: var(--muted2); flex-shrink: 0; }
+.hist-card-right .feed-par,
+.hist-cell .feed-par { width: auto; }
+.hist-card-right .feed-par-bloco,
+.hist-cell .feed-par-bloco { flex: 0 0 auto; }
 .feed-secao-div {
   display: flex; align-items: center; gap: 8px;
   margin: 4px 0 2px; padding: 0 2px;
@@ -4565,6 +4569,25 @@ function histRenderTabela() {
   }
 }
 
+// Encontra a entrada do mesmo colaborador no mesmo dia, anterior a esta saída
+// (a mais próxima/recente antes da saída), para exibir o par ENT → SAÍ na mesma linha.
+function histEntradaDoPar(r) {
+  if (r.tipo !== 'saida') return null;
+  const dtSaida = new Date(r.timestamp);
+  const inicioDia = new Date(dtSaida); inicioDia.setHours(0,0,0,0);
+  const fimDia    = new Date(dtSaida); fimDia.setHours(23,59,59,999);
+
+  const candidatas = registros.filter(x =>
+    x.colaboradorId === r.colaboradorId &&
+    x.tipo === 'entrada' &&
+    x.timestamp <= r.timestamp &&
+    x.timestamp >= inicioDia.getTime() &&
+    x.timestamp <= fimDia.getTime()
+  );
+  if (!candidatas.length) return null;
+  return candidatas.reduce((a,b) => a.timestamp > b.timestamp ? a : b);
+}
+
 function histRenderLinha(r, idx) {
   const dt    = new Date(r.timestamp);
   const data  = dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'});
@@ -4576,11 +4599,28 @@ function histRenderLinha(r, idx) {
     ? `<a class="hist-loc-link" href="https://maps.google.com/?q=${r.localizacao.lat},${r.localizacao.lng}" target="_blank">&#128205; ${r.localizacao.lat}, ${r.localizacao.lng}</a>`
     : `<span class="hist-loc-none">—</span>`;
 
+  // Se for uma saída com entrada correspondente no mesmo dia, exibe ambos
+  // os horários na mesma linha (ENT → SAÍ), igual ao padrão da aba Dashboard.
+  const entradaPar = histEntradaDoPar(r);
+  const tagCell = entradaPar
+    ? `<div class="feed-par">
+         <div class="feed-par-bloco">
+           <span class="feed-par-label ent">&#9650; ENT</span>
+           <span class="feed-par-hora">${fmtHora(entradaPar.timestamp).slice(0,5)}</span>
+         </div>
+         <span class="feed-par-sep">&rarr;</span>
+         <div class="feed-par-bloco">
+           <span class="feed-par-label sai">&#9660; SAÍ</span>
+           <span class="feed-par-hora">${hora.slice(0,5)}</span>
+         </div>
+       </div>`
+    : tag;
+
   return `<div class="hist-row" onclick="histToggleDetalhe(${idx})">
     <div class="hist-cell hist-cell-data"><strong>${data}</strong>${hora}</div>
     <div class="hist-cell hist-cell-nome">${esc(r.colaboradorNome)}</div>
     <div class="hist-cell hist-cell-posto">${esc(r.posto||'—')}</div>
-    <div class="hist-cell">${tag}</div>
+    <div class="hist-cell">${tagCell}</div>
     <div class="hist-cell">${loc}</div>
   </div>
   <div class="hist-row-detail" id="hist-detail-${idx}">
@@ -4599,6 +4639,23 @@ function histRenderCard(r, idx) {
     ? `<a href="https://maps.google.com/?q=${r.localizacao.lat},${r.localizacao.lng}" target="_blank" style="color:var(--accent)">&#128205; ${r.localizacao.lat}, ${r.localizacao.lng}</a>`
     : '— Localização não capturada';
 
+  // Se for uma saída com entrada correspondente no mesmo dia, exibe ambos
+  // os horários na mesma linha (ENT → SAÍ), igual ao padrão da aba Dashboard.
+  const entradaPar = histEntradaDoPar(r);
+  const horaDireita = entradaPar
+    ? `<div class="feed-par" style="justify-content:flex-end">
+         <div class="feed-par-bloco">
+           <span class="feed-par-label ent">&#9650; ENT</span>
+           <span class="feed-par-hora">${fmtHora(entradaPar.timestamp).slice(0,5)}</span>
+         </div>
+         <span class="feed-par-sep">&rarr;</span>
+         <div class="feed-par-bloco">
+           <span class="feed-par-label sai">&#9660; SAÍ</span>
+           <span class="feed-par-hora">${hora}</span>
+         </div>
+       </div>`
+    : `${tag}<span class="hist-card-hora">${hora}</span>`;
+
   return `<div class="hist-card-mobile" onclick="histToggleDetalhe(${idx})">
     <div class="hist-card-av" style="background:${avatarColor(r.colaboradorNome||'?')}">${(r.colaboradorNome||'?').charAt(0)}</div>
     <div class="hist-card-body">
@@ -4606,8 +4663,7 @@ function histRenderCard(r, idx) {
       <div class="hist-card-meta">&#128205; ${esc(r.posto||'—')} &nbsp;·&nbsp; ${data}</div>
     </div>
     <div class="hist-card-right">
-      ${tag}
-      <span class="hist-card-hora">${hora}</span>
+      ${horaDireita}
     </div>
   </div>
   <div class="hist-card-detail" id="hist-detail-${idx}">${locDetalhe}</div>`;
