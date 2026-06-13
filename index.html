@@ -3825,8 +3825,13 @@ function populatePostoSelects() {
 function listaPostosLimpa() {
   const doCadastro = postos.map(p => typeof p === 'object' ? (p.nome||'') : String(p||''));
   const dosColabs  = colaboradores.map(c => c.posto||'');
+  // Inclui também os postos vindos dos registros de ponto, garantindo que o posto
+  // onde o colaborador efetivamente bateu entrada apareça como opção selecionável
+  // (mesmo que não esteja cadastrado em "Postos"), evitando divergência entre
+  // o que aparece na tela inicial e o que está no histórico.
+  const dosRegistros = registros.map(r => r.posto||'');
   const todos = [];
-  doCadastro.concat(dosColabs).forEach(v => {
+  doCadastro.concat(dosColabs).concat(dosRegistros).forEach(v => {
     String(v).split(',').forEach(s => { const t = s.trim(); if(t) todos.push(t); });
   });
   return [...new Set(todos)].sort((a,b) => a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
@@ -3918,7 +3923,10 @@ function renderColabPonto() {
           document.getElementById('ponto-btns').style.display = 'grid';
           document.getElementById('posto-selector').style.display = 'block';
           const sel = document.getElementById('ponto-posto-select');
-          sel.value = meuColab.posto || '';
+          // Se o colaborador está "DENTRO", usa o posto do registro de entrada
+          // (onde ele bateu o ponto), para a saída ser registrada no mesmo posto.
+          const ultM = ultimoReg(meuColab.id);
+          sel.value = (ultM && ultM.tipo === 'entrada' && ultM.posto) ? ultM.posto : (meuColab.posto || '');
           atualizarBtnEntrada();
         }, 50);
       }
@@ -3970,6 +3978,11 @@ function renderColabPonto() {
       statusClass = 'status-absent'; tagClass = 'tag-absent'; tagLabel = '⚠ SEM REG.';
     }
 
+    // Quando o colaborador está "DENTRO" (último registro é entrada), o posto exibido
+    // deve ser o do registro de entrada (onde ele realmente bateu o ponto),
+    // não o posto fixo cadastrado — evita divergência entre tela inicial e histórico.
+    const postoAtual = (ult && ult.tipo === 'entrada' && ult.posto) ? ult.posto : c.posto;
+
     const div = document.createElement('div');
     div.className = 'colab-item' + (isSelected ? ' selected' : '') + ' ' + statusClass;
     div.onclick = () => selectColab(c);
@@ -3977,7 +3990,7 @@ function renderColabPonto() {
       <div class="avatar" style="background:${avatarColor(c.nome)}">${c.nome.charAt(0)}</div>
       <div>
         <div class="colab-name">${esc(c.nome)}</div>
-        <div class="colab-posto">📍 ${esc(c.posto)}</div>
+        <div class="colab-posto">📍 ${esc(postoAtual)}</div>
       </div>
       ${ult ? `
       <div class="status-tag">
@@ -3996,7 +4009,10 @@ function selectColab(c) {
   const pontoBtns = document.getElementById('ponto-btns');
   if (selectedColab) {
     const sel = document.getElementById('ponto-posto-select');
-    sel.value = selectedColab.posto || '';
+    // Se o colaborador está "DENTRO", usa o posto do registro de entrada
+    // (onde ele bateu o ponto), para a saída ser registrada no mesmo posto.
+    const ult = ultimoReg(selectedColab.id);
+    sel.value = (ult && ult.tipo === 'entrada' && ult.posto) ? ult.posto : (selectedColab.posto || '');
     postoSel.style.display  = 'block';
     pontoBtns.style.display = 'grid';
   } else {
