@@ -549,18 +549,26 @@ body::before {
 ══════════════════════════════════════════ */
 #login-screen {
   position: fixed; inset: 0; z-index: 999;
-  background: var(--bg);
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 0%, #1e3a8a 0%, #0f172a 55%, #020817 100%);
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
+  overflow: hidden;
 }
 #login-screen::before {
   content:''; position:absolute; inset:0; pointer-events:none;
   background-image:
-    linear-gradient(var(--border2) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border2) 1px, transparent 1px);
+    linear-gradient(#3b82f622 1px, transparent 1px),
+    linear-gradient(90deg, #3b82f622 1px, transparent 1px);
   background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 30%, transparent 100%);
-  opacity: 0.5;
+  opacity: 0.6;
+}
+#login-screen::after {
+  content:''; position:absolute; pointer-events:none;
+  width: 600px; height: 600px;
+  top: -180px; left: 50%; transform: translateX(-50%);
+  background: radial-gradient(circle, #3b82f644 0%, #1d4ed822 40%, transparent 70%);
+  border-radius: 50%;
 }
 .login-card {
   background: var(--surface);
