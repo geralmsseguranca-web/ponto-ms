@@ -4925,8 +4925,17 @@ function renderDashFeed() {
   const countEl = document.getElementById('dash-feed-count');
   if (!feed) return;
   const HOJE_INI = new Date(); HOJE_INI.setHours(0,0,0,0);
-  const recentes = registros.filter(r => r.timestamp >= HOJE_INI.getTime())
-    .sort((a,b) => b.timestamp - a.timestamp).slice(0, 30);
+  const HOJEts   = HOJE_INI.getTime();
+  const JANELA   = HOJEts - 36 * 60 * 60 * 1000; // 36h atrás — cobre turno noturno iniciado ontem
+
+  // Colaboradores que têm qualquer registro nas últimas 36h
+  const colabsAtivos = new Set(
+    registros.filter(r => r.timestamp >= JANELA).map(r => r.colaboradorId)
+  );
+  // Pega todos os registros desses colaboradores nas últimas 36h, ordena por mais recente
+  const recentes = registros
+    .filter(r => colabsAtivos.has(r.colaboradorId) && r.timestamp >= JANELA)
+    .sort((a,b) => b.timestamp - a.timestamp).slice(0, 60);
 
   if (countEl) countEl.textContent = recentes.length + ' hoje';
 
@@ -4935,18 +4944,41 @@ function renderDashFeed() {
     return;
   }
 
-  // Agrupar por colaborador: quem tem entrada+saída hoje vira card completo
+  // Agrupar por pares entrada→saída sequenciais (cobre múltiplos turnos e turnos noturnos)
   const porColab = {};
-  recentes.forEach(r => {
-    if (!porColab[r.colaboradorId]) porColab[r.colaboradorId] = { nome: r.colaboradorNome, posto: r.posto, entrada: null, saida: null };
-    if (r.tipo === 'entrada' && (!porColab[r.colaboradorId].entrada || r.timestamp > porColab[r.colaboradorId].entrada.ts))
-      porColab[r.colaboradorId].entrada = { ts: r.timestamp, hora: fmtHora(r.timestamp) };
-    if (r.tipo === 'saida' && (!porColab[r.colaboradorId].saida || r.timestamp > porColab[r.colaboradorId].saida.ts))
-      porColab[r.colaboradorId].saida = { ts: r.timestamp, hora: fmtHora(r.timestamp) };
+  const ordenados = [...recentes].sort((a, b) => a.timestamp - b.timestamp);
+  ordenados.forEach(r => {
+    const cid = r.colaboradorId;
+    if (!porColab[cid]) porColab[cid] = { nome: r.colaboradorNome, posto: r.posto, pares: [], _entradaAberta: null };
+    if (r.posto) porColab[cid].posto = r.posto; // sempre usa posto do registro mais recente
+    if (r.tipo === 'entrada') {
+      porColab[cid]._entradaAberta = { ts: r.timestamp, hora: fmtHora(r.timestamp) };
+    } else if (r.tipo === 'saida') {
+      if (porColab[cid]._entradaAberta) {
+        porColab[cid].pares.push({ entrada: porColab[cid]._entradaAberta, saida: { ts: r.timestamp, hora: fmtHora(r.timestamp) } });
+        porColab[cid]._entradaAberta = null;
+      } else {
+        // Saída sem entrada na janela — busca entrada anterior no histórico global
+        const entAnterior = registros
+          .filter(x => x.colaboradorId === cid && x.tipo === 'entrada' && x.timestamp < r.timestamp)
+          .sort((a, b) => b.timestamp - a.timestamp)[0];
+        const entObj = entAnterior
+          ? { ts: entAnterior.timestamp, hora: fmtHora(entAnterior.timestamp), dataLabel: new Date(entAnterior.timestamp).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) }
+          : null;
+        porColab[cid].pares.push({ entrada: entObj, saida: { ts: r.timestamp, hora: fmtHora(r.timestamp) } });
+      }
+    }
   });
 
-  // Ordenar: completos (saída mais recente) primeiro, depois só-entrada, depois só-saída
-  const grupos = Object.values(porColab).sort((a, b) => {
+  // Montar grupos: cada par vira um item; entrada aberta (sem saída) vira item simples
+  const grupos = [];
+  Object.values(porColab).forEach(c => {
+    c.pares.forEach(p => grupos.push({ nome: c.nome, posto: c.posto, entrada: p.entrada, saida: p.saida }));
+    if (c._entradaAberta) grupos.push({ nome: c.nome, posto: c.posto, entrada: c._entradaAberta, saida: null });
+  });
+
+  // Ordenar pelo timestamp mais recente do par (saída se existir, senão entrada)
+  grupos.sort((a, b) => {
     const tsA = (a.saida || a.entrada || { ts: 0 }).ts;
     const tsB = (b.saida || b.entrada || { ts: 0 }).ts;
     return tsB - tsA;
