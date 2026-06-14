@@ -3891,15 +3891,25 @@ function ultimoReg(colabId) {
   return ult;
 }
 
-// ─── COOLDOWN ENTRADA (1 hora) ────────────────────────────────────────────────
+// ─── COOLDOWN ENTRADA e SAÍDA (1 hora) ────────────────────────────────────────
 const COOLDOWN_ENTRADA_MS = 60 * 60 * 1000;
-let _cooldownTimer = null;
+const COOLDOWN_SAIDA_MS   = 60 * 60 * 1000;
+let _cooldownTimer      = null;
+let _cooldownTimerSaida = null;
 
 function tempoRestanteCooldown(colabId) {
   const regs = registros.filter(r => r.colaboradorId === colabId && r.tipo === 'entrada');
   if (!regs.length) return 0;
   const ult = regs.reduce((a,b) => a.timestamp > b.timestamp ? a : b);
   const restante = COOLDOWN_ENTRADA_MS - (Date.now() - ult.timestamp);
+  return restante > 0 ? restante : 0;
+}
+
+function tempoRestanteCooldownSaida(colabId) {
+  const regs = registros.filter(r => r.colaboradorId === colabId && r.tipo === 'saida');
+  if (!regs.length) return 0;
+  const ult = regs.reduce((a,b) => a.timestamp > b.timestamp ? a : b);
+  const restante = COOLDOWN_SAIDA_MS - (Date.now() - ult.timestamp);
   return restante > 0 ? restante : 0;
 }
 
@@ -3938,6 +3948,36 @@ function atualizarBtnEntrada() {
   _cooldownTimer = setInterval(atualizar, 1000);
 }
 
+function atualizarBtnSaida() {
+  const btn = document.querySelector('.btn-ponto.btn-saida');
+  if (!btn) return;
+  if (_cooldownTimerSaida) { clearInterval(_cooldownTimerSaida); _cooldownTimerSaida = null; }
+  if (!selectedColab) {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="icon">🔴</span> SAÍDA';
+    return;
+  }
+  const restante = tempoRestanteCooldownSaida(selectedColab.id);
+  if (restante <= 0) {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="icon">🔴</span> SAÍDA';
+    return;
+  }
+  function atualizar() {
+    const r = tempoRestanteCooldownSaida(selectedColab ? selectedColab.id : null);
+    if (!selectedColab || r <= 0) {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="icon">🔴</span> SAÍDA';
+      if (_cooldownTimerSaida) { clearInterval(_cooldownTimerSaida); _cooldownTimerSaida = null; }
+      return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = `<span class="icon">⏳</span> SAÍDA bloqueada <span style="font-size:12px;opacity:.85">${fmtCountdown(r)}</span>`;
+  }
+  atualizar();
+  _cooldownTimerSaida = setInterval(atualizar, 1000);
+}
+
 // ─── RENDER: LISTA PONTO ──────────────────────────────────────────────────────
 function renderColabPonto() {
   const isAdmin = currentUser?.role === 'admin';
@@ -3969,6 +4009,7 @@ function renderColabPonto() {
           const ultM = ultimoReg(meuColab.id);
           sel.value = (ultM && ultM.tipo === 'entrada' && ultM.posto) ? ultM.posto : (meuColab.posto || '');
           atualizarBtnEntrada();
+          atualizarBtnSaida();
         }, 50);
       }
       const instrEl = document.getElementById('ponto-instrucao');
@@ -4061,6 +4102,7 @@ function selectColab(c) {
     pontoBtns.style.display = 'none';
   }
   atualizarBtnEntrada();
+  atualizarBtnSaida();
   renderColabPonto();
 }
 
@@ -4091,6 +4133,15 @@ async function baterPonto(tipo) {
     if (restante > 0) {
       const min = Math.ceil(restante / 60000);
       mostrarSyncToast(`⏳ Entrada bloqueada! Liberada em ~${min} min`, 'gold');
+      return;
+    }
+  }
+  // Cooldown de 1h para saída
+  if (tipo === 'saida') {
+    const restante = tempoRestanteCooldownSaida(selectedColab.id);
+    if (restante > 0) {
+      const min = Math.ceil(restante / 60000);
+      mostrarSyncToast(`⏳ Saída bloqueada! Liberada em ~${min} min`, 'gold');
       return;
     }
   }
@@ -4251,6 +4302,7 @@ function registrarPonto() {
 
   showFeedback(pendingTipo, selectedColab.nome, pendingLocalizacao);
 
+  if (_cooldownTimerSaida) { clearInterval(_cooldownTimerSaida); _cooldownTimerSaida = null; }
   selectedColab      = null;
   pendingTipo        = null;
   pendingLocalizacao = null;
