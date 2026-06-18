@@ -175,6 +175,30 @@ body::before {
 .leg-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
 
 .dash-feed-card { display: flex; flex-direction: column; max-height: 320px; }
+.dash-feed-export-panel {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+  background: var(--surface2); border: 1px dashed var(--border2);
+  border-radius: 12px; padding: 18px 16px; margin-top: 4px;
+}
+.dash-feed-export-msg { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+.dash-feed-export-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.dash-feed-btn-pdf, .dash-feed-btn-csv {
+  border: none; border-radius: 10px; padding: 9px 16px;
+  font-size: 12px; font-family: var(--font-head); font-weight: 700;
+  cursor: pointer; white-space: nowrap; transition: all .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.dash-feed-btn-pdf {
+  background: linear-gradient(135deg,#7f1d1d,#e8273f); color:#fff;
+  box-shadow: 0 4px 12px #e8273f33;
+}
+.dash-feed-btn-pdf:hover { transform: translateY(-1px); box-shadow: 0 6px 20px #e8273f55; }
+.dash-feed-btn-csv {
+  background: linear-gradient(135deg,#14532d,#22c55e); color:#fff;
+  box-shadow: 0 4px 12px #22c55e33;
+}
+.dash-feed-btn-csv:hover { transform: translateY(-1px); box-shadow: 0 6px 20px #22c55e55; }
 .dash-feed {
   flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
   scrollbar-width: thin; scrollbar-color: var(--muted2) transparent;
@@ -220,6 +244,17 @@ body::before {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
   margin-top: 4px;
+}
+.dash-colab-placeholder {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 36px 20px;
+  color: var(--muted);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  background: var(--surface2);
+  border: 1px dashed var(--border2);
+  border-radius: 12px;
 }
 .dash-colab-card {
   background: var(--surface2);
@@ -2645,13 +2680,20 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
         </div>
       </div>
 
-      <!-- Feed de últimos registros -->
+      <!-- Feed de últimos registros (oculto — disponível via exportação) -->
       <div class="card dash-feed-card">
         <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
           <span>🔄 Últimos registros</span>
           <span id="dash-feed-count" style="font-size:11px;color:var(--muted);font-family:var(--font-mono)"></span>
         </div>
-        <div id="dash-feed" class="dash-feed"></div>
+        <div id="dash-feed" class="dash-feed" style="display:none"></div>
+        <div class="dash-feed-export-panel">
+          <span class="dash-feed-export-msg">📦 Dados prontos para exportação</span>
+          <div class="dash-feed-export-btns">
+            <button class="dash-feed-btn-pdf" onclick="dashFeedExportarPDF()">🖨️ PDF</button>
+            <button class="dash-feed-btn-csv" onclick="dashFeedExportarCSV()">📊 Excel/CSV</button>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -2661,7 +2703,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
       <div class="card-title dash-status-header">
         <span>👥 Status dos colaboradores</span>
         <div class="dash-filter-group">
-          <button class="dash-filter active" onclick="dashFiltrar('todos',this)">Todos</button>
+          <button class="dash-filter" onclick="dashFiltrar('todos',this)">Todos</button>
           <button class="dash-filter" onclick="dashFiltrar('dentro',this)">▲ Dentro</button>
           <button class="dash-filter" onclick="dashFiltrar('fora',this)">▼ Fora</button>
           <button class="dash-filter" onclick="dashFiltrar('mais8',this)">⏱ +8h</button>
@@ -4832,7 +4874,8 @@ function renderHistorico() {
 // DASHBOARD
 // ══════════════════════════════════════════════════════════════════════════════
 let _dashChartInst = null;
-let _dashFiltroAtual = 'todos';
+let _dashFiltroAtual = null; // null = lista oculta até selecionar um status
+let _dashFeedDados = { completos: [], simples: [], total: 0 }; // dados do feed para exportação PDF/Excel
 
 function calcDashStats() {
   const HOJE_INI = new Date(); HOJE_INI.setHours(0,0,0,0);
@@ -5036,11 +5079,163 @@ function renderDashFeed() {
   feed.innerHTML =
     divCompletos + completos.map(renderCompleto).join('') +
     divSimples   + simples.map(renderSimples).join('');
+
+  // Guarda os dados estruturados para exportação (PDF/Excel), independente da exibição visual
+  _dashFeedDados = { completos, simples, total: recentes.length };
+}
+
+// ─── Exportar Últimos Registros — PDF robusto ─────────────────────────────────
+function dashFeedExportarPDF() {
+  const { completos, simples, total } = _dashFeedDados;
+  if (!total) {
+    mostrarSyncToast('⚠️ Nenhum registro para exportar', 'gold');
+    return;
+  }
+
+  const empresa  = document.querySelector('.topbar-nome')?.textContent?.trim() || 'Grupo M.S';
+  const geradoEm = new Date().toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+  const linhaCompleto = (g, i) => `
+    <tr style="background:${i % 2 === 0 ? '#f8fafc' : '#ffffff'}">
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#1e293b">${i+1}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#1e293b;font-size:13px">${g.nome}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#334155">📍 ${g.posto || '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#15803d;font-weight:600">▲ ${g.entrada ? g.entrada.hora : '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#b91c1c;font-weight:600">▼ ${g.saida ? g.saida.hora : '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#15803d;font-weight:700">✅ Saiu</td>
+    </tr>`;
+
+  const linhaSimples = (g, i, offset) => {
+    const emAndamento = g.entrada && !g.saida;
+    return `
+    <tr style="background:${(i+offset) % 2 === 0 ? '#f8fafc' : '#ffffff'}">
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#1e293b">${i+offset+1}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#1e293b;font-size:13px">${g.nome}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#334155">📍 ${g.posto || '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:${emAndamento ? '#15803d' : '#94a3b8'};font-weight:600">${emAndamento ? '▲ ' + g.entrada.hora : '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:${!emAndamento ? '#b91c1c' : '#94a3b8'};font-weight:600">${!emAndamento && g.saida ? '▼ ' + g.saida.hora : '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:11px;color:${emAndamento ? '#ca8a04' : '#b91c1c'};font-weight:700">${emAndamento ? '🟢 Em andamento' : '✅ Saiu'}</td>
+    </tr>`;
+  };
+
+  const linhas = completos.map(linhaCompleto).join('') + simples.map((g,i) => linhaSimples(g, i, completos.length)).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Últimos Registros — ${empresa}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background:#fff; color:#1e293b; }
+    @page { size: A4 landscape; margin: 15mm 12mm; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+    }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; padding-bottom:14px; border-bottom:3px solid #1e40af; }
+    .header-left h1 { font-size:20px; color:#1e293b; font-weight:800; }
+    .header-left p  { font-size:12px; color:#64748b; margin-top:4px; }
+    .header-right   { text-align:right; font-size:11px; color:#64748b; }
+    .header-right .badge { background:#dcfce7; color:#15803d; padding:4px 12px; border-radius:20px; font-weight:700; font-size:12px; display:inline-block; }
+    .kpis { display:flex; gap:12px; margin-bottom:18px; }
+    .kpi  { flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; text-align:center; }
+    .kpi-val  { font-size:22px; font-weight:800; color:#1e40af; }
+    .kpi-label{ font-size:11px; color:#64748b; margin-top:2px; }
+    table  { width:100%; border-collapse:collapse; font-size:12px; }
+    thead tr { background:#1e40af; }
+    thead th { padding:10px; color:#fff; font-size:11px; font-weight:700; text-align:left; text-transform:uppercase; letter-spacing:.5px; }
+    .footer { margin-top:18px; text-align:center; font-size:10px; color:#94a3b8; border-top:1px solid #e2e8f0; padding-top:10px; }
+    .btn-print { position:fixed; bottom:24px; right:24px; background:#1e40af; color:#fff; border:none; border-radius:10px; padding:12px 24px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px #1e40af44; }
+    .btn-print:hover { background:#1e3a8a; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <h1>🔄 Últimos Registros de Ponto</h1>
+      <p>${empresa} &nbsp;·&nbsp; Gerado em ${geradoEm}</p>
+    </div>
+    <div class="header-right">
+      <div class="badge">${total} registros · ${completos.length + simples.length} colaboradores</div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-val">${completos.length}</div><div class="kpi-label">Saíram (turno completo)</div></div>
+    <div class="kpi"><div class="kpi-val">${simples.filter(g=>g.entrada && !g.saida).length}</div><div class="kpi-label">Em andamento</div></div>
+    <div class="kpi"><div class="kpi-val">${total}</div><div class="kpi-label">Total de lançamentos</div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:32px">#</th>
+        <th>Colaborador</th>
+        <th>Posto</th>
+        <th>Entrada</th>
+        <th>Saída</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>${linhas}</tbody>
+  </table>
+
+  <div class="footer">${empresa} &nbsp;·&nbsp; Ponto Eletrônico &nbsp;·&nbsp; ${geradoEm}</div>
+
+  <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) { mostrarSyncToast('⚠️ Permita pop-ups para gerar o PDF', 'gold'); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+}
+
+// ─── Exportar Últimos Registros — Excel/CSV ───────────────────────────────────
+function dashFeedExportarCSV() {
+  const { completos, simples, total } = _dashFeedDados;
+  if (!total) {
+    mostrarSyncToast('⚠️ Nenhum registro para exportar', 'gold');
+    return;
+  }
+  const linhas = [['#','Colaborador','Posto','Entrada','Saída','Status']];
+  let i = 1;
+  completos.forEach(g => {
+    linhas.push([i++, g.nome, g.posto || '—', g.entrada ? g.entrada.hora : '—', g.saida ? g.saida.hora : '—', 'Saiu']);
+  });
+  simples.forEach(g => {
+    const emAndamento = g.entrada && !g.saida;
+    linhas.push([
+      i++, g.nome, g.posto || '—',
+      emAndamento ? g.entrada.hora : '—',
+      !emAndamento && g.saida ? g.saida.hora : '—',
+      emAndamento ? 'Em andamento' : 'Saiu'
+    ]);
+  });
+
+  const csv = linhas.map(l => l.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ultimos_registros_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  mostrarSyncToast('✅ CSV exportado com sucesso', 'green');
 }
 
 function renderDashColabs(filtro) {
   const grid = document.getElementById('dash-colab-grid');
   if (!grid) return;
+  if (!filtro) {
+    grid.innerHTML = '<div class="dash-colab-placeholder">👆 Selecione um status acima para ver os colaboradores</div>';
+    return;
+  }
   const HOJE_INI = new Date(); HOJE_INI.setHours(0,0,0,0);
   const HOJEts   = HOJE_INI.getTime();
   const OITO_H   = 8 * 60 * 60 * 1000;
