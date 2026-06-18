@@ -4349,7 +4349,7 @@ function fazerLogin() {
   function tentarLogin(lista) {
     // Filtra entradas sem login antes de comparar (evita TypeError em u.login.toLowerCase())
     const listaValida = lista.filter(u => u && u.login);
-    const usuario = listaValida.find(u => u.login.toLowerCase() === loginVal && u.senha === senhaVal);
+    const usuario = listaValida.find(u => u.login.toLowerCase() === loginVal && (u.senha || '').trim() === senhaVal);
     if (usuario) {
       currentUser = usuario;
       sessionStorage.setItem('ms_session', JSON.stringify(usuario));
@@ -5671,36 +5671,35 @@ async function ftPreencherSaidaSeNecessario(reg) {
   if (reg.tipo !== 'saida') return;
 
   const dataReg = new Date(reg.timestamp);
-  const dataKey = dataReg.toISOString().slice(0, 10); // YYYY-MM-DD
   const horaSaidaFmt = dataReg.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
 
-  // Procura FT pendente do colaborador na mesma data, sem horaSaida ainda preenchida
-  let ft = _fts.find(f =>
-    f.colaboradorId === reg.colaboradorId &&
-    f.dataKey === dataKey &&
-    f.status !== 'rejeitada' &&
-    !f.horaSaida
-  );
+  // Escolhe a FT em aberto (sem horaSaida) do colaborador cuja ENTRADA seja a mais
+  // recente anterior a esta saída — não depende da dataKey, evitando confundir
+  // turnos que cruzam a meia-noite (entrada ontem, saída hoje) com um turno novo
+  // já aberto hoje.
+  const escolherFT = lista => lista
+    .filter(f =>
+      f.colaboradorId === reg.colaboradorId &&
+      f.status !== 'rejeitada' &&
+      !f.horaSaida &&
+      (f.criadaEm || 0) <= reg.timestamp
+    )
+    .sort((a, b) => (b.criadaEm || 0) - (a.criadaEm || 0))[0];
+
+  let ft = escolherFT(_fts);
 
   // Fallback: se não achou local (pode ainda não ter sincronizado), consulta direto no Firebase
   if (!ft) {
     try {
       const snapFTs = await window._fbGet(window._fbRef(window._db, 'fts'));
       const data = snapFTs.exists() ? snapFTs.val() : null;
-      if (data) {
-        ft = Object.values(data).find(f =>
-          f.colaboradorId === reg.colaboradorId &&
-          f.dataKey === dataKey &&
-          f.status !== 'rejeitada' &&
-          !f.horaSaida
-        );
-      }
+      if (data) ft = escolherFT(Object.values(data));
     } catch(e) {
       console.warn('[FT] Erro ao buscar FT para preencher saída:', e.message);
     }
   }
 
-  if (!ft) return; // não há FT pendente para esse colaborador/data
+  if (!ft) return; // não há FT em aberto para esse colaborador antes desta saída
 
   try {
     await window._fbUpdate(window._fbRef(window._db, 'fts/' + ft.id), { horaSaida: horaSaidaFmt });
@@ -6760,7 +6759,7 @@ async function gcSalvar() {
   const civil = document.getElementById('gc-estado-civil')?.value || '';
   const ender = (document.getElementById('gc-endereco')?.value || '').trim();
   const login = (document.getElementById('gc-login')?.value || '').trim().toLowerCase();
-  const senha = document.getElementById('gc-senha')?.value || '';
+  const senha = (document.getElementById('gc-senha')?.value || '').trim();
 
   // Validação
   let valido = true;
