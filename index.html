@@ -301,6 +301,107 @@ body::before {
 }
 
 /* ══════════════════════════════════════════
+   DASHBOARD 2.0 — CARDS LIMPOS
+══════════════════════════════════════════ */
+.dash2-header { margin-bottom: 14px; }
+.dash2-title {
+  font-family: var(--font-head); font-size: 22px; font-weight: 700;
+  color: var(--text); letter-spacing: .3px;
+}
+.dash2-date {
+  font-size: 13px; color: var(--muted); font-family: var(--font-mono);
+  margin-top: 4px; text-transform: capitalize;
+}
+.dash2-refresh-btn {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--accent); border-radius: 12px; padding: 12px 16px;
+  font-size: 14px; font-family: var(--font-head); font-weight: 700;
+  cursor: pointer; margin: 16px 0 20px; transition: all .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.dash2-refresh-btn:hover { background: #f59e0b14; border-color: var(--accent); }
+.dash2-refresh-btn:active { transform: scale(.98); }
+
+.dash2-stat-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 12px; margin-bottom: 20px;
+}
+.dash2-stat-card {
+  border-radius: 16px; padding: 22px 16px 18px; text-align: center;
+  border: 1px solid; min-width: 0;
+}
+.dash2-stat-card.stat-amber { background: #2a1c05; border-color: #f59e0b3a; }
+.dash2-stat-card.stat-green { background: #0c2417; border-color: #22c55e3a; }
+.dash2-stat-card.stat-red   { background: #2a0c10; border-color: #e8273f3a; grid-column: 1 / -1; }
+.dash2-stat-val {
+  font-family: var(--font-mono); font-size: 40px; font-weight: 700; line-height: 1;
+}
+.stat-amber .dash2-stat-val { color: var(--accent); }
+.stat-green .dash2-stat-val { color: var(--green); }
+.stat-red   .dash2-stat-val { color: var(--red); }
+.dash2-stat-label {
+  font-size: 11px; color: var(--muted); letter-spacing: 1px;
+  text-transform: uppercase; font-family: var(--font-mono); margin-top: 8px;
+}
+
+.dash2-section { margin-bottom: 18px; padding: 16px; }
+.dash2-section-head {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 14px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--border2);
+}
+.dash2-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.dot-red   { background: var(--red);   box-shadow: 0 0 8px var(--red); }
+.dot-green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.dot-white { background: #d4d4d8; box-shadow: 0 0 6px #d4d4d855; }
+.dash2-section-title { font-size: 15px; font-weight: 700; flex: 1; min-width: 0; }
+.dash2-section.sec-red   .dash2-section-title { color: var(--red); }
+.dash2-section.sec-green .dash2-section-title { color: var(--green); }
+.dash2-section.sec-white .dash2-section-title { color: #d4d4d8; }
+.dash2-count {
+  background: var(--surface2); color: var(--text);
+  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  min-width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.dash2-empty {
+  text-align: center; padding: 22px 10px; color: var(--muted);
+  font-size: 13px; font-family: var(--font-mono);
+}
+.dash2-list { display: flex; flex-direction: column; gap: 10px; }
+.dash2-colab-card {
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 14px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+}
+.dash2-colab-av {
+  width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head); font-size: 18px; font-weight: 700; color: #fff;
+}
+.dash2-colab-body { flex: 1; min-width: 0; }
+.dash2-colab-nome {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dash2-colab-meta {
+  font-size: 12px; color: var(--muted); font-family: var(--font-mono);
+  margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dash2-colab-badge {
+  font-size: 11px; font-family: var(--font-mono); font-weight: 700;
+  padding: 6px 11px; border-radius: 8px; flex-shrink: 0; white-space: nowrap;
+}
+.dash2-colab-badge.b-red   { background: var(--red-bg);   color: var(--red); }
+.dash2-colab-badge.b-green { background: var(--green-bg); color: var(--green); }
+.dash2-colab-badge.b-white { background: #ffffff14; color: #d4d4d8; }
+@media (max-width: 480px) {
+  .dash2-stat-val { font-size: 32px; }
+  .dash2-colab-nome { font-size: 14px; }
+}
+
+/* ══════════════════════════════════════════
    MODAL RECUPERAÇÃO DE SENHA
 ══════════════════════════════════════════ */
 #modal-recuperar-senha {
@@ -2900,86 +3001,68 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   <!-- ─── ABA: DASHBOARD ─── -->
   <section id="tab-dashboard" class="tab-content">
 
-    <!-- KPIs -->
-    <div class="dash-kpi-grid" id="dash-kpis">
-      <div class="kpi-card kpi-green">
-        <div class="kpi-icon">▲</div>
-        <div class="kpi-val" id="kpi-dentro">—</div>
-        <div class="kpi-label">Dentro agora</div>
+    <div class="dash2-header">
+      <div class="dash2-title">📊 Dashboard — Situação do Dia</div>
+      <div class="dash2-date" id="d2-data">—</div>
+    </div>
+
+    <button class="dash2-refresh-btn" onclick="renderDashboard()">🔄 Atualizar</button>
+
+    <div class="dash2-stat-grid">
+      <div class="dash2-stat-card stat-amber">
+        <div class="dash2-stat-val" id="d2-ativos">—</div>
+        <div class="dash2-stat-label">Colaboradores ativos</div>
       </div>
-      <div class="kpi-card kpi-red">
-        <div class="kpi-icon">▼</div>
-        <div class="kpi-val" id="kpi-fora">—</div>
-        <div class="kpi-label">Saíram hoje</div>
+      <div class="dash2-stat-card stat-green">
+        <div class="dash2-stat-val" id="d2-dentro">—</div>
+        <div class="dash2-stat-label">Dentro agora</div>
       </div>
-      <div class="kpi-card kpi-gold">
-        <div class="kpi-icon">⏱</div>
-        <div class="kpi-val" id="kpi-mais8">—</div>
-        <div class="kpi-label">+8h dentro</div>
-      </div>
-      <div class="kpi-card kpi-blue">
-        <div class="kpi-icon">📋</div>
-        <div class="kpi-val" id="kpi-hoje">—</div>
-        <div class="kpi-label">Registros hoje</div>
-      </div>
-      <div class="kpi-card kpi-muted">
-        <div class="kpi-icon">⚠</div>
-        <div class="kpi-val" id="kpi-ausentes">—</div>
-        <div class="kpi-label">Sem registro hoje</div>
-      </div>
-      <div class="kpi-card kpi-purple">
-        <div class="kpi-icon">👥</div>
-        <div class="kpi-val" id="kpi-total">—</div>
-        <div class="kpi-label">Total colaboradores</div>
+      <div class="dash2-stat-card stat-red">
+        <div class="dash2-stat-val" id="d2-semponto">—</div>
+        <div class="dash2-stat-label">Sem ponto hoje</div>
       </div>
     </div>
 
-    <!-- Linha 2: Gráfico + Últimos registros -->
-    <div class="dash-row2">
-
-      <!-- Gráfico de barras (entradas/saídas por hora) -->
-      <div class="card dash-chart-card">
-        <div class="card-title">⏰ Movimentação por hora — hoje</div>
-        <div class="dash-chart-wrap">
-          <canvas id="dash-chart" height="180"></canvas>
-        </div>
-        <div class="dash-chart-legend">
-          <span class="leg-dot" style="background:var(--green)"></span> Entradas &nbsp;
-          <span class="leg-dot" style="background:var(--red)"></span> Saídas
-        </div>
+    <!-- Gráfico original — Movimentação por hora -->
+    <div class="card dash-chart-card" style="margin-bottom:20px">
+      <div class="card-title">⏰ Movimentação por hora — hoje</div>
+      <div class="dash-chart-wrap">
+        <canvas id="dash-chart" height="180"></canvas>
       </div>
-
-      <!-- Feed de últimos registros (oculto — disponível via exportação) -->
-      <div class="card dash-feed-card">
-        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
-          <span>🔄 Últimos registros</span>
-          <span id="dash-feed-count" style="font-size:11px;color:var(--muted);font-family:var(--font-mono)"></span>
-        </div>
-        <div id="dash-feed" class="dash-feed" style="display:none"></div>
-        <div class="dash-feed-export-panel">
-          <span class="dash-feed-export-msg">📦 Dados prontos para exportação</span>
-          <div class="dash-feed-export-btns">
-            <button class="dash-feed-btn-pdf" onclick="dashFeedExportarPDF()">🖨️ PDF</button>
-            <button class="dash-feed-btn-csv" onclick="dashFeedExportarCSV()">📊 Excel/CSV</button>
-          </div>
-        </div>
+      <div class="dash-chart-legend">
+        <span class="leg-dot" style="background:var(--green)"></span> Entradas &nbsp;
+        <span class="leg-dot" style="background:var(--red)"></span> Saídas
       </div>
-
     </div>
 
-    <!-- Linha 3: Status de todos os colaboradores -->
-    <div class="card" style="margin-top:24px">
-      <div class="card-title dash-status-header">
-        <span>👥 Status dos colaboradores</span>
-        <div class="dash-filter-group">
-          <button class="dash-filter" onclick="dashFiltrar('todos',this)">Todos</button>
-          <button class="dash-filter" onclick="dashFiltrar('dentro',this)">▲ Dentro</button>
-          <button class="dash-filter" onclick="dashFiltrar('fora',this)">▼ Fora</button>
-          <button class="dash-filter" onclick="dashFiltrar('mais8',this)">⏱ +8h</button>
-          <button class="dash-filter" onclick="dashFiltrar('ausente',this)">⚠ Sem reg.</button>
-        </div>
+    <!-- Dentro agora -->
+    <div class="card dash2-section sec-green">
+      <div class="dash2-section-head">
+        <span class="dash2-dot dot-green"></span>
+        <span class="dash2-section-title">Dentro agora</span>
+        <span class="dash2-count" id="d2-count-dentro">0</span>
       </div>
-      <div id="dash-colab-grid" class="dash-colab-grid"></div>
+      <div id="d2-list-dentro" class="dash2-list"></div>
+    </div>
+
+    <!-- Não registraram ponto hoje -->
+    <div class="card dash2-section sec-red">
+      <div class="dash2-section-head">
+        <span class="dash2-dot dot-red"></span>
+        <span class="dash2-section-title">Não registraram ponto hoje</span>
+        <span class="dash2-count" id="d2-count-semponto">0</span>
+      </div>
+      <div id="d2-list-semponto" class="dash2-list"></div>
+    </div>
+
+    <!-- Finalizaram o turno -->
+    <div class="card dash2-section sec-white">
+      <div class="dash2-section-head">
+        <span class="dash2-dot dot-white"></span>
+        <span class="dash2-section-title">Finalizaram o turno</span>
+        <span class="dash2-count" id="d2-count-fim">0</span>
+      </div>
+      <div id="d2-list-fim" class="dash2-list"></div>
     </div>
 
   </section>
@@ -5580,10 +5663,89 @@ function dashFiltrar(filtro, btn) {
 
 function renderDashboard() {
   const s = calcDashStats();
-  renderDashKPIs(s);
+
+  // Gráfico original — Movimentação por hora
   renderDashChart(s.regHoje);
-  renderDashFeed();
-  renderDashColabs(_dashFiltroAtual);
+
+  // Data de hoje, formato "Terça-feira, 23 de junho de 2026"
+  const dataEl = document.getElementById('d2-data');
+  if (dataEl) {
+    const txt = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    dataEl.textContent = txt;
+  }
+
+  // Cards de estatística
+  const elAtivos   = document.getElementById('d2-ativos');
+  const elDentro    = document.getElementById('d2-dentro');
+  const elSemPonto  = document.getElementById('d2-semponto');
+  if (elAtivos)   elAtivos.textContent   = s.total;
+  if (elDentro)   elDentro.textContent   = s.dentro;
+  if (elSemPonto) elSemPonto.textContent = s.ausentes;
+
+  // Classifica cada colaborador ativo em uma das 3 listas
+  const HOJE_INI = new Date(); HOJE_INI.setHours(0,0,0,0);
+  const HOJEts   = HOJE_INI.getTime();
+  const semPonto = [], dentro = [], finalizaram = [];
+
+  s.ativos.forEach(c => {
+    const ult = ultimoReg(c.id);
+    if (!ult) { semPonto.push({ c, ult: null }); return; }
+    if (ult.tipo === 'entrada') {
+      dentro.push({ c, ult });
+    } else if (ult.timestamp >= HOJEts) {
+      finalizaram.push({ c, ult });
+    } else {
+      semPonto.push({ c, ult: null });
+    }
+  });
+
+  renderDash2Lista('d2-list-semponto', 'd2-count-semponto', semPonto, 'semponto');
+  renderDash2Lista('d2-list-dentro',   'd2-count-dentro',   dentro,   'dentro');
+  renderDash2Lista('d2-list-fim',      'd2-count-fim',      finalizaram, 'fim');
+}
+
+function renderDash2Lista(listId, countId, itens, tipo) {
+  const listEl  = document.getElementById(listId);
+  const countEl = document.getElementById(countId);
+  if (!listEl) return;
+  if (countEl) countEl.textContent = itens.length;
+
+  if (!itens.length) {
+    const msgs = {
+      semponto: 'Nenhum colaborador pendente — todos registraram ponto hoje',
+      dentro:   'Nenhum colaborador aguardando saída',
+      fim:      'Nenhum colaborador finalizou o turno ainda'
+    };
+    listEl.innerHTML = `<div class="dash2-empty">${msgs[tipo] || 'Sem registros'}</div>`;
+    return;
+  }
+
+  listEl.innerHTML = itens.map(({ c, ult }) => {
+    const av    = c.nome.charAt(0).toUpperCase();
+    const cor   = avatarColor(c.nome);
+    const posto = c.posto ? `📍 ${esc(c.posto)}` : '';
+
+    let badgeClass, badgeLabel, meta;
+    if (tipo === 'semponto') {
+      badgeClass = 'b-red';   badgeLabel = 'SEM PONTO';
+      meta = posto;
+    } else if (tipo === 'dentro') {
+      badgeClass = 'b-green'; badgeLabel = `▲ ${fmtHora(ult.timestamp).slice(0,5)}`;
+      meta = posto ? `${posto} · entrada` : 'entrada registrada';
+    } else {
+      badgeClass = 'b-white'; badgeLabel = `✔ ${fmtHora(ult.timestamp).slice(0,5)}`;
+      meta = posto ? `${posto} · saída` : 'saída registrada';
+    }
+
+    return `<div class="dash2-colab-card">
+      <div class="dash2-colab-av" style="background:${cor}">${av}</div>
+      <div class="dash2-colab-body">
+        <div class="dash2-colab-nome">${esc(c.nome)}</div>
+        <div class="dash2-colab-meta">${meta}</div>
+      </div>
+      <span class="dash2-colab-badge ${badgeClass}">${badgeLabel}</span>
+    </div>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
