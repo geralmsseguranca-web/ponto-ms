@@ -5723,7 +5723,9 @@ function renderDash2Lista(listId, countId, itens, tipo) {
   listEl.innerHTML = itens.map(({ c, ult }) => {
     const av    = c.nome.charAt(0).toUpperCase();
     const cor   = avatarColor(c.nome);
-    const posto = c.posto ? `📍 ${esc(c.posto)}` : '';
+    // Posto do registro de ponto (mesma fonte do histórico), fallback no perfil
+    const postoStr = (ult && ult.posto) ? ult.posto : (c.posto || '');
+    const posto = postoStr ? `📍 ${esc(postoStr)}` : '';
 
     let badgeClass, badgeLabel, meta;
     if (tipo === 'semponto') {
