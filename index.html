@@ -691,20 +691,20 @@ body::before {
 
 /* Variáveis locais do login */
 #login-screen {
-  --lc-bg1:    #020918;
-  --lc-bg2:    #070d1f;
-  --lc-bg3:    #0b0519;
+  --lc-bg1:    #1a1f2e;
+  --lc-bg2:    #222840;
+  --lc-bg3:    #1c1a2e;
   --lc-cyan:   #00d4ff;
   --lc-cyan2:  #0099cc;
   --lc-amber:  #f59e0b;
   --lc-amber2: #fbbf24;
   --lc-violet: #7c3aed;
-  --lc-card:   #0c0f1e;
-  --lc-card2:  #111528;
-  --lc-border: rgba(0,212,255,.15);
-  --lc-border2:rgba(0,212,255,.08);
-  --lc-text:   #e8f4fd;
-  --lc-muted:  #6b8499;
+  --lc-card:   #2a3047;
+  --lc-card2:  #323952;
+  --lc-border: rgba(0,212,255,.25);
+  --lc-border2:rgba(0,212,255,.14);
+  --lc-text:   #f5f0e8;
+  --lc-muted:  #b8c4d4;
 }
 
 #login-screen {
@@ -718,19 +718,19 @@ body::before {
 #login-screen::before {
   content:''; position:absolute; inset:0; pointer-events:none; z-index:0;
   background-image:
-    linear-gradient(rgba(0,212,255,.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,212,255,.06) 1px, transparent 1px);
+    linear-gradient(rgba(0,212,255,.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,.08) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
-/* Orbes de luz ambiente */
+/* Orbe de luz ambiente */
 #login-screen::after {
   content:''; position:absolute; pointer-events:none; z-index:0;
   width: 900px; height: 900px;
   top: -340px; right: -200px;
   background: radial-gradient(circle,
-    rgba(0,212,255,.07) 0%,
-    rgba(124,58,237,.05) 40%,
+    rgba(0,212,255,.10) 0%,
+    rgba(124,58,237,.07) 40%,
     transparent 70%);
   border-radius: 50%;
 }
@@ -811,7 +811,7 @@ body::before {
   display: flex; align-items: center; justify-content: center;
   padding: 40px 48px;
   background: linear-gradient(180deg,
-    rgba(12,15,30,.98) 0%, rgba(8,10,22,.98) 100%);
+    rgba(34,40,64,.97) 0%, rgba(28,34,56,.98) 100%);
   border-left: 1px solid var(--lc-border);
   position: relative;
 }
@@ -879,18 +879,18 @@ body::before {
 }
 .login-input {
   width: 100%;
-  background: rgba(255,255,255,.04);
-  border: 1px solid var(--lc-border);
+  background: rgba(255,255,255,.09);
+  border: 1px solid rgba(0,212,255,.28);
   border-radius: 12px; color: var(--lc-text);
   padding: 13px 16px 13px 42px;
   font-size: 15px; font-family: var(--font-body); outline: none;
   transition: border-color .2s, background .2s, box-shadow .2s;
 }
-.login-input::placeholder { color: rgba(107,132,153,.5); }
+.login-input::placeholder { color: rgba(184,196,212,.5); }
 .login-input:focus {
   border-color: var(--lc-cyan);
-  background: rgba(0,212,255,.04);
-  box-shadow: 0 0 0 3px rgba(0,212,255,.10), 0 2px 12px rgba(0,0,0,.3);
+  background: rgba(0,212,255,.07);
+  box-shadow: 0 0 0 3px rgba(0,212,255,.14), 0 2px 12px rgba(0,0,0,.2);
 }
 .login-input-wrap:focus-within .login-input-icon { color: var(--lc-cyan); }
 
@@ -960,7 +960,7 @@ body::before {
   .login-panel-right {
     width: 100%; border-left: none; padding: 32px 24px;
     background: linear-gradient(180deg,
-      rgba(4,7,18,.99) 0%, rgba(6,4,16,.99) 100%);
+      rgba(30,36,58,.99) 0%, rgba(26,30,52,.99) 100%);
   }
   .login-panel-right::before { display: block; }
   .login-title { font-size: 22px; }
@@ -5723,9 +5723,7 @@ function renderDash2Lista(listId, countId, itens, tipo) {
   listEl.innerHTML = itens.map(({ c, ult }) => {
     const av    = c.nome.charAt(0).toUpperCase();
     const cor   = avatarColor(c.nome);
-    // Usa o posto do registro de ponto (igual ao histórico), com fallback no perfil do colaborador
-    const postoStr = (ult && ult.posto) ? ult.posto : (c.posto || '');
-    const posto = postoStr ? `📍 ${esc(postoStr)}` : '';
+    const posto = c.posto ? `📍 ${esc(c.posto)}` : '';
 
     let badgeClass, badgeLabel, meta;
     if (tipo === 'semponto') {
