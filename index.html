@@ -808,8 +808,8 @@ body::before {
 /* ── PAINEL DIREITO — FORMULÁRIO ──── */
 .login-panel-right {
   width: 420px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  padding: 40px 48px;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 64px 48px 40px;
   background: linear-gradient(180deg,
     rgba(34,40,64,.97) 0%, rgba(28,34,56,.98) 100%);
   border-left: 1px solid var(--lc-border);
@@ -885,12 +885,19 @@ body::before {
   padding: 13px 16px 13px 42px;
   font-size: 15px; font-family: var(--font-body); outline: none;
   transition: border-color .2s, background .2s, box-shadow .2s;
+  box-shadow:
+    0 4px 6px rgba(0,0,0,.35),
+    0 8px 24px rgba(0,0,0,.25),
+    inset 0 1px 0 rgba(255,255,255,.06);
 }
 .login-input::placeholder { color: rgba(184,196,212,.5); }
 .login-input:focus {
   border-color: var(--lc-cyan);
   background: rgba(0,212,255,.07);
-  box-shadow: 0 0 0 3px rgba(0,212,255,.14), 0 2px 12px rgba(0,0,0,.2);
+  box-shadow:
+    0 0 0 3px rgba(0,212,255,.14),
+    0 6px 20px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.06);
 }
 .login-input-wrap:focus-within .login-input-icon { color: var(--lc-cyan); }
 
@@ -902,7 +909,10 @@ body::before {
   color: #000f1a; font-family: var(--font-head); font-size: 17px;
   font-weight: 700; cursor: pointer; letter-spacing: 1.5px;
   transition: all .2s;
-  box-shadow: 0 4px 20px rgba(0,212,255,.25), 0 1px 4px rgba(0,0,0,.4);
+  box-shadow:
+    0 4px 0 #005580,
+    0 6px 16px rgba(0,212,255,.30),
+    0 12px 40px rgba(0,0,0,.30);
   position: relative; overflow: hidden;
 }
 .btn-login::after {
@@ -912,14 +922,23 @@ body::before {
   transition: transform .5s ease;
 }
 .btn-login:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0,212,255,.40), 0 2px 8px rgba(0,0,0,.4);
+  transform: translateY(-3px);
+  box-shadow:
+    0 7px 0 #005580,
+    0 10px 28px rgba(0,212,255,.45),
+    0 18px 48px rgba(0,0,0,.30);
 }
 .btn-login:hover::after { transform: translateX(100%); }
-.btn-login:active { transform: scale(.98); }
+.btn-login:active {
+  transform: translateY(2px);
+  box-shadow:
+    0 2px 0 #005580,
+    0 4px 12px rgba(0,212,255,.20),
+    0 6px 20px rgba(0,0,0,.25);
+}
 .btn-login:disabled {
   background: rgba(255,255,255,.07); color: var(--lc-muted);
-  transform: none; box-shadow: none; cursor: not-allowed;
+  transform: none; box-shadow: 0 2px 8px rgba(0,0,0,.20); cursor: not-allowed;
 }
 .btn-login:disabled::after { display: none; }
 
@@ -958,7 +977,8 @@ body::before {
 @media (max-width: 720px) {
   .login-panel-left { display: none; }
   .login-panel-right {
-    width: 100%; border-left: none; padding: 32px 24px;
+    width: 100%; border-left: none; padding: 52px 24px 40px;
+    align-items: flex-start;
     background: linear-gradient(180deg,
       rgba(30,36,58,.99) 0%, rgba(26,30,52,.99) 100%);
   }
@@ -966,7 +986,7 @@ body::before {
   .login-title { font-size: 22px; }
 }
 @media (max-width: 400px) {
-  .login-panel-right { padding: 28px 16px; }
+  .login-panel-right { padding: 40px 16px 32px; }
 }
 /* ── PRIMEIRO ACESSO ── */
 .primeiro-acesso-link {
