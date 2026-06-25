@@ -5286,6 +5286,57 @@ function _histGetFiltros() {
   }).sort((a,b) => b.timestamp - a.timestamp);
 }
 
+// ─── Pareia entrada/saída cronologicamente (por colaborador) ─────────────────
+// Cada saída é casada com a entrada aberta mais recente daquele colaborador,
+// mesmo que ela tenha ocorrido no dia anterior — isso garante que um turno
+// que cruza a meia-noite (ex: entra 22h dia 01, sai 06h dia 02) apareça como
+// UMA única linha, ancorada no dia da entrada, com a saída do dia seguinte.
+function _buildParesPonto(lista) {
+  const porColab = {};
+  lista.forEach(r => {
+    const k = r.colaboradorId || r.colaboradorNome || '?';
+    (porColab[k] = porColab[k] || []).push(r);
+  });
+
+  const pares  = {};   // pairKey -> { entradas:[], saidas:[], dia }
+  const regKey = {};   // registro.id -> pairKey
+
+  const fecharAberta = (aberta, saida) => {
+    const k = 'p_' + aberta.id;
+    pares[k] = {
+      entradas: [aberta],
+      saidas:   saida ? [saida] : [],
+      dia:      new Date(aberta.timestamp).toLocaleDateString('pt-BR')
+    };
+    regKey[aberta.id] = k;
+    if (saida) regKey[saida.id] = k;
+  };
+
+  Object.values(porColab).forEach(regsColab => {
+    const ordenada = [...regsColab].sort((a,b) => a.timestamp - b.timestamp);
+    let aberta = null;
+    ordenada.forEach(r => {
+      if (r.tipo === 'entrada') {
+        if (aberta) fecharAberta(aberta, null); // entrada anterior nunca foi fechada
+        aberta = r;
+      } else { // saida
+        if (aberta) {
+          fecharAberta(aberta, r);
+          aberta = null;
+        } else {
+          // saída sem entrada em aberto correspondente
+          const k = 'p_' + r.id;
+          pares[k] = { entradas:[], saidas:[r], dia: new Date(r.timestamp).toLocaleDateString('pt-BR') };
+          regKey[r.id] = k;
+        }
+      }
+    });
+    if (aberta) fecharAberta(aberta, null);
+  });
+
+  return { pares, regKey };
+}
+
 // ─── Render tbody da tabela (estilo diferenciado) ─────────────────────────────
 function _histRenderTbody() {
   const tbody = document.getElementById('hist-tbody');
@@ -5301,26 +5352,18 @@ function _histRenderTbody() {
     return;
   }
 
-  // Agrupa por colaborador + dia para calcular pares entrada/saída
-  const pares = {};
-  registros.forEach(r => {
-    const dia = new Date(r.timestamp).toLocaleDateString('pt-BR');
-    const key = (r.colaboradorId||r.colaboradorNome) + '_' + dia;
-    if (!pares[key]) pares[key] = { entradas:[], saidas:[] };
-    if (r.tipo==='entrada') pares[key].entradas.push(r);
-    else pares[key].saidas.push(r);
-  });
+  // Pareia entrada/saída cronologicamente, mesmo cruzando a meia-noite
+  const { pares, regKey } = _buildParesPonto(registros);
 
   const rows = [];
-  // Gera linhas agrupadas por dia/colaborador
+  // Gera linhas agrupadas por par entrada/saída (turno)
   const vistos = new Set();
   pagina.forEach(r => {
-    const dia = new Date(r.timestamp).toLocaleDateString('pt-BR');
-    const key = (r.colaboradorId||r.colaboradorNome) + '_' + dia;
+    const key = regKey[r.id] || ('p_' + r.id);
     if (vistos.has(key)) return;
     vistos.add(key);
 
-    const g = pares[key] || { entradas:[], saidas:[] };
+    const g = pares[key] || { entradas:[], saidas:[], dia: new Date(r.timestamp).toLocaleDateString('pt-BR') };
     const entH = g.entradas.length ? fmtHora(Math.min(...g.entradas.map(x=>x.timestamp))) : '—';
     const saiH = g.saidas.length   ? fmtHora(Math.max(...g.saidas.map(x=>x.timestamp)))   : '—';
 
@@ -5336,6 +5379,7 @@ function _histRenderTbody() {
 
     const posto = g.entradas[0]?.posto || g.saidas[0]?.posto || r.posto || '—';
     const nome  = r.colaboradorNome || '—';
+    const dia   = g.dia || new Date(r.timestamp).toLocaleDateString('pt-BR');
 
     rows.push(`<tr>
       <td class="td-data">${dia}</td>
@@ -5389,24 +5433,186 @@ function renderHistorico() {
 }
 window.renderHistorico = renderHistorico;
 
-// ─── Exportar histórico PDF ───────────────────────────────────────────────────
+// ─── Logo PJ Tecnologia (hexágono cyan) — padrão para todos os PDFs do sistema ─
+const PJ_LOGO_SVG = `
+<svg width="46" height="50" viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pjLgF" x1="0" y1="0" x2="100" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#061830"/><stop offset="100%" stop-color="#020a1a"/>
+    </linearGradient>
+    <linearGradient id="pjLgS" x1="0" y1="0" x2="100" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00eaff"/><stop offset="50%" stop-color="#0099cc"/><stop offset="100%" stop-color="#00c8f8"/>
+    </linearGradient>
+  </defs>
+  <polygon points="50,4 96,28 96,82 50,106 4,82 4,28" fill="url(#pjLgF)" stroke="url(#pjLgS)" stroke-width="2.5"/>
+  <circle cx="50" cy="4"   r="2" fill="#00eaff" opacity=".8"/>
+  <circle cx="96" cy="28"  r="2" fill="#00eaff" opacity=".8"/>
+  <circle cx="96" cy="82"  r="2" fill="#00eaff" opacity=".8"/>
+  <circle cx="50" cy="106" r="2" fill="#00eaff" opacity=".8"/>
+  <circle cx="4"  cy="82"  r="2" fill="#00eaff" opacity=".8"/>
+  <circle cx="4"  cy="28"  r="2" fill="#00eaff" opacity=".8"/>
+  <text x="50" y="67" text-anchor="middle" font-family="'Orbitron',sans-serif"
+        font-weight="900" font-size="30" fill="#e8f4fd" letter-spacing="-2">P<tspan fill="#00d4ff">J</tspan></text>
+</svg>`;
+
+// ─── Cabeçalho/rodapé padrão PJ Tecnologia para todos os relatórios PDF ───────
+function _pjPdfHeaderCSS() {
+  return `
+    .pj-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; padding-bottom:14px; border-bottom:3px solid #1e40af; }
+    .pj-header-id { display:flex; align-items:center; gap:12px; }
+    .pj-header-id .pj-brand { line-height:1.15; }
+    .pj-header-id .pj-brand-nome { font-size:14px; font-weight:800; color:#1e293b; }
+    .pj-header-id .pj-brand-produto { font-size:10px; color:#0099cc; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
+    .pj-header-left h1 { font-size:18px; color:#1e293b; font-weight:800; margin-top:8px; }
+    .pj-header-left p  { font-size:12px; color:#64748b; margin-top:4px; }
+    .pj-header-right   { text-align:right; font-size:11px; color:#64748b; }
+    .pj-header-right .badge { background:#dcfce7; color:#15803d; padding:4px 12px; border-radius:20px; font-weight:700; font-size:12px; display:inline-block; }
+    .pj-footer { margin-top:18px; display:flex; align-items:center; justify-content:center; gap:8px; text-align:center; font-size:10px; color:#94a3b8; border-top:1px solid #e2e8f0; padding-top:10px; }
+  `;
+}
+function _pjPdfHeaderHTML(tituloEmoji, titulo, empresa, geradoEm, badgeHTML) {
+  return `
+  <div class="pj-header">
+    <div class="pj-header-left">
+      <div class="pj-header-id">
+        ${PJ_LOGO_SVG}
+        <div class="pj-brand">
+          <div class="pj-brand-nome">PJ Tecnologia</div>
+          <div class="pj-brand-produto">● Ponto Eletrônico</div>
+        </div>
+      </div>
+      <h1>${tituloEmoji} ${titulo}</h1>
+      <p>${empresa} &nbsp;·&nbsp; Gerado em ${geradoEm}</p>
+    </div>
+    <div class="pj-header-right">${badgeHTML}</div>
+  </div>`;
+}
+function _pjPdfFooterHTML(empresa, geradoEm, extra) {
+  return `
+  <div class="pj-footer">
+    <svg width="16" height="18" viewBox="0 0 100 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="50,4 96,28 96,82 50,106 4,82 4,28" fill="#020a1a" stroke="#0099cc" stroke-width="4"/>
+    </svg>
+    <span>PJ Tecnologia &nbsp;·&nbsp; ${empresa} &nbsp;·&nbsp; Ponto Eletrônico &nbsp;·&nbsp; ${geradoEm}${extra ? ' &nbsp;·&nbsp; ' + extra : ''}</span>
+  </div>`;
+}
+
+// ─── Exportar histórico — PDF profissional com logo PJ Tecnologia ────────────
 function exportarHistoricoPDF() {
   const lista = _histFiltrado;
   if (!lista.length) { mostrarSyncToast('⚠️ Nenhum registro para exportar', 'gold'); return; }
-  const linhas = lista.map(r => {
-    const dt = new Date(r.timestamp);
-    return [
-      dt.toLocaleDateString('pt-BR'),
-      dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
-      r.colaboradorNome||'',
-      r.posto||'',
-      r.tipo||''
-    ].join('\t');
-  }).join('\n');
-  const blob = new Blob([`Data\tHora\tColaborador\tPosto\tTipo\n${linhas}`], {type:'text/plain;charset=utf-8'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = 'historico_ponto.txt'; a.click();
-  mostrarSyncToast('✅ Histórico exportado!', 'green');
+
+  const empresa  = document.querySelector('.topbar-nome')?.textContent?.trim() || 'Grupo M.S';
+  const geradoEm = new Date().toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+  // Pareia entrada/saída cronologicamente — mesma lógica da tabela em tela,
+  // garantindo que turnos que cruzam a meia-noite saiam corretos no PDF.
+  const { pares, regKey } = _buildParesPonto(registros);
+  const vistos = new Set();
+  const turnos = [];
+  lista.forEach(r => {
+    const key = regKey[r.id] || ('p_' + r.id);
+    if (vistos.has(key)) return;
+    vistos.add(key);
+    const g = pares[key] || { entradas:[], saidas:[], dia: new Date(r.timestamp).toLocaleDateString('pt-BR') };
+    const entTs = g.entradas.length ? Math.min(...g.entradas.map(x=>x.timestamp)) : null;
+    const saiTs = g.saidas.length   ? Math.max(...g.saidas.map(x=>x.timestamp))   : null;
+    turnos.push({
+      dia:   g.dia,
+      nome:  r.colaboradorNome || '—',
+      posto: g.entradas[0]?.posto || g.saidas[0]?.posto || r.posto || '—',
+      entH:  entTs != null ? fmtHora(entTs) : null,
+      saiH:  saiTs != null ? fmtHora(saiTs) : null,
+      diffMs: (entTs != null && saiTs != null && saiTs > entTs) ? saiTs - entTs : null,
+      tsOrdenar: entTs != null ? entTs : saiTs
+    });
+  });
+  turnos.sort((a,b) => b.tsOrdenar - a.tsOrdenar);
+
+  const totalTurnos   = turnos.length;
+  const completos     = turnos.filter(t => t.entH && t.saiH).length;
+  const emAndamento   = turnos.filter(t => t.entH && !t.saiH).length;
+  const totalMs       = turnos.reduce((s,t) => s + (t.diffMs || 0), 0);
+  const totalHorasStr = `${Math.floor(totalMs/3600000)}h${Math.floor((totalMs%3600000)/60000).toString().padStart(2,'0')}m`;
+  const colaboradoresUnicos = new Set(turnos.map(t => t.nome)).size;
+
+  const linhas = turnos.map((t,i) => {
+    const duracao = t.diffMs != null
+      ? `${Math.floor(t.diffMs/3600000)}h${Math.floor((t.diffMs%3600000)/60000).toString().padStart(2,'0')}m`
+      : '—';
+    return `
+    <tr style="background:${i % 2 === 0 ? '#f8fafc' : '#ffffff'}">
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#1e293b;white-space:nowrap">${t.dia}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#1e293b;font-size:13px">${esc(t.nome)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#334155">📍 ${esc(t.posto)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#15803d;font-weight:600;white-space:nowrap">${t.entH ? '▲ ' + t.entH : '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#b91c1c;font-weight:600;white-space:nowrap">${t.saiH ? '▼ ' + t.saiH : '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#334155;white-space:nowrap">${duracao}</td>
+    </tr>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Histórico de Ponto — ${empresa}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background:#fff; color:#1e293b; }
+    @page { size: A4 landscape; margin: 15mm 12mm; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+      tr { page-break-inside: avoid; }
+    }
+    ${_pjPdfHeaderCSS()}
+    .kpis { display:flex; gap:12px; margin-bottom:18px; }
+    .kpi  { flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; text-align:center; }
+    .kpi-val  { font-size:22px; font-weight:800; color:#1e40af; }
+    .kpi-label{ font-size:11px; color:#64748b; margin-top:2px; }
+    table  { width:100%; border-collapse:collapse; font-size:12px; }
+    thead tr { background:#1e40af; }
+    thead th { padding:10px; color:#fff; font-size:11px; font-weight:700; text-align:left; text-transform:uppercase; letter-spacing:.5px; }
+    .btn-print { position:fixed; bottom:24px; right:24px; background:#1e40af; color:#fff; border:none; border-radius:10px; padding:12px 24px; font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px #1e40af44; }
+    .btn-print:hover { background:#1e3a8a; }
+  </style>
+</head>
+<body>
+  ${_pjPdfHeaderHTML('🗂️', 'Histórico de Ponto', empresa, geradoEm, `<div class="badge">${totalTurnos} turno${totalTurnos!==1?'s':''} · ${colaboradoresUnicos} colaborador${colaboradoresUnicos!==1?'es':''}</div>`)}
+
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-val">${totalTurnos}</div><div class="kpi-label">Total de turnos</div></div>
+    <div class="kpi"><div class="kpi-val">${completos}</div><div class="kpi-label">Completos</div></div>
+    <div class="kpi"><div class="kpi-val">${emAndamento}</div><div class="kpi-label">Em andamento</div></div>
+    <div class="kpi"><div class="kpi-val">${totalHorasStr}</div><div class="kpi-label">Horas totais</div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Colaborador</th>
+        <th>Posto</th>
+        <th>Entrada</th>
+        <th>Saída</th>
+        <th>Duração</th>
+      </tr>
+    </thead>
+    <tbody>${linhas}</tbody>
+  </table>
+
+  ${_pjPdfFooterHTML(empresa, geradoEm, totalTurnos + ' turnos')}
+
+  <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) { mostrarSyncToast('⚠️ Permita pop-ups para gerar o PDF', 'gold'); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  mostrarSyncToast('✅ PDF gerado!', 'green');
 }
 window.exportarHistoricoPDF = exportarHistoricoPDF;
 
