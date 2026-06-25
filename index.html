@@ -1504,6 +1504,7 @@ tbody tr:hover { background: #f59e0b08; }
 .td-hora  { font-family: var(--font-mono); font-size: 13px; color: var(--text); }
 .td-data  { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
 .td-posto { font-size: 13px; color: var(--muted); }
+.td-loc   { font-size: 12px; line-height: 1.5; }
 .tipo-tag {
   font-family: var(--font-mono); font-size: 11px; font-weight: 600;
   padding: 4px 10px; border-radius: 6px; white-space: nowrap; display: inline-block;
@@ -3370,6 +3371,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
               <th>Entrada</th>
               <th>Saída</th>
               <th>Duração</th>
+              <th>Localização</th>
               <th id="th-acoes" style="display:none">Ações</th>
             </tr>
           </thead>
@@ -5347,7 +5349,7 @@ function _histRenderTbody() {
   const pagina  = _histFiltrado.slice(inicio, inicio + HIST_POR_PAG);
 
   if (!pagina.length) {
-    const cols = isAdmin ? 7 : 7;
+    const cols = isAdmin ? 8 : 8;
     tbody.innerHTML = `<tr class="empty-row"><td colspan="${cols}" style="text-align:center;padding:40px;color:var(--muted)">📭 Nenhum registro encontrado com estes filtros</td></tr>`;
     return;
   }
@@ -5381,6 +5383,18 @@ function _histRenderTbody() {
     const nome  = r.colaboradorNome || '—';
     const dia   = g.dia || new Date(r.timestamp).toLocaleDateString('pt-BR');
 
+    // Localização — usa o helper linkMaps já existente no sistema (mesmo link
+    // do Google Maps mostrado no feedback ao bater o ponto)
+    const locEnt = g.entradas[0]?.localizacao;
+    const locSai = (g.saidas[g.saidas.length-1] || g.saidas[0])?.localizacao;
+    let locCel = '<span style="color:var(--muted)">—</span>';
+    if (locEnt || locSai) {
+      const partes = [];
+      if (locEnt) partes.push(`<div style="font-size:11px;color:var(--green)">▲ ${linkMaps(locEnt)}</div>`);
+      if (locSai) partes.push(`<div style="font-size:11px;color:var(--red);margin-top:2px">▼ ${linkMaps(locSai)}</div>`);
+      locCel = partes.join('');
+    }
+
     rows.push(`<tr>
       <td class="td-data">${dia}</td>
       <td class="td-nome">${esc(nome)}</td>
@@ -5388,10 +5402,11 @@ function _histRenderTbody() {
       <td class="td-hora" style="color:var(--green)">${entH}</td>
       <td class="td-hora" style="color:var(--red)">${saiH}</td>
       <td class="td-hora">${duracao}</td>
+      <td class="td-loc">${locCel}</td>
     </tr>`);
   });
 
-  tbody.innerHTML = rows.join('') || `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">📭 Nenhum registro</td></tr>`;
+  tbody.innerHTML = rows.join('') || `<tr class="empty-row"><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">📭 Nenhum registro</td></tr>`;
 
   // Mostra coluna de ações só para admin
   const thAcoes = document.getElementById('th-acoes');
@@ -5523,6 +5538,8 @@ function exportarHistoricoPDF() {
       posto: g.entradas[0]?.posto || g.saidas[0]?.posto || r.posto || '—',
       entH:  entTs != null ? fmtHora(entTs) : null,
       saiH:  saiTs != null ? fmtHora(saiTs) : null,
+      locEnt: g.entradas[0]?.localizacao || null,
+      locSai: (g.saidas[g.saidas.length-1] || g.saidas[0])?.localizacao || null,
       diffMs: (entTs != null && saiTs != null && saiTs > entTs) ? saiTs - entTs : null,
       tsOrdenar: entTs != null ? entTs : saiTs
     });
@@ -5536,9 +5553,17 @@ function exportarHistoricoPDF() {
   const totalHorasStr = `${Math.floor(totalMs/3600000)}h${Math.floor((totalMs%3600000)/60000).toString().padStart(2,'0')}m`;
   const colaboradoresUnicos = new Set(turnos.map(t => t.nome)).size;
 
+  const fmtLocPdf = (loc, seta, cor) => {
+    if (!loc) return '';
+    return `<div style="font-size:10px;color:${cor};white-space:nowrap">${seta} <a href="https://maps.google.com/?q=${loc.lat},${loc.lng}" style="color:${cor};text-decoration:none">${loc.lat}, ${loc.lng}</a></div>`;
+  };
+
   const linhas = turnos.map((t,i) => {
     const duracao = t.diffMs != null
       ? `${Math.floor(t.diffMs/3600000)}h${Math.floor((t.diffMs%3600000)/60000).toString().padStart(2,'0')}m`
+      : '—';
+    const loc = (t.locEnt || t.locSai)
+      ? fmtLocPdf(t.locEnt, '▲', '#15803d') + fmtLocPdf(t.locSai, '▼', '#b91c1c')
       : '—';
     return `
     <tr style="background:${i % 2 === 0 ? '#f8fafc' : '#ffffff'}">
@@ -5548,6 +5573,7 @@ function exportarHistoricoPDF() {
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#15803d;font-weight:600;white-space:nowrap">${t.entH ? '▲ ' + t.entH : '—'}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#b91c1c;font-weight:600;white-space:nowrap">${t.saiH ? '▼ ' + t.saiH : '—'}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#334155;white-space:nowrap">${duracao}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">${loc}</td>
     </tr>`;
   }).join('');
 
@@ -5596,6 +5622,7 @@ function exportarHistoricoPDF() {
         <th>Entrada</th>
         <th>Saída</th>
         <th>Duração</th>
+        <th>Localização</th>
       </tr>
     </thead>
     <tbody>${linhas}</tbody>
