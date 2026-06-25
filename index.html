@@ -1388,170 +1388,153 @@ footer {
 }
 
 /* ══════════════════════════════════════════
-   HISTÓRICO
+   HISTÓRICO — igual ao Ponto_diferenciado
 ══════════════════════════════════════════ */
-.hist-filtros-card { margin-bottom: 16px; }
-.hist-filtros-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 14px;
+.filter-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px;
 }
-.hist-filtro-grupo { display: flex; flex-direction: column; gap: 6px; }
-.hist-filtro-label {
-  font-size: 11px; color: var(--muted); letter-spacing: 1px;
-  text-transform: uppercase; font-family: var(--font-mono);
+@media(max-width:900px){ .filter-grid { grid-template-columns: 1fr 1fr; } }
+@media(max-width:600px){ .filter-grid { grid-template-columns: 1fr; } }
+.filter-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 10px; margin-bottom: 0;
 }
-.hist-select {
+.filter-count { font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+
+/* DATE RANGE CHIP (Android style) */
+.date-range-wrap { margin: 10px 0 4px; }
+.date-range-chip {
+  display: flex; align-items: center; gap: 0;
+  background: var(--surface2); border: 1.5px solid var(--accent);
+  border-radius: 50px; overflow: hidden;
+  box-shadow: 0 0 0 4px #f59e0b10; transition: box-shadow .2s;
+}
+.date-range-chip:focus-within { box-shadow: 0 0 0 4px #f59e0b25; }
+.drc-icon { padding: 0 10px 0 16px; font-size: 15px; flex-shrink: 0; color: var(--accent); }
+.drc-field {
+  display: flex; flex-direction: column; flex: 1; min-width: 0;
+  padding: 7px 12px 7px 0;
+}
+.drc-lbl {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 1px;
+}
+.drc-input {
+  background: transparent; border: none; outline: none;
+  color: var(--text); font-size: 14px; font-family: var(--font-mono);
+  font-weight: 600; width: 100%; padding: 0; color-scheme: dark;
+}
+.drc-input::-webkit-calendar-picker-indicator {
+  filter: invert(60%) sepia(60%) saturate(600%) hue-rotate(20deg);
+  opacity: .7; cursor: pointer;
+}
+.drc-sep {
+  display: flex; align-items: center; padding: 0 10px;
+  color: var(--accent); font-size: 18px; font-weight: 300;
+  flex-shrink: 0; align-self: stretch;
+  border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+}
+.drc-clear {
+  flex-shrink: 0; background: transparent; border: none;
+  color: var(--muted); font-size: 14px; cursor: pointer;
+  padding: 0 16px; align-self: stretch;
+  transition: color .2s; border-left: 1px solid var(--border);
+  display: flex; align-items: center;
+}
+.drc-clear:hover { color: var(--red); }
+.drc-shortcuts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.drc-chip {
   background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 10px; color: var(--text); padding: 9px 12px;
-  font-size: 13px; font-family: var(--font-body); outline: none;
-  width: 100%; transition: border-color .2s; cursor: pointer;
+  color: var(--muted); border-radius: 20px; padding: 5px 13px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .18s; white-space: nowrap; letter-spacing: 0.3px;
 }
-.hist-select:focus { border-color: var(--accent); }
-.hist-select option { background: var(--surface2); }
-input.hist-select[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
+.drc-chip:hover { border-color: var(--accent); color: var(--accent); background: #f59e0b10; }
+.drc-chip.active { background: #f59e0b20; border-color: var(--accent); color: var(--accent); }
+@media(max-width:600px) {
+  .date-range-chip { border-radius: 16px; }
+  .drc-sep { padding: 0 6px; }
+  .drc-icon { padding: 0 6px 0 12px; }
+}
 
-.hist-filtros-footer {
-  display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 8px;
-  padding-top: 12px; border-top: 1px solid var(--border2);
+/* Botões export do histórico */
+.btn-export {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: none; border-radius: 10px; padding: 8px 16px;
+  font-family: var(--font-head); font-size: 13px;
+  font-weight: 700; cursor: pointer; letter-spacing: 0.5px;
+  transition: all .2s; white-space: nowrap;
 }
-.hist-count-label {
-  font-size: 12px; color: var(--muted); font-family: var(--font-mono);
+.btn-export-pdf {
+  background: linear-gradient(135deg, #5c0020, var(--red));
+  color: #fff; box-shadow: 0 4px 16px #e8273f33;
 }
-.hist-btn-limpar {
-  background: transparent; border: 1px solid var(--border);
-  color: var(--muted); border-radius: 8px; padding: 6px 14px;
-  font-size: 12px; font-family: var(--font-mono); cursor: pointer;
-  transition: all .15s; -webkit-tap-highlight-color: transparent;
+.btn-export-pdf:hover { transform: translateY(-2px); box-shadow: 0 6px 24px #e8273f55; }
+.btn-export-xlsx {
+  background: linear-gradient(135deg, #052e0f, var(--green));
+  color: #000; box-shadow: 0 4px 16px #22c55e33;
 }
-.hist-btn-limpar:hover { border-color: var(--red); color: var(--red); }
+.btn-export-xlsx:hover { transform: translateY(-2px); box-shadow: 0 6px 24px #22c55e55; }
+.btn-clear {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 8px; padding: 7px 14px;
+  cursor: pointer; font-size: 13px; transition: all .2s;
+  font-family: var(--font-mono);
+}
+.btn-clear:hover { color: var(--text); border-color: var(--muted); }
 
-/* Totalizador */
-.hist-totais {
-  display: flex; align-items: center; justify-content: center;
-  gap: 0; margin-bottom: 16px;
+/* Tabela do histórico */
+.table-wrap {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; overflow: hidden;
+  border-radius: 16px; overflow-x: auto; overflow-y: hidden;
+  margin-top: 16px; -webkit-overflow-scrolling: touch;
 }
-.hist-total-item {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  padding: 14px 10px; gap: 4px;
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: var(--surface2); }
+th {
+  padding: 13px 16px; text-align: left; font-family: var(--font-mono);
+  font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--muted);
+  text-transform: uppercase; white-space: nowrap;
 }
-.hist-total-val {
-  font-family: var(--font-mono); font-size: 28px; font-weight: 600; line-height: 1;
+td { padding: 12px 16px; font-size: 14px; border-top: 1px solid var(--border2); color: var(--text); }
+tbody tr:nth-child(even) { background: var(--surface2); }
+tbody tr:hover { background: #f59e0b08; }
+.td-nome  { font-weight: 600; color: var(--text); }
+.td-hora  { font-family: var(--font-mono); font-size: 13px; color: var(--text); }
+.td-data  { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.td-posto { font-size: 13px; color: var(--muted); }
+.tipo-tag {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  padding: 4px 10px; border-radius: 6px; white-space: nowrap; display: inline-block;
 }
-.hist-total-label {
-  font-size: 11px; color: var(--muted); text-transform: uppercase;
-  letter-spacing: 1px; font-family: var(--font-head);
+.tipo-entrada { background: var(--green-bg); color: var(--green); border: 1px solid #22c55e33; }
+.tipo-saida   { background: var(--red-bg);   color: var(--red);   border: 1px solid #e8273f33; }
+.tipo-vazio   { color: var(--muted2); font-size: 14px; padding: 0 10px; }
+.empty-row td { padding: 40px; text-align: center; color: var(--muted); }
+.pagination {
+  display: flex; justify-content: center; align-items: center;
+  gap: 10px; padding: 14px; border-top: 1px solid var(--border);
 }
-.hist-total-sep {
-  width: 1px; height: 40px; background: var(--border); flex-shrink: 0;
-}
-
-/* Cabeçalho tabela */
-.hist-table-head {
-  display: grid;
-  grid-template-columns: 150px 1fr 160px 90px 140px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface2);
-}
-.hist-th {
-  font-size: 11px; font-family: var(--font-mono); font-weight: 600;
-  color: var(--muted); letter-spacing: 1px; text-transform: uppercase;
-}
-
-/* Linhas da tabela */
-.hist-row {
-  display: grid;
-  grid-template-columns: 150px 1fr 160px 90px 140px;
-  padding: 13px 20px; align-items: center;
-  border-bottom: 1px solid var(--border2);
-  transition: background .15s; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.hist-row:last-child { border-bottom: none; }
-.hist-row:hover { background: var(--surface2); }
-.hist-row.expanded { background: var(--surface2); }
-
-.hist-cell { font-size: 13px; color: var(--text); min-width: 0; }
-.hist-cell-data { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
-.hist-cell-data strong { display: block; font-size: 13px; color: var(--text); margin-bottom: 2px; }
-.hist-cell-nome { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hist-cell-posto { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hist-tag-entrada { background: var(--green-bg); color: var(--green); border: 1px solid #22c55e33;
-  font-size: 11px; font-family: var(--font-mono); font-weight: 600;
-  padding: 3px 9px; border-radius: 6px; white-space: nowrap; display: inline-block; }
-.hist-tag-saida   { background: var(--red-bg); color: var(--red); border: 1px solid #e8273f33;
-  font-size: 11px; font-family: var(--font-mono); font-weight: 600;
-  padding: 3px 9px; border-radius: 6px; white-space: nowrap; display: inline-block; }
-.hist-loc-link { font-size: 11px; color: var(--accent); font-family: var(--font-mono);
-  text-decoration: none; display: flex; align-items: center; gap: 4px; }
-.hist-loc-link:hover { text-decoration: underline; }
-.hist-loc-none { font-size: 11px; color: var(--muted2); font-family: var(--font-mono); }
-
-/* Expansão de localização em mobile */
-.hist-row-detail {
-  padding: 0 20px 14px; display: none;
-  border-bottom: 1px solid var(--border2);
-  background: var(--surface2);
-  font-size: 12px; font-family: var(--font-mono); color: var(--muted);
-}
-.hist-row-detail.open { display: block; }
-
-/* Cards mobile (≤ 640px) */
-.hist-card-mobile {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border2);
-  display: flex; align-items: flex-start; gap: 12px;
-  cursor: pointer; transition: background .15s;
-  -webkit-tap-highlight-color: transparent;
-}
-.hist-card-mobile:last-child { border-bottom: none; }
-.hist-card-mobile:hover, .hist-card-mobile.expanded { background: var(--surface2); }
-.hist-card-av {
-  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-head); font-size: 17px; font-weight: 700; color: #fff;
-}
-.hist-card-body { flex: 1; min-width: 0; }
-.hist-card-nome { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
-.hist-card-meta { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
-.hist-card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
-.hist-card-hora { font-size: 12px; font-family: var(--font-mono); color: var(--muted); }
-.hist-card-detail {
-  padding: 0 16px 12px 66px; display: none;
-  border-bottom: 1px solid var(--border2);
-  background: var(--surface2);
-  font-size: 12px; font-family: var(--font-mono); color: var(--muted);
-}
-.hist-card-detail.open { display: block; }
-
-/* Paginação */
-.hist-paginacao {
-  display: flex; align-items: center; justify-content: center;
-  gap: 6px; padding: 16px; flex-wrap: wrap;
-  border-top: 1px solid var(--border2);
-}
-.hist-pag-btn {
+.btn-page {
   background: var(--surface2); border: 1px solid var(--border);
-  color: var(--muted); border-radius: 8px; padding: 7px 13px;
-  font-size: 13px; font-family: var(--font-mono); cursor: pointer;
-  transition: all .15s; min-width: 38px; min-height: 38px;
-  display: flex; align-items: center; justify-content: center;
-  -webkit-tap-highlight-color: transparent;
+  color: var(--text); border-radius: 8px; padding: 7px 16px;
+  cursor: pointer; font-size: 14px; transition: all .2s;
+  font-family: var(--font-mono); min-height: 38px;
 }
-.hist-pag-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-.hist-pag-btn.active { background: #f59e0b20; border-color: var(--accent); color: var(--accent); font-weight: 700; }
-.hist-pag-btn:disabled { opacity: .35; cursor: not-allowed; }
-.hist-pag-info { font-size: 12px; color: var(--muted); font-family: var(--font-mono); padding: 0 6px; }
+.btn-page:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn-page:disabled { opacity: .4; cursor: default; }
+.page-info { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+
+/* Compatibilidade: aliases para funções JS que usam IDs antigos */
+#hist-body { /* vazio — tabela usa #hist-tbody */ }
+#hist-paginacao { /* vazio — paginação usa .pagination */ }
+.hist-filtros-card { margin-bottom: 16px; }
+.hist-filtros-grid { display: none; } /* substituído por .filter-grid */
+.hist-filtros-footer { display: none; }
 
 /* Vazio */
-.hist-empty {
-  text-align: center; padding: 60px 20px; color: var(--muted);
-}
+.hist-empty { text-align: center; padding: 60px 20px; color: var(--muted); }
 .hist-empty-icon { font-size: 40px; margin-bottom: 12px; }
 .hist-empty-text { font-size: 14px; }
 
@@ -2241,6 +2224,8 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
 /* ══════════════════════════════════════════
    ANIMAÇÕES
 ══════════════════════════════════════════ */
+/* desktop-ponto-layout: coluna única por padrão (mobile) */
+.desktop-ponto-layout { display: block; }
 @keyframes fadeUp   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
 @keyframes slideUp  { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
@@ -2275,10 +2260,10 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   .dash-feed-card { max-height: none; }
   .kpi-val { font-size: 32px; }
   /* Histórico — grid de filtros 2 colunas */
-  .hist-filtros-grid { grid-template-columns: repeat(2, 1fr); }
-  /* Tabela → oculta colunas de posto e loc */
-  .hist-col-posto, .hist-col-loc { display: none; }
-  .hist-table-head, .hist-row { grid-template-columns: 140px 1fr 90px; }
+  .filter-grid { grid-template-columns: repeat(2, 1fr); }
+  /* Tabela histórico — scroll horizontal */
+  .table-wrap { overflow-x: auto; }
+  table { min-width: 560px; }
 }
 
 /* ══════════════════════════════════════════
@@ -2335,12 +2320,13 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   #fila-offline-overlay > div { padding: 24px 18px !important; }
   /* Toast — mais alto para não ser coberto por teclado virtual */
   #sync-toast { bottom: 100px; }
-  /* Histórico — filtros 1 coluna, oculta tabela e usa cards */
-  .hist-filtros-grid { grid-template-columns: 1fr; gap: 10px; }
-  .hist-table-head  { display: none; }
-  .hist-row         { display: none; }
-  .hist-row-detail  { display: none !important; }
-  .hist-total-val   { font-size: 22px; }
+  /* Histórico — filtros 1 coluna, tabela scroll horizontal */
+  .filter-grid { grid-template-columns: 1fr; gap: 10px; }
+  .table-wrap  { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table        { min-width: 480px; }
+  th, td       { padding: 10px 10px; font-size: 12px; }
+  .drc-shortcuts { gap: 4px; }
+  .drc-chip { padding: 4px 10px; font-size: 10px; }
 }
 
 /* ══════════════════════════════════════════
@@ -2352,6 +2338,225 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   .login-card    { padding: 28px 16px; }
   .login-title   { font-size: 20px; }
   .kpi-val       { font-size: 24px; }
+}
+
+/* ══════════════════════════════════════════
+   LAYOUT DESKTOP  ≥ 1024px
+   Sidebar fixa à esquerda + área de conteúdo
+══════════════════════════════════════════ */
+@media (min-width: 1024px) {
+
+  /* ── Estrutura raiz ── */
+  body {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    grid-template-rows: auto 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar (header vira coluna lateral) ── */
+  header#main-header {
+    position: fixed;
+    top: 0; left: 0;
+    width: 240px;
+    height: 100vh;
+    z-index: 200;
+    display: flex !important;          /* sobrescreve inline style:none após login */
+    flex-direction: column;
+    background: linear-gradient(180deg, #0e0c11 0%, #09080a 100%);
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+    box-shadow: 4px 0 32px #000a, 1px 0 0 #f59e0b18;
+    backdrop-filter: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+  }
+  header#main-header::-webkit-scrollbar { display: none; }
+  /* Quando está oculto (antes do login), mantém display:none */
+  header#main-header[style*="display:none"] { display: none !important; }
+
+  /* ── Header inner vira o wrapper vertical ── */
+  .header-inner {
+    max-width: none;
+    width: 100%;
+    padding: 28px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  /* ── Marca — empilhada verticalmente ── */
+  .brand {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border2);
+  }
+  .brand-logo { width: 44px; height: 49px; }
+  .brand-text h1 { font-size: 13px; letter-spacing: 1px; line-height: 1.3; }
+  .brand-text p   { font-size: 9px; letter-spacing: 0.8px; }
+
+  /* ── Header right vira rodapé da sidebar ── */
+  .header-right {
+    margin-left: 0;
+    margin-top: auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border2);
+  }
+  .sync-badge {
+    display: block;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+  .user-chip {
+    justify-content: center;
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    background: var(--surface2);
+    border-color: var(--border);
+  }
+
+  /* ── Navegação vertical ── */
+  .tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: visible;
+    flex: 1;
+  }
+  .tab-btn {
+    width: 100%;
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 13px;
+    border-radius: 12px;
+    border-bottom: none !important;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background .15s, color .15s;
+    min-height: 44px;
+  }
+  .tab-btn:hover { background: #f59e0b0a; color: var(--text); }
+  .tab-btn.active {
+    background: #f59e0b18;
+    color: var(--accent);
+    border-left: 3px solid var(--accent) !important;
+    padding-left: 13px;
+  }
+  /* Linha glow (pseudo do mobile) fica invisível */
+  .tab-btn.active::before { display: none; }
+  .tab-btn.admin-tab       { color: #fbbf2499; }
+  .tab-btn.admin-tab.active {
+    background: #fbbf2412;
+    color: var(--gold);
+    border-left-color: var(--gold) !important;
+  }
+
+  /* ── Separador visual entre tabs normais e admin ── */
+  .tabs::before {
+    content: 'ADMINISTRAÇÃO';
+    display: none; /* injetado via JS abaixo */
+  }
+
+  /* ── Divider label entre tabs ── */
+  .tab-divider {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted2);
+    padding: 12px 16px 6px;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* ── Main — empurra para a direita da sidebar ── */
+  main#main-content {
+    margin-left: 240px;
+    max-width: none;
+    padding: 40px 48px 60px;
+    min-height: 100vh;
+  }
+
+  /* ── Banner offline ── */
+  #offline-banner { left: 240px; }
+  body.has-banner header { top: 0; } /* sidebar não é top */
+
+  /* ── Toast ── */
+  #sync-toast { left: calc(240px + 50%); }
+
+  /* ── Aba Ponto — layout 2 colunas no desktop ── */
+  .desktop-ponto-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 32px;
+    align-items: start;
+  }
+  .desktop-ponto-left  { }
+  .desktop-ponto-right {
+    position: sticky;
+    top: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px 24px;
+  }
+
+  /* ── Relógio maior no desktop ── */
+  .clock-time { font-size: 88px; letter-spacing: -3px; }
+  .clock-wrap { text-align: left; margin-bottom: 32px; }
+
+  /* ── Botões de ponto maiores ── */
+  .btn-ponto { padding: 36px 24px; font-size: 26px; }
+  .btn-ponto .icon { font-size: 52px; }
+
+  /* ── Dashboard — grid mais amplo ── */
+  .dash2-stat-grid { grid-template-columns: repeat(3, 1fr); }
+  .dash2-stat-card.stat-red { grid-column: auto; }
+  .dash-row2 { grid-template-columns: 1fr 380px; }
+
+  /* ── KPI grid mais colunas ── */
+  .dash-kpi-grid { grid-template-columns: repeat(4, 1fr); }
+
+  /* ── Histórico — filtros 4 colunas ── */
+  .filter-grid { grid-template-columns: repeat(4, 1fr); }
+
+  /* ── Cards genéricos — padding maior ── */
+  .card { padding: 28px 32px; }
+
+  /* ── Collab grid — mais colunas ── */
+  .colab-mgr-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  .dash-colab-grid { grid-template-columns: repeat(3, 1fr); }
+
+  /* ── Gestão subtabs — linha horizontal compacta ── */
+  .gestao-subtabs { overflow-x: visible; flex-wrap: wrap; }
+
+  /* ── Tabela histórico — sem scroll forçado ── */
+  table { min-width: 0; }
+  .table-wrap { overflow-x: visible; }
+}
+
+/* ══════════════════════════════════════════
+   LAYOUT DESKTOP LARGO  ≥ 1440px
+══════════════════════════════════════════ */
+@media (min-width: 1440px) {
+  header#main-header { width: 260px; }
+  main#main-content  { margin-left: 260px; padding: 44px 64px 60px; }
+  #offline-banner    { left: 260px; }
+  #sync-toast        { left: calc(260px + 50%); }
+  .dash-kpi-grid     { grid-template-columns: repeat(5, 1fr); }
+  .colab-mgr-grid    { grid-template-columns: repeat(4, 1fr) !important; }
 }
 
 /* ══════════════════════════════════════════
@@ -2962,9 +3167,11 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     </div>
     <nav class="tabs" id="nav-tabs">
       <button class="tab-btn active"    onclick="showTab('ponto',this)">🕐 Bater Ponto</button>
-      <button class="tab-btn admin-tab" id="tab-btn-dashboard"      onclick="showTab('dashboard',this)"      style="display:none">📊 Dashboard</button>
       <button class="tab-btn"           onclick="showTab('historico',this)">📋 Histórico</button>
       <button class="tab-btn"           id="tab-btn-colaboradores"  onclick="showTab('colaboradores',this)">👥 Colaboradores</button>
+      <!-- Divider admin — visível só no desktop via JS -->
+      <div class="tab-divider" id="tab-divider-admin" style="display:none">Admin</div>
+      <button class="tab-btn admin-tab" id="tab-btn-dashboard"      onclick="showTab('dashboard',this)"      style="display:none">📊 Dashboard</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft"             onclick="showTab('ft-auto',this)"        style="display:none">📋 FT Automática</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft-validadas"   onclick="showTab('ft-validadas',this)"   style="display:none">✅ FTs Validadas</button>
       <button class="tab-btn admin-tab" id="tab-btn-gestao"         onclick="showTab('gestao',this)"         style="display:none">⚙️ Gestão</button>
@@ -2978,43 +3185,55 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   <!-- ─── ABA: BATER PONTO ─── -->
   <section id="tab-ponto" class="tab-content active">
 
-    <!-- Relógio -->
-    <div class="clock-wrap">
-      <div class="clock-time" id="clock">00:00:00</div>
-      <div class="clock-date" id="clock-date"></div>
-    </div>
+    <div class="desktop-ponto-layout">
+      <!-- Coluna esquerda: relógio + colaboradores -->
+      <div class="desktop-ponto-left">
 
-    <!-- Banner de feedback (após registrar) -->
-    <div id="feedback-banner" style="display:none"></div>
+        <!-- Relógio -->
+        <div class="clock-wrap">
+          <div class="clock-time" id="clock">00:00:00</div>
+          <div class="clock-date" id="clock-date"></div>
+        </div>
 
-    <!-- Instrução -->
-    <p id="ponto-instrucao" style="text-align:center;color:var(--muted);margin-bottom:18px;font-size:15px">
-      Selecione seu nome e registre o ponto
-    </p>
+        <!-- Banner de feedback (após registrar) -->
+        <div id="feedback-banner" style="display:none"></div>
 
-    <!-- Lista de colaboradores -->
-    <div class="colab-list" id="colab-list-ponto"></div>
+        <!-- Instrução -->
+        <p id="ponto-instrucao" style="text-align:center;color:var(--muted);margin-bottom:18px;font-size:15px">
+          Selecione seu nome e registre o ponto
+        </p>
 
-    <!-- Seletor de posto -->
-    <div id="posto-selector" style="display:none;margin-bottom:16px">
-      <label style="display:block;font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-family:var(--font-mono)">
-        📍 Posto de trabalho <span style="color:var(--red);font-size:12px">*obrigatório</span>
-      </label>
-      <select id="ponto-posto-select" class="input" style="font-size:15px;padding:13px 14px;border-radius:12px">
-        <option value="">-- Selecione o posto --</option>
-      </select>
-    </div>
+        <!-- Lista de colaboradores -->
+        <div class="colab-list" id="colab-list-ponto"></div>
 
-    <!-- Botões entrada/saída -->
-    <div class="ponto-btns" id="ponto-btns" style="display:none">
-      <div id="loc-status">📍 A localização será capturada ao bater o ponto</div>
-      <button class="btn-ponto btn-entrada" onclick="baterPonto('entrada')">
-        <span class="icon">🟢</span> ENTRADA
-      </button>
-      <button class="btn-ponto btn-saida" onclick="baterPonto('saida')">
-        <span class="icon">🔴</span> SAÍDA
-      </button>
-    </div>
+      </div><!-- /desktop-ponto-left -->
+
+      <!-- Coluna direita: posto + botões -->
+      <div class="desktop-ponto-right">
+
+        <!-- Seletor de posto -->
+        <div id="posto-selector" style="display:none;margin-bottom:16px">
+          <label style="display:block;font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-family:var(--font-mono)">
+            📍 Posto de trabalho <span style="color:var(--red);font-size:12px">*obrigatório</span>
+          </label>
+          <select id="ponto-posto-select" class="input" style="font-size:15px;padding:13px 14px;border-radius:12px">
+            <option value="">-- Selecione o posto --</option>
+          </select>
+        </div>
+
+        <!-- Botões entrada/saída -->
+        <div class="ponto-btns" id="ponto-btns" style="display:none">
+          <div id="loc-status">📍 A localização será capturada ao bater o ponto</div>
+          <button class="btn-ponto btn-entrada" onclick="baterPonto('entrada')">
+            <span class="icon">🟢</span> ENTRADA
+          </button>
+          <button class="btn-ponto btn-saida" onclick="baterPonto('saida')">
+            <span class="icon">🔴</span> SAÍDA
+          </button>
+        </div>
+
+      </div><!-- /desktop-ponto-right -->
+    </div><!-- /desktop-ponto-layout -->
 
   </section>
 
@@ -3089,99 +3308,80 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
 
   <!-- ─── ABA: HISTÓRICO ─── -->
   <section id="tab-historico" class="tab-content">
-
-    <!-- Filtros -->
-    <div class="card hist-filtros-card">
-      <div class="hist-filtros-grid">
-
-        <div class="hist-filtro-grupo">
-          <label class="hist-filtro-label">👤 Colaborador</label>
-          <select id="hist-f-colab" class="hist-select" onchange="histAplicarFiltros()">
-            <option value="">Todos</option>
-          </select>
-        </div>
-
-        <div class="hist-filtro-grupo">
-          <label class="hist-filtro-label">📍 Posto</label>
-          <select id="hist-f-posto" class="hist-select" onchange="histAplicarFiltros()">
-            <option value="">Todos</option>
-          </select>
-        </div>
-
-        <div class="hist-filtro-grupo">
-          <label class="hist-filtro-label">🔄 Tipo</label>
-          <select id="hist-f-tipo" class="hist-select" onchange="histAplicarFiltros()">
-            <option value="">Todos</option>
-            <option value="entrada">&#9650; Entrada</option>
-            <option value="saida">&#9660; Saída</option>
-          </select>
-        </div>
-
-        <div class="hist-filtro-grupo">
-          <label class="hist-filtro-label">&#128197; Período</label>
-          <select id="hist-f-periodo" class="hist-select" onchange="histMudarPeriodo()">
-            <option value="hoje">Hoje</option>
-            <option value="semana">Últimos 7 dias</option>
-            <option value="mes" selected>Últimos 30 dias</option>
-            <option value="custom">Personalizado</option>
-          </select>
-        </div>
-
-        <div class="hist-filtro-grupo" id="hist-datas" style="display:none">
-          <label class="hist-filtro-label">De</label>
-          <input type="date" id="hist-f-de" class="hist-select" onchange="histAplicarFiltros()"/>
-        </div>
-
-        <div class="hist-filtro-grupo" id="hist-datas2" style="display:none">
-          <label class="hist-filtro-label">Até</label>
-          <input type="date" id="hist-f-ate" class="hist-select" onchange="histAplicarFiltros()"/>
-        </div>
-
+    <div class="card" style="margin-bottom:20px">
+      <p class="card-title">🔍 Filtros Dinâmicos</p>
+      <div class="filter-grid">
+        <select class="input" id="f-colaborador" onchange="renderHistorico()">
+          <option value="">Todos os colaboradores</option>
+        </select>
+        <select class="input" id="f-posto" onchange="renderHistorico()">
+          <option value="">Todos os postos</option>
+        </select>
+        <select class="input" id="f-tipo" onchange="renderHistorico()">
+          <option value="">Entrada e Saída</option>
+          <option value="entrada">🟢 Apenas Entradas</option>
+          <option value="saida">🔴 Apenas Saídas</option>
+        </select>
+        <input class="input" id="f-nome" type="text" placeholder="🔍 Busca livre por nome..." oninput="renderHistorico()"/>
       </div>
-      <div class="hist-filtros-footer">
-        <span id="hist-result-count" class="hist-count-label">— registros</span>
-        <button class="hist-btn-limpar" onclick="histLimparFiltros()">&#10005; Limpar filtros</button>
+
+      <!-- DATE RANGE CHIP (Android style) -->
+      <div class="date-range-wrap">
+        <div class="date-range-chip">
+          <span class="drc-icon">📅</span>
+          <div class="drc-field">
+            <span class="drc-lbl">De</span>
+            <input id="f-data-de" type="date" class="drc-input" onchange="onDateRangeChange()"/>
+          </div>
+          <div class="drc-sep">→</div>
+          <div class="drc-field">
+            <span class="drc-lbl">Até</span>
+            <input id="f-data-ate" type="date" class="drc-input" onchange="onDateRangeChange()"/>
+          </div>
+          <button class="drc-clear" onclick="clearDateRange()" title="Limpar período">✕</button>
+        </div>
+        <div class="drc-shortcuts">
+          <button class="drc-chip" id="drc-hoje"   onclick="setDateRange('today')">Hoje</button>
+          <button class="drc-chip" id="drc-ontem"  onclick="setDateRange('yesterday')">Ontem</button>
+          <button class="drc-chip" id="drc-semana" onclick="setDateRange('week')">Esta semana</button>
+          <button class="drc-chip" id="drc-mes"    onclick="setDateRange('month')">Este mês</button>
+          <button class="drc-chip" id="drc-7"      onclick="setDateRange('last7')">7 dias</button>
+          <button class="drc-chip" id="drc-30"     onclick="setDateRange('last30')">30 dias</button>
+        </div>
+      </div>
+      <div class="filter-meta">
+        <span class="filter-count" id="filter-count">0 registros</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn-export btn-export-pdf" onclick="exportarHistoricoPDF ? exportarHistoricoPDF() : histExportPDF()">📄 PDF</button>
+          <button class="btn-export btn-export-xlsx" onclick="exportarHistoricoExcel ? exportarHistoricoExcel() : histExportExcel()">📊 Excel</button>
+          <button class="btn-clear" onclick="clearFilters ? clearFilters() : histLimparFiltros()">Limpar filtros</button>
+        </div>
       </div>
     </div>
 
-    <!-- Totalizador -->
-    <div class="hist-totais" id="hist-totais">
-      <div class="hist-total-item">
-        <span class="hist-total-val" id="hist-tot-entradas" style="color:var(--green)">0</span>
-        <span class="hist-total-label">Entradas</span>
+    <div class="table-wrap">
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Colaborador</th>
+              <th>Posto</th>
+              <th>Entrada</th>
+              <th>Saída</th>
+              <th>Duração</th>
+              <th id="th-acoes" style="display:none">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="hist-tbody"></tbody>
+        </table>
       </div>
-      <div class="hist-total-sep"></div>
-      <div class="hist-total-item">
-        <span class="hist-total-val" id="hist-tot-saidas" style="color:var(--red)">0</span>
-        <span class="hist-total-label">Saídas</span>
-      </div>
-      <div class="hist-total-sep"></div>
-      <div class="hist-total-item">
-        <span class="hist-total-val" id="hist-tot-total" style="color:var(--accent)">0</span>
-        <span class="hist-total-label">Total</span>
+      <div class="pagination" id="pagination" style="display:none">
+        <button class="btn-page" id="btn-prev" onclick="changePage(-1)">‹ Anterior</button>
+        <span class="page-info" id="page-info"></span>
+        <button class="btn-page" id="btn-next" onclick="changePage(1)">Próxima ›</button>
       </div>
     </div>
-
-    <!-- Tabela desktop / Cards mobile -->
-    <div class="card" style="padding:0;overflow:hidden">
-
-      <!-- Cabeçalho tabela (só desktop) -->
-      <div class="hist-table-head">
-        <div class="hist-th hist-col-data">Data / Hora</div>
-        <div class="hist-th hist-col-colab">Colaborador</div>
-        <div class="hist-th hist-col-posto">Posto</div>
-        <div class="hist-th hist-col-tipo">Tipo</div>
-        <div class="hist-th hist-col-loc">Localização</div>
-      </div>
-
-      <!-- Corpo -->
-      <div id="hist-body"></div>
-
-      <!-- Paginação -->
-      <div class="hist-paginacao" id="hist-paginacao"></div>
-
-    </div>
-
   </section>
 
   <!-- ─── ABA: COLABORADORES ─── -->
@@ -4827,7 +5027,15 @@ function mostrarErroLogin(msg) {
 // ─── ENTRAR / SAIR SISTEMA ────────────────────────────────────────────────────
 function entrarSistema(usuario) {
   document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('main-header').style.display  = 'block';
+
+  // ── Desktop: sidebar usa display:flex; mobile: display:block ──
+  const header = document.getElementById('main-header');
+  if (window.innerWidth >= 1024) {
+    header.style.display = 'flex';
+  } else {
+    header.style.display = 'block';
+  }
+
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('main-footer').style.display  = 'block';
 
@@ -4840,6 +5048,12 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-ft').style.display            = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft-validadas').style.display  = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-gestao').style.display        = isAdmin ? '' : 'none';
+
+  // Divider admin: só aparece no desktop quando é admin
+  const divider = document.getElementById('tab-divider-admin');
+  if (divider) {
+    divider.style.display = (isAdmin && window.innerWidth >= 1024) ? '' : 'none';
+  }
 
   selectedColab = null;
   document.getElementById('ponto-btns').style.display   = 'none';
@@ -4873,6 +5087,9 @@ function sairSistema() {
   document.getElementById('main-header').style.display   = 'none';
   document.getElementById('main-content').style.display  = 'none';
   document.getElementById('main-footer').style.display   = 'none';
+  // Esconde divider admin
+  const divider = document.getElementById('tab-divider-admin');
+  if (divider) divider.style.display = 'none';
   document.getElementById('l-user').value = '';
   document.getElementById('l-pass').value = '';
   document.getElementById('btn-entrar').disabled = false;
@@ -4918,329 +5135,288 @@ setInterval(async () => {
 }, 30000);
 
 // ══════════════════════════════════════════════════════════════════════════════
-// HISTÓRICO
+// HISTÓRICO — layout igual ao Ponto_diferenciado
 // ══════════════════════════════════════════════════════════════════════════════
 const HIST_POR_PAG = 20;
 let _histPagina   = 1;
 let _histFiltrado = [];
+let _dateRangeShortcut = null; // chip ativo no date-range
+
+// ─── Date-range helpers ───────────────────────────────────────────────────────
+function setDateRange(modo) {
+  const hoje = new Date();
+  let de, ate;
+  const fmt = d => d.toISOString().slice(0,10);
+
+  if (modo==='today') {
+    de = ate = fmt(hoje);
+  } else if (modo==='yesterday') {
+    const y = new Date(hoje); y.setDate(hoje.getDate()-1);
+    de = ate = fmt(y);
+  } else if (modo==='week') {
+    const s = new Date(hoje); s.setDate(hoje.getDate() - hoje.getDay());
+    de = fmt(s); ate = fmt(hoje);
+  } else if (modo==='month') {
+    de = fmt(new Date(hoje.getFullYear(), hoje.getMonth(), 1)); ate = fmt(hoje);
+  } else if (modo==='last7') {
+    const s7 = new Date(hoje); s7.setDate(hoje.getDate()-6);
+    de = fmt(s7); ate = fmt(hoje);
+  } else if (modo==='last30') {
+    const s30 = new Date(hoje); s30.setDate(hoje.getDate()-29);
+    de = fmt(s30); ate = fmt(hoje);
+  }
+
+  const deEl  = document.getElementById('f-data-de');
+  const ateEl = document.getElementById('f-data-ate');
+  if (deEl)  deEl.value  = de;
+  if (ateEl) ateEl.value = ate;
+
+  // Marca chip ativo
+  _dateRangeShortcut = modo;
+  document.querySelectorAll('.drc-chip').forEach(c => c.classList.remove('active'));
+  const idMap = { today:'drc-hoje', yesterday:'drc-ontem', week:'drc-semana', month:'drc-mes', last7:'drc-7', last30:'drc-30' };
+  const chip = document.getElementById(idMap[modo]);
+  if (chip) chip.classList.add('active');
+
+  renderHistorico();
+}
+window.setDateRange = setDateRange;
+
+function clearDateRange() {
+  const deEl  = document.getElementById('f-data-de');
+  const ateEl = document.getElementById('f-data-ate');
+  if (deEl)  deEl.value  = '';
+  if (ateEl) ateEl.value = '';
+  _dateRangeShortcut = null;
+  document.querySelectorAll('.drc-chip').forEach(c => c.classList.remove('active'));
+  renderHistorico();
+}
+window.clearDateRange = clearDateRange;
+
+function onDateRangeChange() {
+  _dateRangeShortcut = null;
+  document.querySelectorAll('.drc-chip').forEach(c => c.classList.remove('active'));
+  renderHistorico();
+}
+window.onDateRangeChange = onDateRangeChange;
+
+function clearFilters() {
+  ['f-colaborador','f-posto','f-tipo','f-nome'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value='';
+  });
+  clearDateRange();
+}
+window.clearFilters = clearFilters;
+
+function changePage(delta) {
+  const total = Math.ceil(_histFiltrado.length / HIST_POR_PAG);
+  const nova = _histPagina + delta;
+  if (nova < 1 || nova > total) return;
+  _histPagina = nova;
+  _histRenderTbody();
+  _histAtualizarPaginacao();
+  document.querySelector('.table-wrap')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+window.changePage = changePage;
 
 // ─── Popula selects de filtro ─────────────────────────────────────────────────
 function histPopularFiltros() {
-  const selColab = document.getElementById('hist-f-colab');
-  const selPosto = document.getElementById('hist-f-posto');
-  if (!selColab || !selPosto) return;
+  const selColab = document.getElementById('f-colaborador');
+  const selPosto = document.getElementById('f-posto');
 
   const isAdmin = currentUser?.role === 'admin';
 
-  // Oculta o filtro de colaborador para nao-admin
-  const grupoColab = selColab.closest('.hist-filtro-grupo');
-  if (grupoColab) grupoColab.style.display = isAdmin ? '' : 'none';
-
-  const valColab = selColab.value;
-  const valPosto = selPosto.value;
-
-  if (isAdmin) {
-    const nomes = [...new Set(registros.map(r => r.colaboradorNome).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    selColab.innerHTML = '<option value="">Todos</option>' +
-      nomes.map(n => `<option value="${esc(n)}"${valColab===n?' selected':''}>${esc(n)}</option>`).join('');
-  }
-
-  const postos2 = [...new Set(registros.map(r => r.posto).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  selPosto.innerHTML = '<option value="">Todos</option>' +
-    postos2.map(p => `<option value="${esc(p)}"${valPosto===p?' selected':''}>${esc(p)}</option>`).join('');
-}
-
-// ─── Calcula ts de início/fim pelo período ────────────────────────────────────
-function histGetPeriodo() {
-  const per = document.getElementById('hist-f-periodo')?.value || 'mes';
-  const agora = new Date();
-  let inicio, fim;
-  fim = new Date(agora); fim.setHours(23,59,59,999);
-
-  if (per === 'hoje') {
-    inicio = new Date(agora); inicio.setHours(0,0,0,0);
-  } else if (per === 'semana') {
-    inicio = new Date(agora); inicio.setDate(agora.getDate()-6); inicio.setHours(0,0,0,0);
-  } else if (per === 'mes') {
-    inicio = new Date(agora); inicio.setDate(agora.getDate()-29); inicio.setHours(0,0,0,0);
-  } else {
-    // custom
-    const de  = document.getElementById('hist-f-de')?.value;
-    const ate = document.getElementById('hist-f-ate')?.value;
-    inicio = de  ? new Date(de  + 'T00:00:00') : new Date(0);
-    fim    = ate ? new Date(ate + 'T23:59:59') : new Date(8640000000000000);
-  }
-  return { inicio: inicio.getTime(), fim: fim.getTime() };
-}
-
-// ─── Muda período (mostra/esconde custom dates) ───────────────────────────────
-function histMudarPeriodo() {
-  const per   = document.getElementById('hist-f-periodo')?.value;
-  const show  = per === 'custom';
-  const d1    = document.getElementById('hist-datas');
-  const d2    = document.getElementById('hist-datas2');
-  if (d1) d1.style.display = show ? '' : 'none';
-  if (d2) d2.style.display = show ? '' : 'none';
-  histAplicarFiltros();
-}
-
-// ─── Aplica filtros e re-renderiza ────────────────────────────────────────────
-function histAplicarFiltros() {
-  const isAdmin = currentUser?.role === 'admin';
-  const fColab  = document.getElementById('hist-f-colab')?.value  || '';
-  const fPosto  = document.getElementById('hist-f-posto')?.value  || '';
-  const fTipo   = document.getElementById('hist-f-tipo')?.value   || '';
-  const { inicio, fim } = histGetPeriodo();
-
-  // Para colaborador: descobre o ID e nome do proprio colaborador
-  let meuColabId   = null;
-  let meuColabNome = null;
-  if (!isAdmin && currentUser) {
-    const meuColab = colaboradores.find(c =>
-      c.id === currentUser.colaboradorId ||
-      c.nome?.toLowerCase() === (currentUser.nome||'').toLowerCase() ||
-      c.login === currentUser.login
-    );
-    if (meuColab) {
-      meuColabId   = meuColab.id;
-      meuColabNome = meuColab.nome;
+  if (selColab) {
+    const valColab = selColab.value;
+    if (isAdmin) {
+      const nomes = [...new Set(registros.map(r => r.colaboradorNome).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+      selColab.innerHTML = '<option value="">Todos os colaboradores</option>' +
+        nomes.map(n => `<option value="${esc(n)}"${valColab===n?' selected':''}>${esc(n)}</option>`).join('');
+      selColab.closest('.filter-grid')?.querySelectorAll('select')[0] && (selColab.style.display = '');
     } else {
-      // fallback: filtra pelo nome do currentUser
-      meuColabNome = currentUser.nome || '';
+      selColab.style.display = 'none';
     }
   }
 
-  _histFiltrado = registros.filter(r => {
-    // Colaborador so ve os proprios registros
+  if (selPosto) {
+    const valPosto = selPosto.value;
+    const postosList = [...new Set(registros.map(r => r.posto).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    selPosto.innerHTML = '<option value="">Todos os postos</option>' +
+      postosList.map(p => `<option value="${esc(p)}"${valPosto===p?' selected':''}>${esc(p)}</option>`).join('');
+  }
+}
+
+// ─── Aplica filtros ───────────────────────────────────────────────────────────
+function _histGetFiltros() {
+  const isAdmin = currentUser?.role === 'admin';
+  const fColab  = document.getElementById('f-colaborador')?.value  || '';
+  const fPosto  = document.getElementById('f-posto')?.value        || '';
+  const fTipo   = document.getElementById('f-tipo')?.value         || '';
+  const fNome   = (document.getElementById('f-nome')?.value||'').toLowerCase().trim();
+  const fDe     = document.getElementById('f-data-de')?.value  || '';
+  const fAte    = document.getElementById('f-data-ate')?.value || '';
+
+  const tsIni = fDe  ? new Date(fDe  + 'T00:00:00').getTime() : 0;
+  const tsFim = fAte ? new Date(fAte + 'T23:59:59').getTime() : Infinity;
+
+  // Identificar colaborador logado (não-admin)
+  let meuColabId = null, meuColabNome = null;
+  if (!isAdmin && currentUser) {
+    const mc = colaboradores.find(c =>
+      c.id === currentUser.colaboradorId ||
+      c.nome?.toLowerCase() === (currentUser.nome||'').toLowerCase()
+    );
+    if (mc) { meuColabId = mc.id; meuColabNome = mc.nome; }
+    else { meuColabNome = currentUser.nome || ''; }
+  }
+
+  return registros.filter(r => {
     if (!isAdmin) {
-      if (meuColabId) {
-        if (r.colaboradorId !== meuColabId) return false;
-      } else if (meuColabNome) {
-        if (r.colaboradorNome !== meuColabNome) return false;
-      } else {
-        return false; // nao conseguiu identificar — nao mostra nada
-      }
+      if (meuColabId) { if (r.colaboradorId !== meuColabId) return false; }
+      else if (meuColabNome) { if (r.colaboradorNome !== meuColabNome) return false; }
+      else return false;
     } else {
       if (fColab && r.colaboradorNome !== fColab) return false;
     }
     if (fPosto && r.posto !== fPosto) return false;
     if (fTipo  && r.tipo  !== fTipo)  return false;
-    if (r.timestamp < inicio || r.timestamp > fim) return false;
+    if (fNome  && !(r.colaboradorNome||'').toLowerCase().includes(fNome)) return false;
+    if (r.timestamp < tsIni || r.timestamp > tsFim) return false;
     return true;
-  });
-
-  // Mais recente primeiro
-  _histFiltrado.sort((a,b) => b.timestamp - a.timestamp);
-
-  _histPagina = 1;
-  histRenderTotais();
-  histRenderTabela();
-  histRenderPaginacao();
-
-  const countEl = document.getElementById('hist-result-count');
-  if (countEl) countEl.textContent = `${_histFiltrado.length} registro${_histFiltrado.length!==1?'s':''}`;
+  }).sort((a,b) => b.timestamp - a.timestamp);
 }
 
-// ─── Totalizador ──────────────────────────────────────────────────────────────
-function histRenderTotais() {
-  const ent = _histFiltrado.filter(r=>r.tipo==='entrada').length;
-  const sai = _histFiltrado.filter(r=>r.tipo==='saida').length;
-  const elE = document.getElementById('hist-tot-entradas');
-  const elS = document.getElementById('hist-tot-saidas');
-  const elT = document.getElementById('hist-tot-total');
-  if (elE) elE.textContent = ent;
-  if (elS) elS.textContent = sai;
-  if (elT) elT.textContent = _histFiltrado.length;
-}
+// ─── Render tbody da tabela (estilo diferenciado) ─────────────────────────────
+function _histRenderTbody() {
+  const tbody = document.getElementById('hist-tbody');
+  if (!tbody) return;
 
-// ─── Detecta se deve usar cards (mobile) ou tabela ───────────────────────────
-function histIsMobile() { return window.innerWidth <= 480; }
-
-// ─── Render tabela / cards ────────────────────────────────────────────────────
-function histRenderTabela() {
-  const body = document.getElementById('hist-body');
-  if (!body) return;
-
+  const isAdmin = currentUser?.role === 'admin';
   const inicio = (_histPagina-1) * HIST_POR_PAG;
   const pagina  = _histFiltrado.slice(inicio, inicio + HIST_POR_PAG);
 
   if (!pagina.length) {
-    body.innerHTML = `<div class="hist-empty">
-      <div class="hist-empty-icon">📭</div>
-      <div class="hist-empty-text">Nenhum registro encontrado com estes filtros</div>
-    </div>`;
+    const cols = isAdmin ? 7 : 7;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="${cols}" style="text-align:center;padding:40px;color:var(--muted)">📭 Nenhum registro encontrado com estes filtros</td></tr>`;
     return;
   }
 
-  if (histIsMobile()) {
-    body.innerHTML = pagina.map((r, idx) => histRenderCard(r, inicio + idx)).join('');
-  } else {
-    body.innerHTML = pagina.map((r, idx) => histRenderLinha(r, inicio + idx)).join('');
-  }
-}
+  // Agrupa por colaborador + dia para calcular pares entrada/saída
+  const pares = {};
+  registros.forEach(r => {
+    const dia = new Date(r.timestamp).toLocaleDateString('pt-BR');
+    const key = (r.colaboradorId||r.colaboradorNome) + '_' + dia;
+    if (!pares[key]) pares[key] = { entradas:[], saidas:[] };
+    if (r.tipo==='entrada') pares[key].entradas.push(r);
+    else pares[key].saidas.push(r);
+  });
 
-// Encontra a entrada do mesmo colaborador no mesmo dia, anterior a esta saída
-// (a mais próxima/recente antes da saída), para exibir o par ENT → SAÍ na mesma linha.
-function histEntradaDoPar(r) {
-  if (r.tipo !== 'saida') return null;
-  const dtSaida = new Date(r.timestamp);
-  const inicioDia = new Date(dtSaida); inicioDia.setHours(0,0,0,0);
-  const fimDia    = new Date(dtSaida); fimDia.setHours(23,59,59,999);
+  const rows = [];
+  // Gera linhas agrupadas por dia/colaborador
+  const vistos = new Set();
+  pagina.forEach(r => {
+    const dia = new Date(r.timestamp).toLocaleDateString('pt-BR');
+    const key = (r.colaboradorId||r.colaboradorNome) + '_' + dia;
+    if (vistos.has(key)) return;
+    vistos.add(key);
 
-  const candidatas = registros.filter(x =>
-    x.colaboradorId === r.colaboradorId &&
-    x.tipo === 'entrada' &&
-    x.timestamp <= r.timestamp &&
-    x.timestamp >= inicioDia.getTime() &&
-    x.timestamp <= fimDia.getTime()
-  );
-  if (!candidatas.length) return null;
-  return candidatas.reduce((a,b) => a.timestamp > b.timestamp ? a : b);
-}
+    const g = pares[key] || { entradas:[], saidas:[] };
+    const entH = g.entradas.length ? fmtHora(Math.min(...g.entradas.map(x=>x.timestamp))) : '—';
+    const saiH = g.saidas.length   ? fmtHora(Math.max(...g.saidas.map(x=>x.timestamp)))   : '—';
 
-function histRenderLinha(r, idx) {
-  const dt    = new Date(r.timestamp);
-  const data  = dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'});
-  const hora  = dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const tag   = r.tipo==='entrada'
-    ? '<span class="hist-tag-entrada">&#9650; ENTRADA</span>'
-    : '<span class="hist-tag-saida">&#9660; SAÍDA</span>';
-  const loc   = r.localizacao
-    ? `<a class="hist-loc-link" href="https://maps.google.com/?q=${r.localizacao.lat},${r.localizacao.lng}" target="_blank">&#128205; ${r.localizacao.lat}, ${r.localizacao.lng}</a>`
-    : `<span class="hist-loc-none">—</span>`;
-
-  // Se for uma saída com entrada correspondente no mesmo dia, exibe ambos
-  // os horários na mesma linha (ENT → SAÍ), igual ao padrão da aba Dashboard.
-  const entradaPar = histEntradaDoPar(r);
-  const tagCell = entradaPar
-    ? `<div class="feed-par">
-         <div class="feed-par-bloco">
-           <span class="feed-par-label ent">&#9650; ENT</span>
-           <span class="feed-par-hora">${fmtHora(entradaPar.timestamp).slice(0,5)}</span>
-         </div>
-         <span class="feed-par-sep">&rarr;</span>
-         <div class="feed-par-bloco">
-           <span class="feed-par-label sai">&#9660; SAÍ</span>
-           <span class="feed-par-hora">${hora.slice(0,5)}</span>
-         </div>
-       </div>`
-    : tag;
-
-  return `<div class="hist-row" onclick="histToggleDetalhe(${idx})">
-    <div class="hist-cell hist-cell-data"><strong>${data}</strong>${hora}</div>
-    <div class="hist-cell hist-cell-nome">${esc(r.colaboradorNome)}</div>
-    <div class="hist-cell hist-cell-posto">${esc(r.posto||'—')}</div>
-    <div class="hist-cell">${tagCell}</div>
-    <div class="hist-cell">${loc}</div>
-  </div>
-  <div class="hist-row-detail" id="hist-detail-${idx}">
-    ${r.localizacao ? `&#128205; <a href="https://maps.google.com/?q=${r.localizacao.lat},${r.localizacao.lng}" target="_blank" style="color:var(--accent)">Ver no mapa — ${r.localizacao.lat}, ${r.localizacao.lng} (&#177;${r.localizacao.precisao}m)</a>` : 'Localização não capturada'}
-  </div>`;
-}
-
-function histRenderCard(r, idx) {
-  const dt   = new Date(r.timestamp);
-  const data = dt.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'});
-  const hora = dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  const tag  = r.tipo==='entrada'
-    ? '<span class="hist-tag-entrada">&#9650; ENTRADA</span>'
-    : '<span class="hist-tag-saida">&#9660; SAÍDA</span>';
-  const locDetalhe = r.localizacao
-    ? `<a href="https://maps.google.com/?q=${r.localizacao.lat},${r.localizacao.lng}" target="_blank" style="color:var(--accent)">&#128205; ${r.localizacao.lat}, ${r.localizacao.lng}</a>`
-    : '— Localização não capturada';
-
-  // Se for uma saída com entrada correspondente no mesmo dia, exibe ambos
-  // os horários na mesma linha (ENT → SAÍ), igual ao padrão da aba Dashboard.
-  const entradaPar = histEntradaDoPar(r);
-  const horaDireita = entradaPar
-    ? `<div class="feed-par" style="justify-content:flex-end">
-         <div class="feed-par-bloco">
-           <span class="feed-par-label ent">&#9650; ENT</span>
-           <span class="feed-par-hora">${fmtHora(entradaPar.timestamp).slice(0,5)}</span>
-         </div>
-         <span class="feed-par-sep">&rarr;</span>
-         <div class="feed-par-bloco">
-           <span class="feed-par-label sai">&#9660; SAÍ</span>
-           <span class="feed-par-hora">${hora}</span>
-         </div>
-       </div>`
-    : `${tag}<span class="hist-card-hora">${hora}</span>`;
-
-  return `<div class="hist-card-mobile" onclick="histToggleDetalhe(${idx})">
-    <div class="hist-card-av" style="background:${avatarColor(r.colaboradorNome||'?')}">${(r.colaboradorNome||'?').charAt(0)}</div>
-    <div class="hist-card-body">
-      <div class="hist-card-nome">${esc(r.colaboradorNome)}</div>
-      <div class="hist-card-meta">&#128205; ${esc(r.posto||'—')} &nbsp;·&nbsp; ${data}</div>
-    </div>
-    <div class="hist-card-right">
-      ${horaDireita}
-    </div>
-  </div>
-  <div class="hist-card-detail" id="hist-detail-${idx}">${locDetalhe}</div>`;
-}
-
-function histToggleDetalhe(idx) {
-  const el = document.getElementById('hist-detail-' + idx);
-  if (!el) return;
-  el.classList.toggle('open');
-}
-
-// ─── Paginação ────────────────────────────────────────────────────────────────
-function histRenderPaginacao() {
-  const pag  = document.getElementById('hist-paginacao');
-  if (!pag) return;
-  const total = Math.ceil(_histFiltrado.length / HIST_POR_PAG);
-  if (total <= 1) { pag.innerHTML = ''; return; }
-
-  const delta = 2; // páginas ao redor da atual
-  let html = '';
-
-  // Prev
-  html += `<button class="hist-pag-btn" onclick="histIrPagina(${_histPagina-1})" ${_histPagina===1?'disabled':''}>&#8592;</button>`;
-
-  // Números
-  for (let i = 1; i <= total; i++) {
-    if (i === 1 || i === total || (i >= _histPagina - delta && i <= _histPagina + delta)) {
-      html += `<button class="hist-pag-btn${i===_histPagina?' active':''}" onclick="histIrPagina(${i})">${i}</button>`;
-    } else if (i === _histPagina - delta - 1 || i === _histPagina + delta + 1) {
-      html += `<span class="hist-pag-info">…</span>`;
+    let duracao = '—';
+    if (g.entradas.length && g.saidas.length) {
+      const diffMs = Math.max(...g.saidas.map(x=>x.timestamp)) - Math.min(...g.entradas.map(x=>x.timestamp));
+      if (diffMs > 0) {
+        const h = Math.floor(diffMs/3600000);
+        const m = Math.floor((diffMs%3600000)/60000);
+        duracao = `${h}h${m.toString().padStart(2,'0')}m`;
+      }
     }
-  }
 
-  // Next
-  html += `<button class="hist-pag-btn" onclick="histIrPagina(${_histPagina+1})" ${_histPagina===total?'disabled':''}>&#8594;</button>`;
-  html += `<span class="hist-pag-info">${_histPagina} / ${total}</span>`;
+    const posto = g.entradas[0]?.posto || g.saidas[0]?.posto || r.posto || '—';
+    const nome  = r.colaboradorNome || '—';
 
-  pag.innerHTML = html;
+    rows.push(`<tr>
+      <td class="td-data">${dia}</td>
+      <td class="td-nome">${esc(nome)}</td>
+      <td class="td-posto">${esc(posto)}</td>
+      <td class="td-hora" style="color:var(--green)">${entH}</td>
+      <td class="td-hora" style="color:var(--red)">${saiH}</td>
+      <td class="td-hora">${duracao}</td>
+    </tr>`);
+  });
+
+  tbody.innerHTML = rows.join('') || `<tr class="empty-row"><td colspan="7" style="text-align:center;padding:40px;color:var(--muted)">📭 Nenhum registro</td></tr>`;
+
+  // Mostra coluna de ações só para admin
+  const thAcoes = document.getElementById('th-acoes');
+  if (thAcoes) thAcoes.style.display = isAdmin ? '' : 'none';
 }
 
-function histIrPagina(p) {
+// ─── Atualiza paginação ────────────────────────────────────────────────────────
+function _histAtualizarPaginacao() {
+  const el   = document.getElementById('pagination');
+  const prev = document.getElementById('btn-prev');
+  const next = document.getElementById('btn-next');
+  const info = document.getElementById('page-info');
   const total = Math.ceil(_histFiltrado.length / HIST_POR_PAG);
-  if (p < 1 || p > total) return;
-  _histPagina = p;
-  histRenderTabela();
-  histRenderPaginacao();
-  // Scroll suave para o topo da tabela
-  const body = document.getElementById('hist-body');
-  if (body) body.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  if (!el) return;
+  if (total <= 1) { el.style.display='none'; return; }
+  el.style.display = 'flex';
+  if (prev) prev.disabled = _histPagina === 1;
+  if (next) next.disabled = _histPagina === total;
+  if (info) info.textContent = `Página ${_histPagina} de ${total}`;
 }
 
 // ─── Limpar filtros ───────────────────────────────────────────────────────────
-function histLimparFiltros() {
-  const ids = ['hist-f-colab','hist-f-posto','hist-f-tipo'];
-  ids.forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
-  const per = document.getElementById('hist-f-periodo');
-  if (per) per.value = 'mes';
-  document.getElementById('hist-datas')?.style && (document.getElementById('hist-datas').style.display='none');
-  document.getElementById('hist-datas2')?.style && (document.getElementById('hist-datas2').style.display='none');
-  histAplicarFiltros();
-}
+function histLimparFiltros() { clearFilters(); }
+window.histLimparFiltros = histLimparFiltros;
 
-// ─── Inicializa a aba Histórico ───────────────────────────────────────────────
+// ─── Inicializa / re-renderiza a aba ─────────────────────────────────────────
 function renderHistorico() {
   histPopularFiltros();
-  histAplicarFiltros();
+  _histFiltrado = _histGetFiltros();
+  _histPagina   = 1;
+
+  // Atualiza contador
+  const countEl = document.getElementById('filter-count');
+  if (countEl) countEl.textContent = `${_histFiltrado.length} registro${_histFiltrado.length!==1?'s':''}`;
+
+  _histRenderTbody();
+  _histAtualizarPaginacao();
 }
+window.renderHistorico = renderHistorico;
+
+// ─── Exportar histórico PDF ───────────────────────────────────────────────────
+function exportarHistoricoPDF() {
+  const lista = _histFiltrado;
+  if (!lista.length) { mostrarSyncToast('⚠️ Nenhum registro para exportar', 'gold'); return; }
+  const linhas = lista.map(r => {
+    const dt = new Date(r.timestamp);
+    return [
+      dt.toLocaleDateString('pt-BR'),
+      dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),
+      r.colaboradorNome||'',
+      r.posto||'',
+      r.tipo||''
+    ].join('\t');
+  }).join('\n');
+  const blob = new Blob([`Data\tHora\tColaborador\tPosto\tTipo\n${linhas}`], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'historico_ponto.txt'; a.click();
+  mostrarSyncToast('✅ Histórico exportado!', 'green');
+}
+window.exportarHistoricoPDF = exportarHistoricoPDF;
+
+function exportarHistoricoExcel() { exportarHistoricoPDF(); }
+window.exportarHistoricoExcel = exportarHistoricoExcel;
+
+// ─── Compatibilidade com chamadas antigas ────────────────────────────────────
+function histAplicarFiltros()  { renderHistorico(); }
+window.histAplicarFiltros = histAplicarFiltros;
+function histIsMobile() { return window.innerWidth <= 480; }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
