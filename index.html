@@ -6765,6 +6765,101 @@ async function ftPreencherSaidaSeNecessario(reg) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// VALIDAÇÃO POR INTELIGÊNCIA (IA) — aprendizado de padrões a partir de FTs validadas
+// ══════════════════════════════════════════════════════════════════════════════
+// Faixas de turno usadas apenas para agrupar padrões por horário aproximado de entrada
+const FT_IA_TURNOS = [
+  { t:'06:00 – 18:00', h:6  }, { t:'18:00 – 06:00', h:18 },
+  { t:'07:00 – 17:00', h:7  }, { t:'07:00 – 16:00', h:7  },
+  { t:'18:00 – 07:00', h:18 }, { t:'18:00 – 08:30', h:18 },
+  { t:'17:00 – 07:00', h:17 }, { t:'22:00 – 07:20', h:22 }
+];
+
+// Detecta o turno mais próximo a partir de uma hora fracionada (ex: 7.5 = 07:30)
+function ftIaTurnoPorHoraFracionada(hf) {
+  let melhor = null, dist = 999;
+  FT_IA_TURNOS.forEach(tn => {
+    let d = Math.abs(tn.h - hf);
+    if (d > 12) d = 24 - d;
+    if (d < dist) { dist = d; melhor = tn; }
+  });
+  return dist <= 3 ? melhor.t : null;
+}
+
+function ftIaTurnoDeData(date) {
+  return ftIaTurnoPorHoraFracionada(date.getHours() + date.getMinutes() / 60);
+}
+
+function ftIaTurnoDeHoraStr(horaStr) {
+  if (!horaStr) return null;
+  const partes = horaStr.split(':').map(Number);
+  if (partes.some(isNaN)) return null;
+  return ftIaTurnoPorHoraFracionada(partes[0] + (partes[1] || 0) / 60);
+}
+
+// Padrões aprendidos em memória (recalculados sempre que uma FT é criada)
+let _ftPadroes = [];
+
+// Aprende com o histórico de FTs já validadas: para cada combinação
+// colaborador + posto + turno, registra motivo/valor/colaborador ausente
+// mais frequentes e calcula uma confiança baseada na quantidade de ocorrências.
+function ftAprenderPadroes() {
+  const map = {};
+  _fts.filter(ft => ft.status === 'validada' && ft.motivo).forEach(ft => {
+    const turno = ftIaTurnoDeHoraStr(ft.horaEntrada);
+    const chave = (ft.colaboradorNome || '').trim().toLowerCase() + '||' +
+                  (ft.posto || '').trim() + '||' + (turno || '');
+    if (!map[chave]) {
+      map[chave] = {
+        colaboradorNome: ft.colaboradorNome, posto: ft.posto || '', horario: turno || '',
+        motivo: '', colaboradorAusente: '', ocorrencias: 0, valores: []
+      };
+    }
+    map[chave].ocorrencias++;
+    map[chave].motivo = ft.motivo;
+    if (ft.colaboradorAusente) map[chave].colaboradorAusente = ft.colaboradorAusente;
+    if (ft.valor) map[chave].valores.push(parseFloat(ft.valor));
+  });
+
+  _ftPadroes = Object.values(map).map(p => {
+    // Escala conservadora: 5 ocorrências ≈ 50%, 10 ocorrências = 100% (+ bônus de completude)
+    const confBase = Math.min(100, Math.round((p.ocorrencias / 10) * 100));
+    const bonus = (p.posto ? 5 : 0) + (p.motivo ? 5 : 0) + (p.valores.length ? 5 : 0);
+    const conf = Math.min(100, confBase + bonus);
+    const valorMedio = p.valores.length
+      ? parseFloat((p.valores.reduce((a, b) => a + b, 0) / p.valores.length).toFixed(2))
+      : 0;
+    return { ...p, confianca: conf, valorMedio };
+  }).sort((a, b) => b.ocorrencias - a.ocorrencias);
+}
+
+// Busca o padrão mais adequado para um colaborador/posto/turno, com fallback
+// progressivo (nome+posto+turno → nome+posto → só nome), aplicando penalidade
+// de confiança quanto menos específico for o match.
+function ftBuscarPadrao(nome, posto, turno) {
+  const n = (nome || '').trim().toLowerCase();
+  const p = (posto || '').trim();
+
+  const exato = _ftPadroes.find(x =>
+    x.colaboradorNome.trim().toLowerCase() === n &&
+    (!x.posto || !p || x.posto === p) &&
+    (turno ? x.horario === turno : true)
+  );
+  if (exato) return exato;
+
+  const semTurno = _ftPadroes.find(x =>
+    x.colaboradorNome.trim().toLowerCase() === n &&
+    (!x.posto || !p || x.posto === p)
+  );
+  if (semTurno) return { ...semTurno, confianca: Math.floor(semTurno.confianca * 0.85) };
+
+  const soNome = _ftPadroes.find(x => x.colaboradorNome.trim().toLowerCase() === n);
+  if (soNome) return { ...soNome, confianca: Math.floor(soNome.confianca * 0.60) };
+
+  return null;
+}
+
 // ─── Criar FT automaticamente quando um registro de ponto é criado ────────────
 // Chamado pelo listener u2 de registros (apenas para registros genuinamente novos)
 async function ftCriarSeNecessario(reg) {
@@ -6802,6 +6897,23 @@ async function ftCriarSeNecessario(reg) {
     ? reg.posto.trim()
     : (colaboradores.find(c => c.id === reg.colaboradorId)?.posto || '').trim();
 
+  // ── Validação por inteligência: recalcula os padrões com as FTs validadas
+  // mais recentes e tenta preencher motivo/valor/colaborador ausente automaticamente
+  ftAprenderPadroes();
+  const turnoDetectado = ftIaTurnoDeData(dataReg);
+  const padrao = ftBuscarPadrao(reg.colaboradorNome, postoFinal, turnoDetectado);
+
+  const motivoAuto  = padrao?.motivo || '';
+  const valorAuto    = padrao?.valorMedio ? String(padrao.valorMedio) : '';
+  const precisaAusente = FT_MOTIVOS_COM_AUSENTE.includes(motivoAuto);
+  const ausenteAuto = precisaAusente ? (padrao?.colaboradorAusente || '') : '';
+  const confianca   = padrao ? padrao.confianca : 0;
+
+  // Só valida automaticamente se o padrão for confiável (≥80%) E os campos
+  // obrigatórios (posto, motivo e, se aplicável, colaborador ausente) estiverem completos
+  const camposCompletos = !!(postoFinal && motivoAuto && (!precisaAusente || ausenteAuto));
+  const validarPelaIA   = confianca >= 80 && camposCompletos;
+
   const novaFT = {
     id:              ftId,
     registroId:      reg.id,
@@ -6813,13 +6925,14 @@ async function ftCriarSeNecessario(reg) {
     horaEntrada:     dataReg.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }),
     horaSaida:       '',
     obs:             '',
-    motivo:          '',
-    valor:           '',
-    colaboradorAusente: '',
-    status:          'pendente',
+    motivo:          motivoAuto,
+    valor:           valorAuto,
+    colaboradorAusente: ausenteAuto,
+    status:          validarPelaIA ? 'validada' : 'pendente',
     criadaEm:        Date.now(),
-    validadaPor:     '',
-    validadaEm:      null
+    validadaPor:     validarPelaIA ? 'inteligencia' : '',
+    validadaEm:      validarPelaIA ? Date.now() : null,
+    confiancaIA:     confianca
   };
 
   window._fbSet(window._fbRef(window._db, 'fts/' + novaFT.id), novaFT)
@@ -6952,9 +7065,14 @@ function ftRenderCard(ft) {
       </div>
       ${ft.validadaPor ? `<div class="ft-card-detalhe-item">
         <span class="ft-card-detalhe-label">Validado por</span>
-        <span class="ft-card-detalhe-val">${esc(ft.validadaPor)}</span>
+        <span class="ft-card-detalhe-val">${esc(ft.validadaPor === 'inteligencia' ? '🤖 Inteligência' : ft.validadaPor)}</span>
       </div>` : ''}
     </div>
+    ${(ft.status === 'pendente' && ft.confiancaIA) ? `
+    <div class="ftv-ia-bar-wrap" style="margin-top:8px">
+      <div class="ftv-ia-bar-label">🤖 ${ft.confiancaIA}% confiança histórica — revise antes de validar</div>
+      <div class="ftv-ia-bar-bg"><div class="ftv-ia-bar-fill" style="width:${ft.confiancaIA}%"></div></div>
+    </div>` : ''}
     <div class="ft-card-acoes">${acoes}</div>
   </div>`;
 }
@@ -7116,11 +7234,9 @@ let _ftvEditId    = null;
 
 // ─── Detecta se FT foi validada por IA ou ADM ────────────────────────────────
 function ftvTipoValidacao(ft) {
-  // Heurística: se validadaPor contém "inteligência", "ia", "auto" ou confiança histórica, é IA
+  // Marcador explícito: FTs auto-validadas pelo motor de padrões gravam validadaPor='inteligencia'
   const por = (ft.validadaPor || '').toLowerCase();
-  if (por.includes('intelig') || por.includes('ia') || por.includes('auto') || por.includes('bot')) return 'ia';
-  // Se tem campo de confiança explícito
-  if (ft.confiancaIA !== undefined) return 'ia';
+  if (por.includes('intelig')) return 'ia';
   return 'adm';
 }
 
@@ -7189,8 +7305,8 @@ function ftvRenderCard(ft) {
   const valorDisp = ft.valor ? `R$ ${parseFloat(ft.valor).toFixed(2).replace('.',',')}` : null;
   const validadaEm = ft.validadaEm ? new Date(ft.validadaEm).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
 
-  // Confiança IA
-  const confianca = ft.confiancaIA !== undefined ? ft.confiancaIA : (tipoVal === 'ia' ? 85 : null);
+  // Confiança IA — só exibida quando a validação foi de fato pela inteligência
+  const confianca = tipoVal === 'ia' ? (ft.confiancaIA !== undefined ? ft.confiancaIA : 85) : null;
 
   const chipIA    = tipoVal === 'ia'
     ? `<span class="ftv-chip ftv-chip-ia">🤖 Inteligência</span>`
