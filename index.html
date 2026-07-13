@@ -1492,6 +1492,19 @@ footer {
 }
 table { width: 100%; border-collapse: collapse; }
 thead tr { background: var(--surface2); }
+.btn-ponto-acao {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 10px; cursor: pointer; font-size: 14px; transition: all .15s;
+}
+.btn-ponto-acao:hover { border-color: var(--accent); transform: translateY(-1px); }
+.btn-ponto-excluir {
+  margin-top: 8px; width: 100%; background: var(--red-bg); color: var(--red);
+  border: 1px solid var(--red); border-radius: 8px; padding: 8px 10px;
+  font-size: 12px; font-family: var(--font-head); font-weight: 700; cursor: pointer;
+  transition: all .15s;
+}
+.btn-ponto-excluir:hover { background: var(--red); color: #fff; }
+.btn-ponto-excluir:disabled { opacity: .35; cursor: not-allowed; }
 th {
   padding: 13px 16px; text-align: left; font-family: var(--font-mono);
   font-size: 11px; font-weight: 600; letter-spacing: 2px; color: var(--muted);
@@ -3378,6 +3391,36 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           <tbody id="hist-tbody"></tbody>
         </table>
       </div>
+
+      <!-- ─── MODAL EDITAR/EXCLUIR REGISTRO DE PONTO ─── -->
+      <div class="overlay" id="ponto-modal-overlay" style="display:none" onclick="if(event.target===this)pontoFecharModal()">
+        <div class="ft-modal">
+          <div class="ft-modal-header">
+            <h3 class="ft-modal-titulo">Corrigir registro de ponto</h3>
+            <button class="ft-modal-close" onclick="pontoFecharModal()">✕</button>
+          </div>
+
+          <div class="ft-modal-info" id="ponto-modal-info"></div>
+
+          <div class="ft-modal-grid">
+            <div class="ft-modal-field" id="ponto-modal-entrada-wrap">
+              <label class="ft-modal-label">🟢 Entrada</label>
+              <input id="ponto-modal-entrada" class="ft-modal-input" type="datetime-local"/>
+              <button class="btn-ponto-excluir" onclick="pontoExcluirRegistro('entrada')">🗑️ Excluir esta entrada</button>
+            </div>
+            <div class="ft-modal-field" id="ponto-modal-saida-wrap">
+              <label class="ft-modal-label">🔴 Saída</label>
+              <input id="ponto-modal-saida" class="ft-modal-input" type="datetime-local"/>
+              <button class="btn-ponto-excluir" onclick="pontoExcluirRegistro('saida')">🗑️ Excluir esta saída</button>
+            </div>
+          </div>
+
+          <div class="ft-modal-acoes">
+            <button class="ftv-btn-export ftv-btn-excel" onclick="pontoSalvarEdicao()">💾 Salvar horários</button>
+            <button class="ftv-btn-export" style="background:var(--surface2)" onclick="pontoFecharModal()">Cancelar</button>
+          </div>
+        </div>
+      </div>
       <div class="pagination" id="pagination" style="display:none">
         <button class="btn-page" id="btn-prev" onclick="changePage(-1)">‹ Anterior</button>
         <span class="page-info" id="page-info"></span>
@@ -4515,6 +4558,16 @@ function ultimoReg(colabId) {
   return ult;
 }
 
+// ─── Verifica se o colaborador tem um turno realmente aberto ─────────────────
+// (última batida foi ENTRADA, sem SAÍDA correspondente ainda). Usado para
+// travar o botão de SAÍDA e impedir registros "fantasma" — uma saída batida
+// sem entrada em aberto correspondente, que confunde o histórico e os
+// relatórios (ex.: turnos que cruzam a meia-noite ficando com pares errados).
+function temTurnoAberto(colabId) {
+  const ult = ultimoReg(colabId);
+  return !!(ult && ult.tipo === 'entrada');
+}
+
 // ─── COOLDOWN ENTRADA e SAÍDA (1 hora) ────────────────────────────────────────
 const COOLDOWN_ENTRADA_MS = 60 * 60 * 1000;
 const COOLDOWN_SAIDA_MS   = 60 * 60 * 1000;
@@ -4579,6 +4632,13 @@ function atualizarBtnSaida() {
   if (!selectedColab) {
     btn.disabled = false;
     btn.innerHTML = '<span class="icon">🔴</span> SAÍDA';
+    return;
+  }
+  // Sem turno aberto (última batida não foi ENTRADA) → trava a SAÍDA de vez.
+  // Evita registrar uma saída "fantasma" sem entrada correspondente.
+  if (!temTurnoAberto(selectedColab.id)) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="icon">🔒</span> Sem turno aberto';
     return;
   }
   const restante = tempoRestanteCooldownSaida(selectedColab.id);
@@ -4759,9 +4819,29 @@ async function baterPonto(tipo) {
       mostrarSyncToast(`⏳ Entrada bloqueada! Liberada em ~${min} min`, 'gold');
       return;
     }
+    // Se já existe um turno aberto há muito tempo (ex.: entrada de ontem à noite
+    // sem saída registrada), confirma com quem está batendo o ponto que esta
+    // nova entrada é de fato um TURNO NOVO — evita que uma entrada esquecida
+    // de fechar vire confusão no histórico junto com o turno de hoje.
+    const ultAntes = ultimoReg(selectedColab.id);
+    const OITO_H_MS = 8 * 60 * 60 * 1000;
+    if (ultAntes && ultAntes.tipo === 'entrada' && (Date.now() - ultAntes.timestamp) > OITO_H_MS) {
+      const desde = fmtHora(ultAntes.timestamp);
+      const confirmaNovoTurno = confirm(
+        `⚠️ ${selectedColab.nome} ainda está com um turno em aberto desde ${desde} (sem saída registrada).\n\n` +
+        `Se essa entrada de agora é um TURNO NOVO, clique OK — o sistema vai registrar como um turno separado.\n\n` +
+        `Se a saída de ${desde} só não foi batida, clique Cancelar e corrija o turno antigo primeiro (botão ✏️ no histórico).`
+      );
+      if (!confirmaNovoTurno) return;
+    }
   }
   // Cooldown de 1h para saída
   if (tipo === 'saida') {
+    if (!temTurnoAberto(selectedColab.id)) {
+      mostrarSyncToast('🔒 Não há turno aberto para este colaborador. Registre a ENTRADA primeiro.', 'gold');
+      atualizarBtnSaida();
+      return;
+    }
     const restante = tempoRestanteCooldownSaida(selectedColab.id);
     if (restante > 0) {
       const min = Math.ceil(restante / 60000);
@@ -5395,6 +5475,12 @@ function _histRenderTbody() {
       locCel = partes.join('');
     }
 
+    const entId = g.entradas[0]?.id || '';
+    const saiId = (g.saidas[g.saidas.length-1] || g.saidas[0])?.id || '';
+    const acoesCel = isAdmin ? `<td class="td-acoes">
+      <button class="btn-ponto-acao" title="Editar horários" onclick="pontoAbrirEdicao('${entId}','${saiId}')">✏️</button>
+    </td>` : '';
+
     rows.push(`<tr>
       <td class="td-data">${dia}</td>
       <td class="td-nome">${esc(nome)}</td>
@@ -5403,6 +5489,7 @@ function _histRenderTbody() {
       <td class="td-hora" style="color:var(--red)">${saiH}</td>
       <td class="td-hora">${duracao}</td>
       <td class="td-loc">${locCel}</td>
+      ${acoesCel}
     </tr>`);
   });
 
@@ -5447,6 +5534,123 @@ function renderHistorico() {
   _histAtualizarPaginacao();
 }
 window.renderHistorico = renderHistorico;
+
+// ─── MODAL: CORRIGIR REGISTRO DE PONTO (admin) ────────────────────────────────
+let _pontoEditEntradaId = null;
+let _pontoEditSaidaId   = null;
+
+function _pontoTsParaInput(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function pontoAbrirEdicao(entradaId, saidaId) {
+  _pontoEditEntradaId = entradaId || null;
+  _pontoEditSaidaId   = saidaId   || null;
+
+  const regEnt = entradaId ? registros.find(r => r.id === entradaId) : null;
+  const regSai = saidaId   ? registros.find(r => r.id === saidaId)   : null;
+  const base   = regEnt || regSai;
+
+  const info = document.getElementById('ponto-modal-info');
+  if (info) {
+    info.innerHTML = `<strong>${esc(base?.colaboradorNome || '—')}</strong> · ${esc(base?.posto || '—')}`;
+  }
+
+  const wrapEnt = document.getElementById('ponto-modal-entrada-wrap');
+  const wrapSai = document.getElementById('ponto-modal-saida-wrap');
+  const inpEnt  = document.getElementById('ponto-modal-entrada');
+  const inpSai  = document.getElementById('ponto-modal-saida');
+
+  if (regEnt) {
+    wrapEnt.style.display = '';
+    inpEnt.value = _pontoTsParaInput(regEnt.timestamp);
+  } else {
+    wrapEnt.style.display = 'none';
+  }
+
+  if (regSai) {
+    wrapSai.style.display = '';
+    inpSai.value = _pontoTsParaInput(regSai.timestamp);
+  } else {
+    wrapSai.style.display = 'none';
+  }
+
+  document.getElementById('ponto-modal-overlay').style.display = 'flex';
+}
+window.pontoAbrirEdicao = pontoAbrirEdicao;
+
+function pontoFecharModal() {
+  document.getElementById('ponto-modal-overlay').style.display = 'none';
+  _pontoEditEntradaId = null;
+  _pontoEditSaidaId   = null;
+}
+window.pontoFecharModal = pontoFecharModal;
+
+async function pontoSalvarEdicao() {
+  const inpEnt = document.getElementById('ponto-modal-entrada');
+  const inpSai = document.getElementById('ponto-modal-saida');
+  const updates = [];
+
+  if (_pontoEditEntradaId && inpEnt.value) {
+    const novoTs = new Date(inpEnt.value).getTime();
+    const reg = registros.find(r => r.id === _pontoEditEntradaId);
+    if (reg && novoTs && novoTs !== reg.timestamp) { reg.timestamp = novoTs; updates.push(reg); }
+  }
+  if (_pontoEditSaidaId && inpSai.value) {
+    const novoTs = new Date(inpSai.value).getTime();
+    const reg = registros.find(r => r.id === _pontoEditSaidaId);
+    if (reg && novoTs && novoTs !== reg.timestamp) { reg.timestamp = novoTs; updates.push(reg); }
+  }
+
+  if (!updates.length) { pontoFecharModal(); return; }
+
+  try {
+    for (const reg of updates) {
+      if (window._firebaseReady && window._db) {
+        await window._fbUpdate(window._fbRef(window._db, 'registros/' + reg.id), { timestamp: reg.timestamp });
+      }
+    }
+    localStorage.setItem('ms_registros', JSON.stringify(registros));
+    mostrarSyncToast('✅ Horário(s) corrigido(s)!', 'green');
+    pontoFecharModal();
+    renderHistorico();
+  } catch (e) {
+    console.error('[pontoSalvarEdicao]', e.message);
+    mostrarSyncToast('❌ Erro ao salvar: ' + e.message, 'red');
+  }
+}
+window.pontoSalvarEdicao = pontoSalvarEdicao;
+
+async function pontoExcluirRegistro(qual) {
+  const id = qual === 'entrada' ? _pontoEditEntradaId : _pontoEditSaidaId;
+  if (!id) return;
+  const reg = registros.find(r => r.id === id);
+  if (!reg) return;
+
+  const confirmado = confirm(
+    `Excluir este registro de ${qual === 'entrada' ? 'ENTRADA' : 'SAÍDA'}?\n\n` +
+    `${reg.colaboradorNome || ''} · ${fmtHora(reg.timestamp)}\n\nEsta ação não pode ser desfeita.`
+  );
+  if (!confirmado) return;
+
+  try {
+    if (window._firebaseReady && window._db) {
+      await window._fbRemove(window._fbRef(window._db, 'registros/' + id));
+    }
+    registros = registros.filter(r => r.id !== id);
+    localStorage.setItem('ms_registros', JSON.stringify(registros));
+    mostrarSyncToast('🗑️ Registro excluído!', 'green');
+    pontoFecharModal();
+    renderHistorico();
+  } catch (e) {
+    console.error('[pontoExcluirRegistro]', e.message);
+    mostrarSyncToast('❌ Erro ao excluir: ' + e.message, 'red');
+  }
+}
+window.pontoExcluirRegistro = pontoExcluirRegistro;
 
 // ─── Logo PJ Tecnologia (hexágono cyan) — padrão para todos os PDFs do sistema ─
 const PJ_LOGO_SVG = `
