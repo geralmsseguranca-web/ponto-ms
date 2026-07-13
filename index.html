@@ -4682,8 +4682,9 @@ function renderColabPonto() {
 
     if (meuColab) {
       ativos = [meuColab];
-      if (!selectedColab || selectedColab.id !== meuColab.id) {
-        selectedColab = meuColab;
+      const trocouColab = !selectedColab || selectedColab.id !== meuColab.id;
+      selectedColab = meuColab;
+      if (trocouColab) {
         setTimeout(() => {
           document.getElementById('ponto-btns').style.display = 'grid';
           document.getElementById('posto-selector').style.display = 'block';
@@ -4692,10 +4693,15 @@ function renderColabPonto() {
           // (onde ele bateu o ponto), para a saída ser registrada no mesmo posto.
           const ultM = ultimoReg(meuColab.id);
           sel.value = (ultM && ultM.tipo === 'entrada' && ultM.posto) ? ultM.posto : (meuColab.posto || '');
-          atualizarBtnEntrada();
-          atualizarBtnSaida();
         }, 50);
       }
+      // Recalcula SEMPRE (não só na troca de colaborador) — os registros chegam do
+      // Firebase de forma assíncrona e podem ser atualizados depois do primeiro
+      // desenho da tela (ex.: a entrada de ontem sincronizando um pouco depois).
+      // Sem isso, o botão de SAÍDA podia ficar travado em "Sem turno aberto"
+      // mesmo depois que os dados corretos já tinham chegado.
+      atualizarBtnEntrada();
+      atualizarBtnSaida();
       const instrEl = document.getElementById('ponto-instrucao');
       if (instrEl) instrEl.style.display = 'none';
     } else {
