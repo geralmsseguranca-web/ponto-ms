@@ -54,8 +54,8 @@ function iniciarEscutaFirebase() {
 
     self.registration.showNotification(titulo, {
       body:    corpo,
-      icon:    './icons/icon-192.png',
-      badge:   './icons/badge-72.png',
+      icon:    './icon-192.png',
+      badge:   './badge-72.png',
       tag:     'ponto-' + chave,
       vibrate: [200, 100, 200],
       renotify: true,
