@@ -4,6 +4,17 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>PJ Tecnologia e Sistemas — Ponto Eletrônico</title>
+
+<!-- ══ PWA — instalação como app Android/iOS ══ -->
+<link rel="manifest" href="./manifest.json"/>
+<meta name="theme-color" content="#020a1a"/>
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png"/>
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Ponto PJ"/>
+
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 
@@ -3169,6 +3180,9 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
         <p><span style="color:#7ab3cc">INOVAÇÃO QUE CONECTA.</span><span style="color:#f59e0bcc"> TECNOLOGIA QUE TRANSFORMA.</span></p>
       </div>
       <div class="header-right">
+        <button id="btn-instalar-app" onclick="instalarApp()" style="display:none;background:linear-gradient(135deg,#00c8f8,#0088cc);color:#021018;border:none;border-radius:8px;padding:8px 14px;font-family:var(--font-head);font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">
+          📲 Instalar App
+        </button>
         <div class="sync-badge" id="sync-indicator" onclick="alert('Diagnóstico em breve')">
           <span style="color:#0ea5e9">🔵 Aguardando</span>
         </div>
@@ -4996,6 +5010,8 @@ function registrarPonto() {
         // Isso garante que o posto esteja preenchido antes de qualquer race condition.
         // Para saída, preenche horaSaida na FT pendente do dia.
         if (reg.tipo === 'entrada' || reg.tipo === 'saida') ftCriarSeNecessario(reg);
+        // Avisa o(s) admin(s) logado(s) — dispara notificação de ponto batido
+        enviarPushColaborador(reg);
       })
       .catch(e => {
         _syncErr();
@@ -5147,6 +5163,9 @@ function entrarSistema(usuario) {
   document.getElementById('ponto-btns').style.display   = 'none';
   document.getElementById('posto-selector').style.display = 'none';
 
+  // Admin: ativa notificações de ponto batido (pede permissão + acorda o SW)
+  if (isAdmin) pushInicializarNotificacoesAdmin();
+
   const instrucao = document.getElementById('ponto-instrucao');
   if (instrucao) {
     instrucao.style.display = '';
@@ -5169,6 +5188,7 @@ function sairSistema() {
   _fbUnsubs.forEach(fn => { try { fn(); } catch {} });
   _fbUnsubs = [];
   _ftUnsub = null;
+  pushPararNotificacoesAdmin();
   sessionStorage.removeItem('ms_session');
   currentUser = null;
   document.getElementById('login-screen').style.display  = 'flex';
@@ -9147,6 +9167,106 @@ window.wizEntrarAgora = wizEntrarAgora;
   window.addEventListener('firebaseReady', iniciar, { once: true });
   setTimeout(iniciar, 7000);
 })();
+
+// ════════════════════════════════════════════════════════════════════════
+// PWA — instalação como app + notificações push quando bater ponto
+// ════════════════════════════════════════════════════════════════════════
+
+// ── Registra o Service Worker (habilita instalação + notificações em 2º plano) ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./firebase-messaging-sw.js')
+      .then(reg => { window._swReg = reg; console.log('✅ Service Worker registrado'); })
+      .catch(e => console.warn('⚠️ Service Worker falhou:', e.message));
+  });
+}
+
+// ── Botão "📲 Instalar App" (aparece quando o Android/Chrome libera o prompt) ──
+let _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  const btn = document.getElementById('btn-instalar-app');
+  if (btn) btn.style.display = 'inline-flex';
+});
+function instalarApp() {
+  if (!_deferredInstallPrompt) return;
+  _deferredInstallPrompt.prompt();
+  _deferredInstallPrompt.userChoice.finally(() => {
+    _deferredInstallPrompt = null;
+    const btn = document.getElementById('btn-instalar-app');
+    if (btn) btn.style.display = 'none';
+  });
+}
+window.instalarApp = instalarApp;
+// Depois de instalado, esconde o botão
+window.addEventListener('appinstalled', () => {
+  const btn = document.getElementById('btn-instalar-app');
+  if (btn) btn.style.display = 'none';
+  mostrarSyncToast('✅ App instalado!', 'green');
+});
+
+// ── Notificações do ADM: pede permissão e mantém o Service Worker "acordado" ──
+// O SW escuta o nó push_queue do Firebase diretamente (sem precisar de Cloud
+// Function). Para o Android não "dormir" a escuta, a página manda um ping a
+// cada 20s enquanto o admin estiver logado.
+let _keepAliveInterval = null;
+
+function pushInicializarNotificacoesAdmin() {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().then(perm => {
+      if (perm === 'granted') mostrarSyncToast('🔔 Notificações de ponto ativadas', 'green');
+    }).catch(()=>{});
+  }
+
+  navigator.serviceWorker.ready.then(reg => {
+    if (reg.active) reg.active.postMessage({ tipo: 'INIT_ESCUTA' });
+  }).catch(()=>{});
+
+  if (_keepAliveInterval) clearInterval(_keepAliveInterval);
+  _keepAliveInterval = setInterval(() => {
+    navigator.serviceWorker.ready.then(reg => {
+      if (reg.active) reg.active.postMessage({ tipo: 'KEEP_ALIVE' });
+    }).catch(()=>{});
+  }, 20000);
+}
+window.pushInicializarNotificacoesAdmin = pushInicializarNotificacoesAdmin;
+
+function pushPararNotificacoesAdmin() {
+  if (_keepAliveInterval) { clearInterval(_keepAliveInterval); _keepAliveInterval = null; }
+}
+window.pushPararNotificacoesAdmin = pushPararNotificacoesAdmin;
+
+// ── Dispara a notificação: grava em push_queue/{id} quando o colaborador ──
+// bate entrada/saída. O Service Worker (de qualquer admin logado) está
+// escutando esse nó e mostra a notificação no celular/computador do ADM.
+function enviarPushColaborador(reg) {
+  if (!window._firebaseReady || !window._db) return;
+  try {
+    const dado = {
+      ts:    Date.now(),
+      tipo:  reg.tipo,
+      nome:  reg.colaboradorNome || '',
+      posto: reg.posto || '',
+      hora:  fmtHora(reg.timestamp)
+    };
+    window._fbSet(window._fbRef(window._db, 'push_queue/' + reg.id), dado)
+      .then(() => {
+        // Some da fila depois de 2 min — só serve pra disparar a notificação,
+        // não precisa acumular histórico nesse nó.
+        setTimeout(() => {
+          window._fbRemove(window._fbRef(window._db, 'push_queue/' + reg.id)).catch(()=>{});
+        }, 120000);
+      })
+      .catch(e => console.warn('[push_queue]', e.message));
+  } catch (e) {
+    console.warn('[push_queue]', e.message);
+  }
+}
+window.enviarPushColaborador = enviarPushColaborador;
+
 </script>
 </body>
 </html>
