@@ -5012,6 +5012,8 @@ function registrarPonto() {
         if (reg.tipo === 'entrada' || reg.tipo === 'saida') ftCriarSeNecessario(reg);
         // Avisa o(s) admin(s) logado(s) — dispara notificação de ponto batido
         enviarPushColaborador(reg);
+        // Notificação de verdade em segundo plano (funciona com app fechado)
+        enviarNtfy(reg);
       })
       .catch(e => {
         _syncErr();
@@ -9266,6 +9268,41 @@ function enviarPushColaborador(reg) {
   }
 }
 window.enviarPushColaborador = enviarPushColaborador;
+
+// ── NOTIFICAÇÃO EM SEGUNDO PLANO DE VERDADE (via ntfy.sh) ────────────────────
+// O Service Worker acima só funciona com o navegador/app aberto ou recém-
+// usado — o Android suspende o SW quando fica ocioso. Para o admin receber
+// aviso mesmo com o app FECHADO, usamos o ntfy.sh: um serviço gratuito de
+// push que entrega a notificação pelo app nativo dele (nível do sistema
+// operacional), sem precisar de Cloud Function nem conta paga no Firebase.
+//
+// Tópico único (troque se quiser recriar/proteger o canal — quem souber o
+// nome do tópico consegue ver as notificações, então não divulgue este link):
+const NTFY_TOPIC = 'pjms-ponto-2b11066938';
+
+function enviarNtfy(reg) {
+  try {
+    const titulo = reg.tipo === 'entrada'
+      ? `✅ Entrada — ${reg.colaboradorNome || ''}`
+      : `🚪 Saída — ${reg.colaboradorNome || ''}`;
+    const corpo = (reg.posto ? `📍 ${reg.posto} · ` : '') + fmtHora(reg.timestamp);
+
+    fetch('https://ntfy.sh/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic:    NTFY_TOPIC,
+        title:    titulo,
+        message:  corpo,
+        priority: 4,
+        tags:     reg.tipo === 'entrada' ? ['white_check_mark'] : ['door']
+      })
+    }).catch(e => console.warn('[ntfy]', e.message));
+  } catch (e) {
+    console.warn('[ntfy]', e.message);
+  }
+}
+window.enviarNtfy = enviarNtfy;
 
 </script>
 </body>
