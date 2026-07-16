@@ -4174,6 +4174,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <!-- ══ SCRIPT PRINCIPAL ══ -->
 <script>
@@ -5744,6 +5745,30 @@ function _pjPdfFooterHTML(empresa, geradoEm, extra) {
   </div>`;
 }
 
+// ─── Helper genérico: gera .xlsx real (coluna por coluna) a partir de array de arrays ─
+function _gerarXLSX(nomeArquivoBase, sheetName, header, rows) {
+  if (typeof XLSX === 'undefined') {
+    mostrarSyncToast('⚠️ Biblioteca de Excel não carregada. Verifique sua conexão e tente novamente.', 'gold');
+    return false;
+  }
+  const wsData = [header, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = header.map((h, colIdx) => {
+    let maxLen = String(h).length;
+    rows.forEach(r => {
+      const val = r[colIdx] == null ? '' : String(r[colIdx]);
+      if (val.length > maxLen) maxLen = val.length;
+    });
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 40) };
+  });
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
+  const dataStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `${nomeArquivoBase}_${dataStr}.xlsx`);
+  return true;
+}
+
 // ─── Exportar histórico — PDF profissional com logo PJ Tecnologia ────────────
 function exportarHistoricoPDF() {
   const lista = _histFiltrado;
@@ -5875,7 +5900,50 @@ function exportarHistoricoPDF() {
 }
 window.exportarHistoricoPDF = exportarHistoricoPDF;
 
-function exportarHistoricoExcel() { exportarHistoricoPDF(); }
+function exportarHistoricoExcel() {
+  const lista = _histFiltrado;
+  if (!lista.length) { mostrarSyncToast('⚠️ Nenhum registro para exportar', 'gold'); return; }
+
+  const { pares, regKey } = _buildParesPonto(registros);
+  const vistos = new Set();
+  const turnos = [];
+  lista.forEach(r => {
+    const key = regKey[r.id] || ('p_' + r.id);
+    if (vistos.has(key)) return;
+    vistos.add(key);
+    const g = pares[key] || { entradas:[], saidas:[], dia: new Date(r.timestamp).toLocaleDateString('pt-BR') };
+    const entTs = g.entradas.length ? Math.min(...g.entradas.map(x=>x.timestamp)) : null;
+    const saiTs = g.saidas.length   ? Math.max(...g.saidas.map(x=>x.timestamp))   : null;
+    turnos.push({
+      dia:   g.dia,
+      nome:  r.colaboradorNome || '—',
+      posto: g.entradas[0]?.posto || g.saidas[0]?.posto || r.posto || '—',
+      entH:  entTs != null ? fmtHora(entTs) : '',
+      saiH:  saiTs != null ? fmtHora(saiTs) : '',
+      locEnt: g.entradas[0]?.localizacao || null,
+      locSai: (g.saidas[g.saidas.length-1] || g.saidas[0])?.localizacao || null,
+      diffMs: (entTs != null && saiTs != null && saiTs > entTs) ? saiTs - entTs : null,
+      tsOrdenar: entTs != null ? entTs : saiTs
+    });
+  });
+  turnos.sort((a,b) => b.tsOrdenar - a.tsOrdenar);
+
+  const header = ['Data','Colaborador','Posto','Entrada','Saída','Duração','Localização Entrada','Localização Saída'];
+  const rows = turnos.map(t => [
+    t.dia,
+    t.nome,
+    t.posto,
+    t.entH,
+    t.saiH,
+    t.diffMs != null ? `${Math.floor(t.diffMs/3600000)}h${Math.floor((t.diffMs%3600000)/60000).toString().padStart(2,'0')}m` : '',
+    t.locEnt ? `${t.locEnt.lat}, ${t.locEnt.lng}` : '',
+    t.locSai ? `${t.locSai.lat}, ${t.locSai.lng}` : ''
+  ]);
+
+  if (_gerarXLSX('historico-ponto', 'Histórico', header, rows)) {
+    mostrarSyncToast('📊 Excel (.xlsx) gerado com sucesso!', 'green');
+  }
+}
 window.exportarHistoricoExcel = exportarHistoricoExcel;
 
 // ─── Compatibilidade com chamadas antigas ────────────────────────────────────
@@ -6229,17 +6297,11 @@ function dashFeedExportarCSV() {
     ]);
   });
 
-  const csv = linhas.map(l => l.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\r\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `ultimos_registros_${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  mostrarSyncToast('✅ CSV exportado com sucesso', 'green');
+  const header = linhas[0];
+  const rows = linhas.slice(1);
+  if (_gerarXLSX('ultimos_registros', 'Registros', header, rows)) {
+    mostrarSyncToast('✅ Excel (.xlsx) exportado com sucesso', 'green');
+  }
 }
 
 function renderDashColabs(filtro) {
@@ -7849,31 +7911,51 @@ function ftvExportarPDF() {
   win.focus();
 }
 
-// ─── Exportar Excel (CSV) ────────────────────────────────────────────────────
+// ─── Exportar Excel (.xlsx real, coluna por coluna) ──────────────────────────
 function ftvExportarExcel() {
   if (!_ftvFiltradas.length) {
     mostrarSyncToast('⚠️ Nenhuma FT para exportar', 'gold');
     return;
   }
+  if (typeof XLSX === 'undefined') {
+    mostrarSyncToast('⚠️ Biblioteca de Excel não carregada. Verifique sua conexão e tente novamente.', 'gold');
+    return;
+  }
+
   const header = ['Colaborador','Data','Posto','Entrada','Saída','Motivo','Valor','Validado por','Validado em'];
   const rows = _ftvFiltradas.map(ft => [
-    ft.colaboradorNome,
+    ft.colaboradorNome || '',
     ft.dataDisplay || ft.dataKey || '',
     ft.posto || '',
     ft.horaEntrada || '',
     ft.horaSaida || '',
     ft.motivo || '',
-    ft.valor ? parseFloat(ft.valor).toFixed(2) : '',
+    ft.valor ? parseFloat(ft.valor) : '',
     ft.validadaPor || '',
     ft.validadaEm ? new Date(ft.validadaEm).toLocaleString('pt-BR') : ''
   ]);
-  const csv = [header, ...rows].map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = 'fts-validadas.csv'; a.click();
-  URL.revokeObjectURL(url);
-  mostrarSyncToast('📊 CSV gerado com sucesso!', 'green');
+
+  const wsData = [header, ...rows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  ws['!cols'] = header.map((h, colIdx) => {
+    let maxLen = h.length;
+    rows.forEach(r => {
+      const val = r[colIdx] == null ? '' : String(r[colIdx]);
+      if (val.length > maxLen) maxLen = val.length;
+    });
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 40) };
+  });
+
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'FTs Validadas');
+
+  const dataStr = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `fts-validadas_${dataStr}.xlsx`);
+
+  mostrarSyncToast('📊 Excel (.xlsx) gerado com sucesso!', 'green');
 }
 
 // ─── SEED COLABORADORES (só executa se Firebase estiver vazio) ───────────────
