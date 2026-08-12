@@ -3660,7 +3660,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           </select>
         </div>
         <div class="ft-modal-field ft-modal-full" id="ftm-colab-ausente-wrap" style="display:none">
-          <label class="ft-modal-label">👤 Colaborador ausente <span style="color:var(--red)">*</span></label>
+          <label class="ft-modal-label"><span id="ftm-colab-ausente-label">👤 Colaborador ausente</span> <span style="color:var(--red)">*</span></label>
           <select id="ftm-colab-ausente" class="ft-modal-input">
             <option value="">-- Selecione --</option>
           </select>
@@ -3779,8 +3779,14 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
         </div>
         <div class="ft-modal-field ft-modal-full">
           <label class="ft-modal-label">💬 Motivo</label>
-          <select id="ftvm-motivo" class="ft-modal-input">
+          <select id="ftvm-motivo" class="ft-modal-input" onchange="ftvToggleColabAusente()">
             <option value="">— Selecione —</option>
+          </select>
+        </div>
+        <div class="ft-modal-field ft-modal-full" id="ftvm-colab-ausente-wrap" style="display:none">
+          <label class="ft-modal-label"><span id="ftvm-colab-ausente-label">👤 Colaborador ausente</span> <span style="color:var(--red)">*</span></label>
+          <select id="ftvm-colab-ausente" class="ft-modal-input">
+            <option value="">-- Selecione --</option>
           </select>
         </div>
       </div>
@@ -7350,7 +7356,7 @@ function ftRenderCard(ft) {
         <span class="ft-card-detalhe-val">${esc(ft.motivo)}</span>
       </div>` : ''}
       ${ft.colaboradorAusente ? `<div class="ft-card-detalhe-item">
-        <span class="ft-card-detalhe-label">Colab. ausente</span>
+        <span class="ft-card-detalhe-label">${esc(labelColabVinculado(ft.motivo))}</span>
         <span class="ft-card-detalhe-val">${esc(ft.colaboradorAusente)}</span>
       </div>` : ''}
       <div class="ft-card-detalhe-item">
@@ -7449,11 +7455,25 @@ function ftAbrirModal(id) {
 // Motivos que exigem colaborador ausente
 const FT_MOTIVOS_COM_AUSENTE = ['Atestado','Afastamento','Cobertura de Férias','Suspensão'];
 
+// Rótulo dinâmico do colaborador vinculado, conforme o motivo selecionado.
+// Usado em todo o sistema: modais, cards, PDF e planilha.
+const FT_LABEL_COLAB_POR_MOTIVO = {
+  'Suspensão':           'Colaborador suspenso',
+  'Cobertura de Férias': 'Colaborador de férias',
+  'Atestado':            'Colaborador de atestado',
+  'Afastamento':         'Colaborador afastado',
+};
+function labelColabVinculado(motivo) {
+  return FT_LABEL_COLAB_POR_MOTIVO[motivo] || 'Colaborador ausente';
+}
+
 function ftToggleColabAusente() {
   const motivo = document.getElementById('ftm-motivo')?.value || '';
   const wrap   = document.getElementById('ftm-colab-ausente-wrap');
   if (!wrap) return;
   wrap.style.display = FT_MOTIVOS_COM_AUSENTE.includes(motivo) ? '' : 'none';
+  const lbl = document.getElementById('ftm-colab-ausente-label');
+  if (lbl) lbl.textContent = '👤 ' + labelColabVinculado(motivo);
 }
 
 function ftFecharModal() {
@@ -7608,7 +7628,7 @@ function ftvRenderCard(ft) {
   const chipValor = valorDisp ? `<span class="ftv-chip ftv-chip-valor">💰 ${valorDisp}</span>` : '';
   const chipMotivo = ft.motivo ? `<span class="ftv-chip ftv-chip-motivo">💬 ${esc(ft.motivo)}</span>` : '';
   const chipAusente = (ft.colaboradorAusente && FT_MOTIVOS_COM_AUSENTE.includes(ft.motivo))
-    ? `<span class="ftv-chip ftv-chip-motivo">👤 Ausente: ${esc(ft.colaboradorAusente)}</span>`
+    ? `<span class="ftv-chip ftv-chip-motivo">👤 ${esc(labelColabVinculado(ft.motivo))}: ${esc(ft.colaboradorAusente)}</span>`
     : '';
 
   const barraIA = confianca !== null ? `
@@ -7671,7 +7691,27 @@ function ftvAbrirEdicao(id) {
   gcPopularSelectsMotivo();
   document.getElementById('ftvm-motivo').value       = ft.motivo      || '';
 
+  // Popular select de colaboradores ausentes
+  const selColabV = document.getElementById('ftvm-colab-ausente');
+  selColabV.innerHTML = '<option value="">-- Selecione --</option>' +
+    colaboradores.filter(c => c.ativo !== false)
+      .sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'))
+      .map(c => `<option value="${esc(c.nome)}"${ft.colaboradorAusente===c.nome?' selected':''}>${esc(c.nome)}</option>`)
+      .join('');
+
+  // Colaborador ausente: mostra conforme motivo atual (Atestado, Suspensão, Cobertura de Férias, Afastamento)
+  ftvToggleColabAusente();
+
   document.getElementById('ftv-modal-overlay').style.display = 'flex';
+}
+
+function ftvToggleColabAusente() {
+  const motivo = document.getElementById('ftvm-motivo')?.value || '';
+  const wrap   = document.getElementById('ftvm-colab-ausente-wrap');
+  if (!wrap) return;
+  wrap.style.display = FT_MOTIVOS_COM_AUSENTE.includes(motivo) ? '' : 'none';
+  const lbl = document.getElementById('ftvm-colab-ausente-label');
+  if (lbl) lbl.textContent = '👤 ' + labelColabVinculado(motivo);
 }
 
 function ftvFecharModal() {
@@ -7701,6 +7741,9 @@ async function ftvSalvarEdicao() {
     obs:         document.getElementById('ftvm-obs').value.trim(),
     valor:       document.getElementById('ftvm-valor').value               || ft.valor || '',
     motivo:      document.getElementById('ftvm-motivo').value,
+    colaboradorAusente: FT_MOTIVOS_COM_AUSENTE.includes(document.getElementById('ftvm-motivo').value)
+                          ? (document.getElementById('ftvm-colab-ausente').value || ft.colaboradorAusente || '')
+                          : '',
   };
 
   try {
@@ -7815,7 +7858,7 @@ function ftvExportarPDF() {
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#334155;white-space:nowrap">🕐 ${horario}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px">
           <span style="background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">${motivo}</span>
-          ${ausente ? `<div style="font-size:11px;color:#7c3aed;margin-top:3px">👤 ${ausente}</div>` : ''}
+          ${ausente ? `<div style="font-size:11px;color:#7c3aed;margin-top:3px">👤 ${esc(labelColabVinculado(ft.motivo))}: ${esc(ausente)}</div>` : ''}
           ${obs     ? `<div style="font-size:11px;color:#64748b;margin-top:3px;font-style:italic">${obs}</div>` : ''}
         </td>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:700;color:#15803d;white-space:nowrap">${valorStr}</td>
@@ -7922,7 +7965,7 @@ function ftvExportarExcel() {
     return;
   }
 
-  const header = ['Colaborador','Data','Posto','Entrada','Saída','Motivo','Valor','Validado por','Validado em'];
+  const header = ['Colaborador','Data','Posto','Entrada','Saída','Motivo','Colaborador Vinculado ao Motivo','Valor','Validado por','Validado em'];
   const rows = _ftvFiltradas.map(ft => [
     ft.colaboradorNome || '',
     ft.dataDisplay || ft.dataKey || '',
@@ -7930,6 +7973,7 @@ function ftvExportarExcel() {
     ft.horaEntrada || '',
     ft.horaSaida || '',
     ft.motivo || '',
+    (ft.colaboradorAusente && FT_MOTIVOS_COM_AUSENTE.includes(ft.motivo)) ? `${labelColabVinculado(ft.motivo)}: ${ft.colaboradorAusente}` : '',
     ft.valor ? parseFloat(ft.valor) : '',
     ft.validadaPor || '',
     ft.validadaEm ? new Date(ft.validadaEm).toLocaleString('pt-BR') : ''
