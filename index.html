@@ -7589,11 +7589,22 @@ function ftvAplicarFiltros() {
 }
 
 function ftvAtualizarKPIs() {
-  const todas = _fts.filter(ft => ft.status === 'validada');
-  const adm   = todas.filter(ft => ftvTipoValidacao(ft) === 'adm').length;
-  const ia    = todas.filter(ft => ftvTipoValidacao(ft) === 'ia').length;
+  // KPIs agora respeitam os filtros de colaborador e período (data de/até),
+  // mas ignoram o filtro de "tipo de validação" já que os 3 cards mostram
+  // justamente a repartição Total / ADM / Inteligência dentro do recorte escolhido.
+  const colab = document.getElementById('ftv-f-colab')?.value || '';
+  const de    = document.getElementById('ftv-f-de')?.value    || '';
+  const ate   = document.getElementById('ftv-f-ate')?.value   || '';
+
+  let base = _fts.filter(ft => ft.status === 'validada');
+  if (colab) base = base.filter(ft => ft.colaboradorNome === colab);
+  if (de)    base = base.filter(ft => (ft.dataKey || '') >= de);
+  if (ate)   base = base.filter(ft => (ft.dataKey || '') <= ate);
+
+  const adm = base.filter(ft => ftvTipoValidacao(ft) === 'adm').length;
+  const ia  = base.filter(ft => ftvTipoValidacao(ft) === 'ia').length;
   const el = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
-  el('ftv-kpi-total', todas.length);
+  el('ftv-kpi-total', base.length);
   el('ftv-kpi-adm',   adm);
   el('ftv-kpi-ia',    ia);
 }
