@@ -1225,6 +1225,37 @@ main {
 .colab-item.status-warn::before { background: var(--gold); }
 .colab-item.status-absent::before { background: var(--red); }
 
+/* Lista moderna de seleção — exclusiva da aba Bater Ponto quando logado como
+   admin/supervisor. Escopada 100% sob .colab-list-admin: não altera em nada
+   o card único do colaborador comum nem nenhuma outra lista do sistema. */
+.colab-list-admin {
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+}
+.colab-list-admin .colab-item {
+  border-radius: 16px;
+  padding-right: 46px;
+}
+.colab-list-admin .colab-item.selected {
+  background: linear-gradient(135deg, #f59e0b14, #f59e0b05);
+  box-shadow: 0 0 0 1px var(--accent), 0 10px 26px #f59e0b26;
+  transform: translateY(-2px);
+}
+.colab-list-admin .colab-item::after {
+  content: '✓';
+  position: absolute; right: 14px; top: 50%;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); color: #1a1305; font-size: 12px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  transform: translateY(-50%) scale(0); opacity: 0;
+  transition: transform .18s ease, opacity .18s ease;
+}
+.colab-list-admin .colab-item.selected::after {
+  transform: translateY(-50%) scale(1); opacity: 1;
+}
+@media (max-width: 640px) {
+  .colab-list-admin { grid-template-columns: 1fr; }
+}
+
 .avatar {
   width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -4811,6 +4842,10 @@ function renderColabPonto() {
 
   const container = document.getElementById('colab-list-ponto');
   container.innerHTML = '';
+  // Visual de lista moderna e selecionável — só na aba Bater Ponto do admin.
+  // A view de colaborador comum (card único, tratada no "if (!isAdmin)" acima
+  // e que dá "return" antes de chegar aqui) nunca recebe essa classe.
+  container.classList.toggle('colab-list-admin', isAdmin);
 
   const HOJE_INI = new Date(); HOJE_INI.setHours(0,0,0,0);
   const OITO_H   = 8 * 60 * 60 * 1000;
@@ -6974,9 +7009,14 @@ function colabMgrRenderGrid() {
     const user = usuarios.find(u => u.colaboradorId === c.id)
       || usuarios.find(u => c.login && u.login === c.login)
       || usuarios.find(u => u.nome && c.nome && u.nome.toLowerCase() === c.nome.toLowerCase());
-    // Fallback: se encontrou usuario mas role diferente do salvo no colaborador, usa o do colaborador
-    if (user && c.role && user.role !== c.role) user.role = c.role;
-    const isAdminUser = user?.role === 'admin';
+    // Apenas para exibir o selo (Admin/Colaborador) no card — NUNCA sobrescreve
+    // user.role de verdade aqui. O objeto `user` vem direto do array global
+    // `usuarios` (mesma referência usada por currentUser), então mutá-lo
+    // corrompia silenciosamente a sessão de quem estivesse logado quando
+    // essa lista era desenhada (ex.: admin virava "colaborador" ao abrir
+    // a aba Colaboradores, perdendo acesso à lista completa em Bater Ponto).
+    const roleExibicao = (user && c.role) ? c.role : user?.role;
+    const isAdminUser = roleExibicao === 'admin';
     const roleBadge = user
       ? (isAdminUser
           ? `<span style="display:inline-block;background:#1e1a05;border:1px solid #f59e0b;color:#fbbf24;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.5px">👑 Admin</span>`
