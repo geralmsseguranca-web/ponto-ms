@@ -2322,7 +2322,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   .filter-grid { grid-template-columns: repeat(2, 1fr); }
   /* Tabela histórico — scroll horizontal */
   .table-wrap { overflow-x: auto; }
-  table { min-width: 560px; }
+  table { min-width: 640px; }
 }
 
 /* ══════════════════════════════════════════
@@ -3433,6 +3433,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
               <th>Saída</th>
               <th>Duração</th>
               <th>Localização</th>
+              <th>Foto</th>
               <th id="th-acoes" style="display:none">Ações</th>
             </tr>
           </thead>
@@ -4191,6 +4192,15 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   </div>
 </div>
 
+<!-- ══ MODAL VISUALIZAR FOTO DO PONTO ══ -->
+<div class="overlay" id="foto-ponto-overlay" style="display:none" onclick="if(event.target===this)fecharFotoPonto()">
+  <div style="background:var(--surface);border-radius:16px;padding:16px;max-width:360px;width:92%;text-align:center;border:1px solid var(--border);box-shadow:0 24px 80px #000a">
+    <img id="foto-ponto-img" src="" alt="Foto do ponto" style="width:100%;border-radius:10px;display:block;margin-bottom:10px;background:#000"/>
+    <div id="foto-ponto-info" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+    <button class="btn-cancel" onclick="fecharFotoPonto()">Fechar</button>
+  </div>
+</div>
+
 <!-- ══ MODAL FILA OFFLINE ══ -->
 <div class="overlay" id="fila-offline-overlay" style="display:none;z-index:2100" onclick="if(event.target===this)fecharFilaOffline()">
   <div style="background:var(--surface);border-radius:20px;padding:32px;max-width:480px;width:94%;text-align:left;border:1px solid var(--border);box-shadow:0 24px 80px #000a;animation:slideUp .2s ease">
@@ -4229,6 +4239,7 @@ let currentUser   = null;
 let selectedColab = null;
 let pendingTipo   = null;
 let pendingLocalizacao = null;
+let pendingFotoPonto   = null; // foto real capturada da câmera no momento do ponto
 let _fbUnsubs     = [];
 
 // ─── UTILITÁRIOS ──────────────────────────────────────────────────────────────
@@ -4508,6 +4519,7 @@ function loadData() {
       if (tabDash && tabDash.classList.contains('active')) renderDashboard();
       const tabHist = document.getElementById('tab-historico');
       if (tabHist && tabHist.classList.contains('active')) renderHistorico();
+      limparFotosAntigas(); // fire-and-forget — respeita throttle interno de 24h
     });
 
     const u3 = window._fbOnValue(window._fbRef(window._db,'usuarios'), snap => {
@@ -4965,7 +4977,9 @@ function closeFaceModal() {
 
 function resetCamera() {
   camState = 'idle';
+  pendingFotoPonto = null; // nova tentativa de ponto → descarta foto anterior
   document.getElementById('cam-placeholder').style.display = 'flex';
+  document.getElementById('cam-placeholder').innerHTML = '<span class="face-icon">👤</span><p>Câmera inativa</p>';
   document.getElementById('cam-video').style.display = 'none';
   document.getElementById('scan-line').style.display = 'none';
   document.getElementById('face-success').style.display = 'none';
@@ -4974,6 +4988,26 @@ function resetCamera() {
   btn.textContent = 'Ativar Câmera';
   btn.disabled = false;
   btn.className = 'btn-camera';
+}
+
+// ─── Captura o frame atual do vídeo da câmera como foto real (JPEG comprimido) ─
+function capturarFotoAtual() {
+  try {
+    const vid = document.getElementById('cam-video');
+    if (!vid || !vid.videoWidth) return null; // sem stream real (ex.: modo simulado)
+    const MAX_W = 480; // reduz tamanho para manter o registro leve no Firebase
+    const scale = Math.min(1, MAX_W / vid.videoWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width  = Math.round(vid.videoWidth  * scale);
+    canvas.height = Math.round(vid.videoHeight * scale);
+    const ctx = canvas.getContext('2d');
+    // Espelha horizontalmente para bater com o preview (video tem transform de espelho visual só no CSS, aqui capturamos o frame real)
+    ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.6);
+  } catch (e) {
+    console.warn('capturarFotoAtual:', e.message);
+    return null;
+  }
 }
 
 async function cameraAction() {
@@ -4987,11 +5021,14 @@ async function cameraAction() {
       camState = 'streaming';
       document.getElementById('btn-camera-action').textContent = '📸 Verificar Identidade';
     } catch {
-      document.getElementById('cam-placeholder').innerHTML = '<span class="face-icon">👤</span><p style="color:var(--muted);font-size:12px">Câmera indisponível<br>Modo simulado</p>';
+      document.getElementById('cam-placeholder').innerHTML = '<span class="face-icon">👤</span><p style="color:var(--muted);font-size:12px">Câmera indisponível<br>Modo simulado — sem foto</p>';
       camState = 'streaming';
       document.getElementById('btn-camera-action').textContent = '📸 Verificar Identidade';
     }
   } else if (camState === 'streaming') {
+    // Captura a foto real do momento exato em que o colaborador confirma
+    pendingFotoPonto = capturarFotoAtual();
+
     camState = 'scanning';
     document.getElementById('camera-wrap').classList.add('scanning');
     document.getElementById('scan-line').style.display = 'block';
@@ -5022,6 +5059,59 @@ function stopCam() {
   if (vid) vid.srcObject = null;
 }
 
+// ─── Visualizar foto real de um registro de ponto (Histórico) ────────────────
+function verFotoPontoPorId(id) {
+  const reg = registros.find(r => r.id === id);
+  if (!reg || !reg.foto) { mostrarSyncToast('📷 Nenhuma foto registrada para este ponto', 'gold'); return; }
+  document.getElementById('foto-ponto-img').src = reg.foto;
+  document.getElementById('foto-ponto-info').textContent =
+    `${reg.colaboradorNome || ''} — ${reg.tipo === 'entrada' ? '🟢 Entrada' : '🔴 Saída'} às ${fmtHora(reg.timestamp)}`;
+  document.getElementById('foto-ponto-overlay').style.display = 'flex';
+}
+function fecharFotoPonto() {
+  document.getElementById('foto-ponto-overlay').style.display = 'none';
+}
+
+// ─── Retenção automática de fotos de ponto ────────────────────────────────────
+// Mantém o registro de ponto (data/hora/local) para sempre, mas remove só a
+// FOTO de registros com mais de FOTO_RETENCAO_DIAS dias, para não deixar o
+// banco (Firebase) crescer sem controle com imagens antigas.
+const FOTO_RETENCAO_DIAS = 30;
+async function limparFotosAntigas() {
+  try {
+    if (!window._firebaseReady || !window._db) return;
+    if (currentUser?.role !== 'admin') return; // só admin dispara a limpeza
+
+    // Throttle: roda no máximo 1x por dia por navegador, evita writes repetidos
+    const CHAVE_ULTIMA = 'ms_ultima_limpeza_fotos';
+    const agora = Date.now();
+    const ultima = parseInt(localStorage.getItem(CHAVE_ULTIMA) || '0', 10);
+    if (agora - ultima < 24 * 60 * 60 * 1000) return;
+    localStorage.setItem(CHAVE_ULTIMA, String(agora)); // marca já, evita corrida entre abas
+
+    const limiteMs = agora - FOTO_RETENCAO_DIAS * 24 * 60 * 60 * 1000;
+    const alvos = registros.filter(r => r.foto && r.timestamp < limiteMs);
+    if (!alvos.length) return;
+
+    let ok = 0;
+    for (const r of alvos) {
+      try {
+        await window._fbUpdate(window._fbRef(window._db, 'registros/' + r.id), { foto: null });
+        r.foto = null; // reflete localmente também, sem esperar o listener
+        ok++;
+      } catch (e) {
+        console.warn('limparFotosAntigas:', r.id, e.message);
+      }
+    }
+    if (ok) {
+      localStorage.setItem('ms_registros', JSON.stringify(registros));
+      console.log(`[retenção] ${ok} foto(s) de ponto com mais de ${FOTO_RETENCAO_DIAS} dias removida(s) — registros preservados.`);
+    }
+  } catch (e) {
+    console.warn('limparFotosAntigas erro geral:', e.message);
+  }
+}
+
 // ─── REGISTRAR PONTO ──────────────────────────────────────────────────────────
 function registrarPonto() {
   // Posto: 1º o selecionado na tela, 2º o posto padrão do colaborador, 3º ''
@@ -5036,7 +5126,8 @@ function registrarPonto() {
     posto:           postoFinal,
     tipo:            pendingTipo,
     timestamp:       Date.now(),
-    localizacao:     pendingLocalizacao || null
+    localizacao:     pendingLocalizacao || null,
+    foto:            pendingFotoPonto || null // foto real capturada da câmera no momento do ponto
   };
 
   registros.unshift(reg);
@@ -5075,6 +5166,7 @@ function registrarPonto() {
   selectedColab      = null;
   pendingTipo        = null;
   pendingLocalizacao = null;
+  pendingFotoPonto   = null;
   document.getElementById('ponto-btns').style.display   = 'none';
   document.getElementById('posto-selector').style.display = 'none';
   renderColabPonto();
@@ -5498,7 +5590,7 @@ function _histRenderTbody() {
   const pagina  = _histFiltrado.slice(inicio, inicio + HIST_POR_PAG);
 
   if (!pagina.length) {
-    const cols = isAdmin ? 8 : 8;
+    const cols = isAdmin ? 9 : 9;
     tbody.innerHTML = `<tr class="empty-row"><td colspan="${cols}" style="text-align:center;padding:40px;color:var(--muted)">📭 Nenhum registro encontrado com estes filtros</td></tr>`;
     return;
   }
@@ -5546,6 +5638,18 @@ function _histRenderTbody() {
 
     const entId = g.entradas[0]?.id || '';
     const saiId = (g.saidas[g.saidas.length-1] || g.saidas[0])?.id || '';
+
+    // Foto real — miniatura/botão para cada ponto que tiver foto capturada
+    const fotoEnt = g.entradas[0]?.foto;
+    const fotoSai = (g.saidas[g.saidas.length-1] || g.saidas[0])?.foto;
+    let fotoCel = '<span style="color:var(--muted)">—</span>';
+    if (fotoEnt || fotoSai) {
+      const partes = [];
+      if (fotoEnt) partes.push(`<button class="btn-ponto-acao" title="Ver foto da entrada" onclick="verFotoPontoPorId('${entId}')">📷▲</button>`);
+      if (fotoSai) partes.push(`<button class="btn-ponto-acao" title="Ver foto da saída" onclick="verFotoPontoPorId('${saiId}')">📷▼</button>`);
+      fotoCel = partes.join(' ');
+    }
+
     const acoesCel = isAdmin ? `<td class="td-acoes">
       <button class="btn-ponto-acao" title="Editar horários" onclick="pontoAbrirEdicao('${entId}','${saiId}')">✏️</button>
     </td>` : '';
@@ -5558,11 +5662,12 @@ function _histRenderTbody() {
       <td class="td-hora" style="color:var(--red)">${saiH}</td>
       <td class="td-hora">${duracao}</td>
       <td class="td-loc">${locCel}</td>
+      <td class="td-foto">${fotoCel}</td>
       ${acoesCel}
     </tr>`);
   });
 
-  tbody.innerHTML = rows.join('') || `<tr class="empty-row"><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">📭 Nenhum registro</td></tr>`;
+  tbody.innerHTML = rows.join('') || `<tr class="empty-row"><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">📭 Nenhum registro</td></tr>`;
 
   // Mostra coluna de ações só para admin
   const thAcoes = document.getElementById('th-acoes');
