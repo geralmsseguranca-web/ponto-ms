@@ -4735,8 +4735,24 @@ function renderColabPonto() {
   let ativos = colaboradores.filter(c => c.ativo !== false);
   let meuColab = null;
 
-  // Para não-admin: encontra o próprio colaborador
-  if (!isAdmin && currentUser) {
+  // Para não-admin: encontra o próprio colaborador.
+  // IMPORTANTE: esta checagem NÃO pode depender de "currentUser" já estar
+  // carregado — se a sessão ainda não tiver sido restaurada no exato instante
+  // deste render, isAdmin dá false e currentUser dá null, e a condição antiga
+  // (!isAdmin && currentUser) ficava falsa nos dois lados, "vazando" para o
+  // trecho de baixo que monta a lista completa (visão de admin) para qualquer
+  // colaborador. Por segurança, todo usuário que não for admin cai aqui.
+  if (!isAdmin) {
+    if (!currentUser) {
+      // Sessão ainda carregando — nunca expõe a lista completa nesse meio-tempo.
+      const container = document.getElementById('colab-list-ponto');
+      if (container) {
+        container.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:32px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:12px">⏳</div><div>Carregando sua sessão...</div></div>`;
+      }
+      const btns = document.getElementById('ponto-btns');
+      if (btns) btns.style.display = 'none';
+      return;
+    }
     if (currentUser.colaboradorId)
       meuColab = ativos.find(c => c.id === currentUser.colaboradorId);
     if (!meuColab)
