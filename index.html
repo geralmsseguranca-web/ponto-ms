@@ -1122,23 +1122,45 @@ header {
 .user-chip:hover { border-color: var(--accent); }
 
 /* ── TABS ── */
-.tabs { display: flex; gap: 0; }
+.tabs { display: flex; gap: 6px; }
 .tab-btn {
-  background: transparent; border: none; cursor: pointer;
+  background: linear-gradient(180deg, #1d1a23 0%, #121016 100%);
+  border: 1px solid var(--border); cursor: pointer;
   padding: 14px 22px; font-family: var(--font-head);
   font-size: 15px; font-weight: 600; letter-spacing: 0.5px;
   color: var(--muted); border-bottom: 3px solid transparent;
-  transition: all .2s; white-space: nowrap; position: relative;
+  border-radius: 10px 10px 0 0;
+  box-shadow: 0 2px 5px #0007, inset 0 1px 0 #ffffff0f;
+  transition: transform .15s ease, box-shadow .15s ease, background .2s, color .2s;
+  white-space: nowrap; position: relative;
 }
-.tab-btn:hover { color: var(--text); }
-.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn:hover {
+  color: var(--text);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px #000a, inset 0 1px 0 #ffffff16;
+}
+.tab-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px #0008 inset;
+  transition: transform .05s ease, box-shadow .05s ease;
+}
+.tab-btn.active {
+  color: var(--accent); border-bottom-color: var(--accent);
+  background: linear-gradient(180deg, #241c10 0%, #171016 100%);
+  box-shadow: 0 4px 14px #f59e0b33, inset 0 1px 0 #ffffff18;
+  transform: translateY(-1px);
+}
 .tab-btn.active::before {
   content:''; position:absolute; bottom:0; left:0; right:0; height:3px;
   background: linear-gradient(90deg, transparent, var(--accent), transparent);
   filter: blur(4px);
 }
 .tab-btn.admin-tab { color: var(--gold); }
-.tab-btn.admin-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.tab-btn.admin-tab.active {
+  color: var(--gold); border-bottom-color: var(--gold);
+  background: linear-gradient(180deg, #241d10 0%, #171016 100%);
+  box-shadow: 0 4px 14px #fbbf2433, inset 0 1px 0 #ffffff18;
+}
 
 /* ── MAIN ── */
 main {
@@ -2268,9 +2290,21 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   .brand-text p  { font-size: 9px; }
   .sync-badge    { display: none; }
   /* Tabs — scroll horizontal sem scroll bar visível */
-  .tabs { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .tabs { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
   .tabs::-webkit-scrollbar { display: none; }
-  .tab-btn { padding: 12px 16px; font-size: 13px; flex-shrink: 0; }
+  .tab-btn {
+    padding: 12px 16px; font-size: 13px; flex-shrink: 0;
+    border-radius: 12px; border-bottom: 1px solid var(--border) !important;
+  }
+  .tab-btn.active::before { display: none; }
+  .tab-btn.active {
+    border-bottom: 1px solid var(--accent) !important;
+    box-shadow: 0 4px 14px #f59e0b40, inset 0 1px 0 #ffffff18;
+  }
+  .tab-btn.admin-tab.active {
+    border-bottom: 1px solid var(--gold) !important;
+    box-shadow: 0 4px 14px #fbbf2440, inset 0 1px 0 #ffffff18;
+  }
   /* Layout */
   main { padding: 20px 16px 60px; }
   .clock-time { font-size: 56px; }
@@ -2303,7 +2337,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   .brand-logo    { width: 34px; height: 38px; }
   .header-right  { gap: 6px; }
   .user-chip     { padding: 4px 8px; font-size: 10px; }
-  .tab-btn       { padding: 10px 12px; font-size: 12px; }
+  .tab-btn       { padding: 10px 12px; font-size: 12px; border-radius: 10px; }
   /* Layout */
   main { padding: 16px 12px 80px; }
   /* Relógio */
