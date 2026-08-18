@@ -3489,9 +3489,9 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
               <button class="btn-ponto-excluir" onclick="pontoExcluirRegistro('entrada')">🗑️ Excluir esta entrada</button>
             </div>
             <div class="ft-modal-field" id="ponto-modal-saida-wrap">
-              <label class="ft-modal-label">🔴 Saída</label>
+              <label class="ft-modal-label" id="ponto-modal-saida-label">🔴 Saída</label>
               <input id="ponto-modal-saida" class="ft-modal-input" type="datetime-local"/>
-              <button class="btn-ponto-excluir" onclick="pontoExcluirRegistro('saida')">🗑️ Excluir esta saída</button>
+              <button class="btn-ponto-excluir" id="ponto-modal-saida-excluir-btn" onclick="pontoExcluirRegistro('saida')">🗑️ Excluir esta saída</button>
             </div>
           </div>
 
@@ -5784,10 +5784,12 @@ function pontoAbrirEdicao(entradaId, saidaId) {
     info.innerHTML = `<strong>${esc(base?.colaboradorNome || '—')}</strong> · ${esc(base?.posto || '—')}`;
   }
 
-  const wrapEnt = document.getElementById('ponto-modal-entrada-wrap');
-  const wrapSai = document.getElementById('ponto-modal-saida-wrap');
-  const inpEnt  = document.getElementById('ponto-modal-entrada');
-  const inpSai  = document.getElementById('ponto-modal-saida');
+  const wrapEnt   = document.getElementById('ponto-modal-entrada-wrap');
+  const wrapSai   = document.getElementById('ponto-modal-saida-wrap');
+  const inpEnt    = document.getElementById('ponto-modal-entrada');
+  const inpSai    = document.getElementById('ponto-modal-saida');
+  const labelSai  = document.getElementById('ponto-modal-saida-label');
+  const btnDelSai = document.getElementById('ponto-modal-saida-excluir-btn');
 
   if (regEnt) {
     wrapEnt.style.display = '';
@@ -5797,8 +5799,17 @@ function pontoAbrirEdicao(entradaId, saidaId) {
   }
 
   if (regSai) {
+    // Saída já registrada — modo edição normal
     wrapSai.style.display = '';
     inpSai.value = _pontoTsParaInput(regSai.timestamp);
+    if (labelSai)  labelSai.textContent = '🔴 Saída';
+    if (btnDelSai) btnDelSai.style.display = '';
+  } else if (regEnt) {
+    // Turno em aberto (entrada sem saída) — permite ADICIONAR a saída que faltou
+    wrapSai.style.display = '';
+    inpSai.value = '';
+    if (labelSai)  labelSai.textContent = '🔴 Saída (turno em aberto — informe o horário)';
+    if (btnDelSai) btnDelSai.style.display = 'none';
   } else {
     wrapSai.style.display = 'none';
   }
@@ -5817,20 +5828,45 @@ window.pontoFecharModal = pontoFecharModal;
 async function pontoSalvarEdicao() {
   const inpEnt = document.getElementById('ponto-modal-entrada');
   const inpSai = document.getElementById('ponto-modal-saida');
-  const updates = [];
+  const updates = [];   // registros existentes com timestamp alterado
+  let novaSaida = null; // registro novo de saída (turno estava em aberto)
 
   if (_pontoEditEntradaId && inpEnt.value) {
     const novoTs = new Date(inpEnt.value).getTime();
     const reg = registros.find(r => r.id === _pontoEditEntradaId);
     if (reg && novoTs && novoTs !== reg.timestamp) { reg.timestamp = novoTs; updates.push(reg); }
   }
+
   if (_pontoEditSaidaId && inpSai.value) {
+    // Saída já existia — apenas corrige o horário
     const novoTs = new Date(inpSai.value).getTime();
     const reg = registros.find(r => r.id === _pontoEditSaidaId);
     if (reg && novoTs && novoTs !== reg.timestamp) { reg.timestamp = novoTs; updates.push(reg); }
+  } else if (!_pontoEditSaidaId && _pontoEditEntradaId && inpSai.value) {
+    // Turno estava em aberto — cria o registro de saída que faltava
+    const regEnt = registros.find(r => r.id === _pontoEditEntradaId);
+    if (regEnt) {
+      const novoTs = new Date(inpSai.value).getTime();
+      if (novoTs && novoTs > regEnt.timestamp) {
+        novaSaida = {
+          id: uid(),
+          colaboradorId:   regEnt.colaboradorId,
+          colaboradorNome: regEnt.colaboradorNome,
+          posto:           regEnt.posto,
+          tipo:            'saida',
+          timestamp:       novoTs,
+          localizacao:     null,
+          foto:            null,
+          corrigidoManualmente: true
+        };
+      } else {
+        mostrarSyncToast('❌ A saída precisa ser depois da entrada', 'red');
+        return;
+      }
+    }
   }
 
-  if (!updates.length) { pontoFecharModal(); return; }
+  if (!updates.length && !novaSaida) { pontoFecharModal(); return; }
 
   try {
     for (const reg of updates) {
@@ -5838,10 +5874,18 @@ async function pontoSalvarEdicao() {
         await window._fbUpdate(window._fbRef(window._db, 'registros/' + reg.id), { timestamp: reg.timestamp });
       }
     }
+    if (novaSaida) {
+      registros.unshift(novaSaida);
+      if (window._firebaseReady && window._db) {
+        await window._fbSet(window._fbRef(window._db, 'registros/' + novaSaida.id), novaSaida);
+      }
+      if (typeof ftCriarSeNecessario === 'function') ftCriarSeNecessario(novaSaida);
+    }
     localStorage.setItem('ms_registros', JSON.stringify(registros));
-    mostrarSyncToast('✅ Horário(s) corrigido(s)!', 'green');
+    mostrarSyncToast(novaSaida ? '✅ Saída adicionada!' : '✅ Horário(s) corrigido(s)!', 'green');
     pontoFecharModal();
     renderHistorico();
+    if (document.getElementById('tab-dashboard')?.classList.contains('active')) renderDashboard();
   } catch (e) {
     console.error('[pontoSalvarEdicao]', e.message);
     mostrarSyncToast('❌ Erro ao salvar: ' + e.message, 'red');
