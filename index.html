@@ -4217,7 +4217,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
         <span class="check">✅</span>
       </div>
     </div>
-    <button class="btn-camera" id="btn-camera-action" onclick="cameraAction()">Ativar Câmera</button>
+    <button class="btn-camera" id="btn-camera-action" onclick="iniciarCameraAutomatica()">🔁 Tentar novamente</button>
     <br/>
     <button class="btn-cancel" onclick="closeFaceModal()">← Voltar</button>
   </div>
@@ -5011,15 +5011,19 @@ async function baterPonto(tipo) {
 // ─── MODAL FACIAL ─────────────────────────────────────────────────────────────
 let camStream = null;
 let camState  = 'idle';
+let _camAutoTimer = null;
 
 function openFaceModal() {
   document.getElementById('face-tipo-label').textContent = pendingTipo === 'entrada' ? '🟢 Registrar ENTRADA' : '🔴 Registrar SAÍDA';
   document.getElementById('face-nome-label').textContent = selectedColab.nome;
   document.getElementById('face-overlay').style.display = 'flex';
   resetCamera();
+  // Câmera liga e captura automaticamente — sem precisar de toque de confirmação
+  iniciarCameraAutomatica();
 }
 
 function closeFaceModal() {
+  clearTimeout(_camAutoTimer);
   stopCam();
   document.getElementById('face-overlay').style.display = 'none';
   camState = 'idle';
@@ -5027,16 +5031,18 @@ function closeFaceModal() {
 }
 
 function resetCamera() {
+  clearTimeout(_camAutoTimer);
   camState = 'idle';
   pendingFotoPonto = null; // nova tentativa de ponto → descarta foto anterior
   document.getElementById('cam-placeholder').style.display = 'flex';
-  document.getElementById('cam-placeholder').innerHTML = '<span class="face-icon">👤</span><p>Câmera inativa</p>';
+  document.getElementById('cam-placeholder').innerHTML = '<span class="face-icon">👤</span><p>Ativando câmera...</p>';
   document.getElementById('cam-video').style.display = 'none';
   document.getElementById('scan-line').style.display = 'none';
   document.getElementById('face-success').style.display = 'none';
   document.getElementById('camera-wrap').className = 'camera-wrap';
   const btn = document.getElementById('btn-camera-action');
-  btn.textContent = 'Ativar Câmera';
+  // Botão manual só aparece se a câmera falhar (fallback) — fluxo normal é 100% automático
+  btn.style.display = 'none';
   btn.disabled = false;
   btn.className = 'btn-camera';
 }
@@ -5061,47 +5067,47 @@ function capturarFotoAtual() {
   }
 }
 
-async function cameraAction() {
-  if (camState === 'idle') {
-    try {
-      camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      const vid = document.getElementById('cam-video');
-      vid.srcObject = camStream;
-      vid.style.display = 'block';
-      document.getElementById('cam-placeholder').style.display = 'none';
-      camState = 'streaming';
-      document.getElementById('btn-camera-action').textContent = '📸 Verificar Identidade';
-    } catch {
-      document.getElementById('cam-placeholder').innerHTML = '<span class="face-icon">👤</span><p style="color:var(--muted);font-size:12px">Câmera indisponível<br>Modo simulado — sem foto</p>';
-      camState = 'streaming';
-      document.getElementById('btn-camera-action').textContent = '📸 Verificar Identidade';
-    }
-  } else if (camState === 'streaming') {
-    // Captura a foto real do momento exato em que o colaborador confirma
-    pendingFotoPonto = capturarFotoAtual();
-
-    camState = 'scanning';
-    document.getElementById('camera-wrap').classList.add('scanning');
-    document.getElementById('scan-line').style.display = 'block';
-    const btn = document.getElementById('btn-camera-action');
-    btn.textContent = '⏳ Verificando...';
-    btn.className = 'btn-camera scanning';
-    btn.disabled = true;
-
-    setTimeout(() => {
-      camState = 'done';
-      stopCam();
-      document.getElementById('scan-line').style.display = 'none';
-      document.getElementById('cam-video').style.display = 'none';
-      document.getElementById('cam-placeholder').style.display = 'none';
-      document.getElementById('face-success').style.display = 'flex';
-      document.getElementById('camera-wrap').className = 'camera-wrap done';
-      setTimeout(() => {
-        registrarPonto();
-        closeFaceModal();
-      }, 900);
-    }, 2400);
+// ─── Liga a câmera automaticamente ao abrir o modal, sem exigir toque ─────────
+async function iniciarCameraAutomatica() {
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    const vid = document.getElementById('cam-video');
+    vid.srcObject = camStream;
+    vid.style.display = 'block';
+    document.getElementById('cam-placeholder').style.display = 'none';
+    camState = 'streaming';
+    // Pequena pausa para a câmera focar/estabilizar antes de capturar sozinha
+    _camAutoTimer = setTimeout(() => { if (camState === 'streaming') capturarEVerificar(); }, 1200);
+  } catch {
+    // Sem permissão/câmera indisponível → modo simulado, também automático
+    document.getElementById('cam-placeholder').innerHTML = '<span class="face-icon">👤</span><p style="color:var(--muted);font-size:12px">Câmera indisponível<br>Modo simulado — sem foto</p>';
+    camState = 'streaming';
+    _camAutoTimer = setTimeout(() => { if (camState === 'streaming') capturarEVerificar(); }, 900);
   }
+}
+
+// ─── Captura a foto e conclui a verificação/registro, sem interação do usuário ─
+function capturarEVerificar() {
+  // Captura a foto real do momento exato da verificação automática
+  pendingFotoPonto = capturarFotoAtual();
+
+  camState = 'scanning';
+  document.getElementById('camera-wrap').classList.add('scanning');
+  document.getElementById('scan-line').style.display = 'block';
+
+  _camAutoTimer = setTimeout(() => {
+    camState = 'done';
+    stopCam();
+    document.getElementById('scan-line').style.display = 'none';
+    document.getElementById('cam-video').style.display = 'none';
+    document.getElementById('cam-placeholder').style.display = 'none';
+    document.getElementById('face-success').style.display = 'flex';
+    document.getElementById('camera-wrap').className = 'camera-wrap done';
+    _camAutoTimer = setTimeout(() => {
+      registrarPonto();
+      closeFaceModal();
+    }, 900);
+  }, 2400);
 }
 
 function stopCam() {
