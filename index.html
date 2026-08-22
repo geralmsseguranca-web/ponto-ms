@@ -7215,19 +7215,12 @@ let _ftUnsub        = null;         // listener Firebase fts/
 
 // ─── Listener Firebase fts/ ──────────────────────────────────────────────────
 function ftIniciarListener() {
-  if (!window._firebaseReady || !window._db) return;
-  // Encerra listener anterior se existir
-  if (_ftUnsub) { try { _ftUnsub(); } catch {} _ftUnsub = null; }
-
-  _ftUnsub = window._fbOnValue(window._fbRef(window._db, 'fts'), snap => {
-    const data = snap.val();
-    _fts = data ? Object.values(data).filter(ft => !ft.deletada).sort((a,b) => b.criadaEm - a.criadaEm) : [];
-    ftRenderLista();
-    if (typeof ftvAtualizarKPIs === 'function') ftvAtualizarKPIs();
-  });
-
-  // Adiciona ao array de unsubs apenas se não estiver já registrado
-  if (_ftUnsub && !_fbUnsubs.includes(_ftUnsub)) _fbUnsubs.push(_ftUnsub);
+  // O listener global de 'fts' já é criado na inicialização (bloco u5) e
+  // mantém _fts atualizado + chama ftRenderLista() a cada mudança.
+  // Criar um segundo listener aqui duplicava as atualizações da lista
+  // (mesmo path 'fts' ouvido duas vezes), então essa função hoje é
+  // apenas um marcador de compatibilidade — não abre listener próprio.
+  _ftUnsub = _ftUnsub || (() => {});
 }
 
 // ─── Reparar FTs com posto vazio ─────────────────────────────────────────────
@@ -7756,14 +7749,19 @@ async function ftAcao(novoStatus) {
     }
   }
 
+  // Atualização otimista: reflete a mudança na lista imediatamente,
+  // sem esperar o listener remoto do Firebase confirmar o snapshot.
+  const idxLocal = _fts.findIndex(x => x.id === ft.id);
+  if (idxLocal > -1) _fts[idxLocal] = atualizado;
+  ftRenderLista();
+  if (typeof ftvAtualizarKPIs === 'function') ftvAtualizarKPIs();
+  if (document.getElementById('tab-ft-validadas')?.classList.contains('active') && typeof ftvAplicarFiltros === 'function') {
+    ftvAplicarFiltros();
+  }
+
   try {
     if (window._firebaseReady && window._db) {
       await window._fbSet(window._fbRef(window._db, 'fts/' + ft.id), atualizado);
-    } else {
-      // Offline: atualiza local
-      const idx = _fts.findIndex(x => x.id === ft.id);
-      if (idx > -1) _fts[idx] = atualizado;
-      ftRenderLista();
     }
     ftFecharModal();
     const msg = novoStatus === 'validada' ? '✅ FT validada com sucesso!' : '❌ FT rejeitada';
