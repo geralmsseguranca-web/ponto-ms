@@ -2113,6 +2113,74 @@ tbody tr:hover { background: #f59e0b08; }
 }
 
 /* ══════════════════════════════════════════
+   BALÃO DE CONFIRMAÇÃO (substitui o confirm() nativo)
+══════════════════════════════════════════ */
+.pj-confirm-overlay {
+  position: fixed; inset: 0; background: #000c; z-index: 400;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; animation: fadeIn .18s ease;
+}
+.pj-confirm-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 24px 22px 20px;
+  width: 100%; max-width: 380px;
+  box-shadow: 0 24px 80px #000a;
+  animation: slideUp .22s ease;
+  position: relative;
+}
+.pj-confirm-box.is-perigo { border-color: #e8273f55; }
+.pj-confirm-icon {
+  width: 48px; height: 48px; border-radius: 14px;
+  background: var(--red-bg); color: var(--red);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; margin-bottom: 14px;
+}
+.pj-confirm-titulo {
+  font-family: var(--font-head); font-size: 16px; font-weight: 700;
+  color: var(--text); margin-bottom: 8px; letter-spacing: .3px;
+}
+.pj-confirm-msg {
+  font-size: 13.5px; color: var(--muted); line-height: 1.55;
+  margin-bottom: 4px;
+}
+.pj-confirm-msg strong { color: var(--text); }
+.pj-confirm-aviso {
+  font-size: 11.5px; color: var(--red); margin-top: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.pj-confirm-acoes {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 20px; flex-wrap: wrap;
+}
+.pj-confirm-btn {
+  border-radius: 10px; padding: 10px 18px; font-size: 13.5px;
+  font-weight: 600; cursor: pointer; transition: all .15s; border: 1px solid transparent;
+  font-family: var(--font-body);
+}
+.pj-confirm-btn-cancelar {
+  background: var(--surface2); border-color: var(--border); color: var(--text);
+}
+.pj-confirm-btn-cancelar:hover { border-color: var(--muted); }
+.pj-confirm-btn-confirmar {
+  background: var(--red-bg); border-color: #e8273f55; color: var(--red);
+}
+.pj-confirm-btn-confirmar:hover { background: #e8273f22; border-color: var(--red); }
+
+@media (max-width: 480px) {
+  .pj-confirm-box { padding: 20px 16px 16px; border-radius: 16px; }
+  .pj-confirm-acoes { flex-direction: column-reverse; }
+  .pj-confirm-btn { width: 100%; text-align: center; }
+}
+
+/* Lixeira na coluna Ações do Histórico */
+.btn-ponto-acao.btn-ponto-excluir-linha {
+  color: var(--red); border-color: #e8273f44;
+}
+.btn-ponto-acao.btn-ponto-excluir-linha:hover {
+  border-color: var(--red); background: var(--red-bg);
+}
+
+/* ══════════════════════════════════════════
    FTs VALIDADAS
 ══════════════════════════════════════════ */
 .ftv-header { margin-bottom: 20px; }
@@ -3470,6 +3538,20 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           </thead>
           <tbody id="hist-tbody"></tbody>
         </table>
+      </div>
+
+      <!-- ─── BALÃO DE CONFIRMAÇÃO GENÉRICO (substitui confirm() nativo) ─── -->
+      <div class="pj-confirm-overlay" id="pj-confirm-overlay" style="display:none" onclick="if(event.target===this)pjConfirmarCancelar()">
+        <div class="pj-confirm-box is-perigo">
+          <div class="pj-confirm-icon">🗑️</div>
+          <div class="pj-confirm-titulo" id="pj-confirm-titulo">Excluir registro?</div>
+          <div class="pj-confirm-msg" id="pj-confirm-msg"></div>
+          <div class="pj-confirm-aviso">⚠️ Esta ação não pode ser desfeita.</div>
+          <div class="pj-confirm-acoes">
+            <button class="pj-confirm-btn pj-confirm-btn-cancelar" onclick="pjConfirmarCancelar()">Cancelar</button>
+            <button class="pj-confirm-btn pj-confirm-btn-confirmar" onclick="pjConfirmarOk()">🗑️ Excluir</button>
+          </div>
+        </div>
       </div>
 
       <!-- ─── MODAL EDITAR/EXCLUIR REGISTRO DE PONTO ─── -->
@@ -5637,6 +5719,70 @@ function _buildParesPonto(lista) {
   return { pares, regKey };
 }
 
+// ─── Balão de confirmação genérico (substitui confirm() nativo) ──────────────
+let _pjConfirmCallback = null;
+
+function pjConfirmar(mensagemHTML, onConfirm, titulo) {
+  document.getElementById('pj-confirm-titulo').textContent = titulo || 'Excluir registro?';
+  document.getElementById('pj-confirm-msg').innerHTML = mensagemHTML;
+  _pjConfirmCallback = onConfirm;
+  document.getElementById('pj-confirm-overlay').style.display = 'flex';
+}
+window.pjConfirmar = pjConfirmar;
+
+function pjConfirmarCancelar() {
+  document.getElementById('pj-confirm-overlay').style.display = 'none';
+  _pjConfirmCallback = null;
+}
+window.pjConfirmarCancelar = pjConfirmarCancelar;
+
+function pjConfirmarOk() {
+  const cb = _pjConfirmCallback;
+  document.getElementById('pj-confirm-overlay').style.display = 'none';
+  _pjConfirmCallback = null;
+  if (typeof cb === 'function') cb();
+}
+window.pjConfirmarOk = pjConfirmarOk;
+
+// ─── Excluir turno inteiro direto da lista (lixeira na coluna Ações) ─────────
+async function pontoExcluirLinha(entId, saiId) {
+  const regEnt = entId ? registros.find(r => r.id === entId) : null;
+  const regSai = saiId ? registros.find(r => r.id === saiId) : null;
+  const base = regEnt || regSai;
+  if (!base) return;
+
+  const partes = [];
+  if (regEnt) partes.push('entrada');
+  if (regSai) partes.push('saída');
+
+  pjConfirmar(
+    `Excluir o registro de <strong>${esc(partes.join(' e '))}</strong> de<br>` +
+    `<strong>${esc(base.colaboradorNome || '—')}</strong> · ${esc(base.posto || '—')}` +
+    (regEnt ? `<br>🟢 ${fmtHora(regEnt.timestamp)}` : '') +
+    (regSai ? `<br>🔴 ${fmtHora(regSai.timestamp)}` : ''),
+    async () => {
+      try {
+        const ids = [entId, saiId].filter(Boolean);
+        for (const id of ids) {
+          if (window._firebaseReady && window._db) {
+            await window._fbRemove(window._fbRef(window._db, 'registros/' + id));
+          }
+        }
+        registros = registros.filter(r => !ids.includes(r.id));
+        localStorage.setItem('ms_registros', JSON.stringify(registros));
+        mostrarSyncToast('🗑️ Registro excluído!', 'green');
+        renderHistorico();
+        if (document.getElementById('tab-dashboard')?.classList.contains('active')) renderDashboard();
+      } catch (e) {
+        console.error('[pontoExcluirLinha]', e.message);
+        mostrarSyncToast('❌ Erro ao excluir: ' + e.message, 'red');
+      }
+    },
+    'Excluir turno?'
+  );
+}
+window.pontoExcluirLinha = pontoExcluirLinha;
+
 // ─── Render tbody da tabela (estilo diferenciado) ─────────────────────────────
 function _histRenderTbody() {
   const tbody = document.getElementById('hist-tbody');
@@ -5709,6 +5855,7 @@ function _histRenderTbody() {
 
     const acoesCel = isAdmin ? `<td class="td-acoes">
       <button class="btn-ponto-acao" title="Editar horários" onclick="pontoAbrirEdicao('${entId}','${saiId}')">✏️</button>
+      <button class="btn-ponto-acao btn-ponto-excluir-linha" title="Excluir registro" onclick="pontoExcluirLinha('${entId}','${saiId}')">🗑️</button>
     </td>` : '';
 
     rows.push(`<tr>
@@ -5905,25 +6052,26 @@ async function pontoExcluirRegistro(qual) {
   const reg = registros.find(r => r.id === id);
   if (!reg) return;
 
-  const confirmado = confirm(
-    `Excluir este registro de ${qual === 'entrada' ? 'ENTRADA' : 'SAÍDA'}?\n\n` +
-    `${reg.colaboradorNome || ''} · ${fmtHora(reg.timestamp)}\n\nEsta ação não pode ser desfeita.`
+  pjConfirmar(
+    `Excluir este registro de <strong>${qual === 'entrada' ? 'ENTRADA' : 'SAÍDA'}</strong>?<br>` +
+    `<strong>${esc(reg.colaboradorNome || '')}</strong> · ${fmtHora(reg.timestamp)}`,
+    async () => {
+      try {
+        if (window._firebaseReady && window._db) {
+          await window._fbRemove(window._fbRef(window._db, 'registros/' + id));
+        }
+        registros = registros.filter(r => r.id !== id);
+        localStorage.setItem('ms_registros', JSON.stringify(registros));
+        mostrarSyncToast('🗑️ Registro excluído!', 'green');
+        pontoFecharModal();
+        renderHistorico();
+      } catch (e) {
+        console.error('[pontoExcluirRegistro]', e.message);
+        mostrarSyncToast('❌ Erro ao excluir: ' + e.message, 'red');
+      }
+    },
+    `Excluir ${qual === 'entrada' ? 'entrada' : 'saída'}?`
   );
-  if (!confirmado) return;
-
-  try {
-    if (window._firebaseReady && window._db) {
-      await window._fbRemove(window._fbRef(window._db, 'registros/' + id));
-    }
-    registros = registros.filter(r => r.id !== id);
-    localStorage.setItem('ms_registros', JSON.stringify(registros));
-    mostrarSyncToast('🗑️ Registro excluído!', 'green');
-    pontoFecharModal();
-    renderHistorico();
-  } catch (e) {
-    console.error('[pontoExcluirRegistro]', e.message);
-    mostrarSyncToast('❌ Erro ao excluir: ' + e.message, 'red');
-  }
 }
 window.pontoExcluirRegistro = pontoExcluirRegistro;
 
