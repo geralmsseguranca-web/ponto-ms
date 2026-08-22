@@ -2526,8 +2526,13 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
 /* ══════════════════════════════════════════
    LAYOUT DESKTOP  ≥ 900px
    Sidebar fixa à esquerda + área de conteúdo
+   App é mobile-only: além da largura, exige ponteiro fino/hover
+   (hardware real de laptop/desktop). Isso impede que o modo
+   "Solicitar site para computador" do navegador — que só finge uma
+   tela larga, mas não muda o tipo de entrada — ative esse layout
+   num celular.
 ══════════════════════════════════════════ */
-@media (min-width: 900px) {
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
 
   /* ── Estrutura raiz ── */
   body {
@@ -2796,7 +2801,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
 /* ══════════════════════════════════════════
    LAYOUT DESKTOP LARGO  ≥ 1440px
 ══════════════════════════════════════════ */
-@media (min-width: 1440px) {
+@media (min-width: 1440px) and (hover: hover) and (pointer: fine) {
   header#main-header { width: 260px; }
   main#main-content  { margin-left: 260px; padding: 0 64px 60px; }
   .desktop-topbar     { margin: 0 -64px 32px; padding: 20px 64px; }
@@ -5540,10 +5545,19 @@ function mostrarErroLogin(msg) {
 }
 
 // ─── ENTRAR / SAIR SISTEMA ────────────────────────────────────────────────────
+// App é mobile-only: só considera "desktop" quando a tela é larga E o
+// hardware é de ponteiro fino/hover (mouse). Assim o modo "Solicitar site
+// para computador" do navegador (que só finge tela larga, sem mudar o tipo
+// de entrada) nunca ativa o layout de laptop num celular.
+function _isDesktopViewport() {
+  return window.innerWidth >= 900
+    && window.matchMedia('(hover: hover)').matches
+    && window.matchMedia('(pointer: fine)').matches;
+}
 function _aplicarLayoutDesktop() {
   const header = document.getElementById('main-header');
   if (!header || header.style.display === 'none') return; // ainda não logado
-  const isDesktop = window.innerWidth >= 900;
+  const isDesktop = _isDesktopViewport();
   header.style.display = isDesktop ? 'flex' : 'block';
   const divider = document.getElementById('tab-divider-admin');
   if (divider && currentUser) {
@@ -5560,7 +5574,7 @@ function entrarSistema(usuario) {
 
   // ── Desktop: sidebar usa display:flex; mobile: display:block ──
   const header = document.getElementById('main-header');
-  header.style.display = window.innerWidth >= 900 ? 'flex' : 'block';
+  header.style.display = _isDesktopViewport() ? 'flex' : 'block';
 
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('main-footer').style.display  = 'block';
@@ -5578,7 +5592,7 @@ function entrarSistema(usuario) {
   // Divider admin: só aparece no desktop quando é admin
   const divider = document.getElementById('tab-divider-admin');
   if (divider) {
-    divider.style.display = (isAdmin && window.innerWidth >= 900) ? '' : 'none';
+    divider.style.display = (isAdmin && _isDesktopViewport()) ? '' : 'none';
   }
 
   selectedColab = null;
