@@ -1317,6 +1317,11 @@ main {
 ══════════════════════════════════════════ */
 .ponto-btns {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px;
+  /* min-width:0 nas colunas evita que um item (ex: botão em "bloqueada")
+     force a grade a crescer além do container — sem isso, texto longo
+     ("ENTRADA bloqueada 50:56") empurrava a página pra fora da tela
+     em vez de quebrar linha. */
+  min-width: 0;
 }
 .btn-ponto {
   border: none; border-radius: 20px; cursor: pointer;
@@ -1325,6 +1330,11 @@ main {
   display: flex; flex-direction: column; align-items: center; gap: 10px;
   transition: transform .12s, box-shadow .2s; position: relative; overflow: hidden;
   letter-spacing: 1px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  word-break: break-word;
 }
 .btn-ponto::after {
   content:''; position:absolute; inset:0;
