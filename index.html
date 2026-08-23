@@ -3624,20 +3624,6 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
       </div><!-- /desktop-ponto-right -->
     </div><!-- /desktop-ponto-layout -->
 
-    <!-- ─── PICKER DE POSTO DE TRABALHO (lista bonita, substitui o select nativo) ─── -->
-    <div class="posto-picker-overlay" id="posto-picker-overlay" style="display:none" onclick="if(event.target===this)fecharPostoPicker()">
-      <div class="posto-picker-panel">
-        <div class="posto-picker-head">
-          <h3 class="posto-picker-titulo">📍 Posto de trabalho</h3>
-          <button class="posto-picker-close" onclick="fecharPostoPicker()">✕</button>
-        </div>
-        <div class="posto-picker-search-wrap">
-          <input type="text" class="posto-picker-search" id="posto-picker-search" placeholder="🔎 Buscar posto..." oninput="postoPickerFiltrar()">
-        </div>
-        <div class="posto-picker-list" id="posto-picker-list"></div>
-      </div>
-    </div>
-
   </section>
 
   <!-- ─── ABA: DASHBOARD ─── -->
@@ -4361,20 +4347,6 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
         <div id="gc-lista-vazio" style="text-align:center;padding:32px 20px;color:var(--muted);font-size:14px;display:none">
           <div style="font-size:36px;margin-bottom:10px">👥</div>
           Nenhum colaborador cadastrado
-        </div>
-      </div>
-
-      <!-- ─── PICKER GENÉRICO (Posto / Função / Estado civil) — mesma lista bonita do Bater Ponto ─── -->
-      <div class="posto-picker-overlay" id="gc-picker-overlay" style="display:none" onclick="if(event.target===this)fecharGcPicker()">
-        <div class="posto-picker-panel">
-          <div class="posto-picker-head">
-            <h3 class="posto-picker-titulo" id="gc-picker-titulo">Selecionar</h3>
-            <button class="posto-picker-close" onclick="fecharGcPicker()">✕</button>
-          </div>
-          <div class="posto-picker-search-wrap">
-            <input type="text" class="posto-picker-search" id="gc-picker-search" placeholder="🔎 Buscar..." oninput="gcPickerFiltrar()">
-          </div>
-          <div class="posto-picker-list" id="gc-picker-list"></div>
         </div>
       </div>
 
@@ -10355,5 +10327,42 @@ function enviarNtfy(reg) {
 window.enviarNtfy = enviarNtfy;
 
 </script>
+
+<!-- ─── PICKER DE POSTO DE TRABALHO (lista bonita, substitui o select nativo) ───
+     Movido para filho direto do <body>: antes ficava dentro de #tab-ponto,
+     que é .tab-content (tem "animation: fadeUp"), o que criava um novo
+     contexto de empilhamento e prendia o z-index:300 deste modal ali dentro.
+     Como o <header> tem z-index:100 fixo, o cabeçalho podia acabar desenhado
+     por cima do topo do modal (título + busca), sobrando visível só a lista —
+     isso acontecia tanto para admin quanto para colaborador, mas de forma
+     inconsistente conforme o estado de renderização do navegador. Estando
+     fora de qualquer .tab-content, o modal sempre fica acima do header. -->
+<!-- Mesma correção aplicada ao picker genérico da Gestão de Colaboradores (Posto/Função/Estado civil) -->
+<div class="posto-picker-overlay" id="gc-picker-overlay" style="display:none" onclick="if(event.target===this)fecharGcPicker()">
+  <div class="posto-picker-panel">
+    <div class="posto-picker-head">
+      <h3 class="posto-picker-titulo" id="gc-picker-titulo">Selecionar</h3>
+      <button class="posto-picker-close" onclick="fecharGcPicker()">✕</button>
+    </div>
+    <div class="posto-picker-search-wrap">
+      <input type="text" class="posto-picker-search" id="gc-picker-search" placeholder="🔎 Buscar..." oninput="gcPickerFiltrar()">
+    </div>
+    <div class="posto-picker-list" id="gc-picker-list"></div>
+  </div>
+</div>
+
+<div class="posto-picker-overlay" id="posto-picker-overlay" style="display:none" onclick="if(event.target===this)fecharPostoPicker()">
+  <div class="posto-picker-panel">
+    <div class="posto-picker-head">
+      <h3 class="posto-picker-titulo">📍 Posto de trabalho</h3>
+      <button class="posto-picker-close" onclick="fecharPostoPicker()">✕</button>
+    </div>
+    <div class="posto-picker-search-wrap">
+      <input type="text" class="posto-picker-search" id="posto-picker-search" placeholder="🔎 Buscar posto..." oninput="postoPickerFiltrar()">
+    </div>
+    <div class="posto-picker-list" id="posto-picker-list"></div>
+  </div>
+</div>
+
 </body>
 </html>
