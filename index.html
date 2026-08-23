@@ -4219,7 +4219,11 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           <!-- Posto de serviço -->
           <div class="gc-field gc-full">
             <label class="gc-label">📍 Posto de serviço</label>
-            <select id="gc-posto" class="gc-input">
+            <button type="button" class="posto-picker-btn" id="gc-posto-btn" onclick="abrirGcPicker('gc-posto','📍 Posto de serviço')">
+              <span class="posto-picker-btn-label placeholder" id="gc-posto-btn-label">Posto de serviço...</span>
+              <span class="posto-picker-btn-chevron">▼</span>
+            </button>
+            <select id="gc-posto" style="display:none">
               <option value="">Posto de serviço...</option>
             </select>
           </div>
@@ -4257,7 +4261,11 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           <!-- Função / Cargo -->
           <div class="gc-field">
             <label class="gc-label">💼 Função / Cargo</label>
-            <select id="gc-funcao" class="gc-input">
+            <button type="button" class="posto-picker-btn" id="gc-funcao-btn" onclick="abrirGcPicker('gc-funcao','💼 Função / Cargo')">
+              <span class="posto-picker-btn-label placeholder" id="gc-funcao-btn-label">Selecione a função...</span>
+              <span class="posto-picker-btn-chevron">▼</span>
+            </button>
+            <select id="gc-funcao" style="display:none">
               <option value="">Selecione a função...</option>
               <option value="Vigilante">Vigilante</option>
               <option value="Supervisor">Supervisor</option>
@@ -4270,7 +4278,11 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           <!-- Estado civil -->
           <div class="gc-field">
             <label class="gc-label">💍 Estado civil</label>
-            <select id="gc-estado-civil" class="gc-input">
+            <button type="button" class="posto-picker-btn" id="gc-estado-civil-btn" onclick="abrirGcPicker('gc-estado-civil','💍 Estado civil')">
+              <span class="posto-picker-btn-label placeholder" id="gc-estado-civil-btn-label">Estado civil...</span>
+              <span class="posto-picker-btn-chevron">▼</span>
+            </button>
+            <select id="gc-estado-civil" style="display:none">
               <option value="">Estado civil...</option>
               <option value="Solteiro(a)">Solteiro(a)</option>
               <option value="Casado(a)">Casado(a)</option>
@@ -4326,6 +4338,20 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
         <div id="gc-lista-vazio" style="text-align:center;padding:32px 20px;color:var(--muted);font-size:14px;display:none">
           <div style="font-size:36px;margin-bottom:10px">👥</div>
           Nenhum colaborador cadastrado
+        </div>
+      </div>
+
+      <!-- ─── PICKER GENÉRICO (Posto / Função / Estado civil) — mesma lista bonita do Bater Ponto ─── -->
+      <div class="posto-picker-overlay" id="gc-picker-overlay" style="display:none" onclick="if(event.target===this)fecharGcPicker()">
+        <div class="posto-picker-panel">
+          <div class="posto-picker-head">
+            <h3 class="posto-picker-titulo" id="gc-picker-titulo">Selecionar</h3>
+            <button class="posto-picker-close" onclick="fecharGcPicker()">✕</button>
+          </div>
+          <div class="posto-picker-search-wrap">
+            <input type="text" class="posto-picker-search" id="gc-picker-search" placeholder="🔎 Buscar..." oninput="gcPickerFiltrar()">
+          </div>
+          <div class="posto-picker-list" id="gc-picker-list"></div>
         </div>
       </div>
 
@@ -4821,6 +4847,11 @@ function showTab(id, btn) {
     // Garante que o select de postos esteja populado ao abrir a aba
     if (window.gcPopularSelectPostos) window.gcPopularSelectPostos();
     if (window.gcRenderListaResumo)   window.gcRenderListaResumo();
+    // Sincroniza os botões do picker (posto já é sincronizado dentro de
+    // gcPopularSelectPostos; função e estado civil têm opções estáticas).
+    ['gc-funcao','gc-estado-civil'].forEach(id => {
+      if (window.atualizarBotaoGcPicker) window.atualizarBotaoGcPicker(id);
+    });
   }
 }
 function goHome() {
@@ -8997,7 +9028,90 @@ function gcPopularSelectPostos() {
       postosExistentes.add(c.posto);
     }
   });
+  atualizarBotaoGcPicker('gc-posto');
 }
+
+// ─── PICKER GENÉRICO DO FORM DE CADASTRO — mesma lista bonita usada no Bater
+// Ponto, reaproveitada aqui para Posto / Função / Estado civil. Cada <select>
+// (gc-posto, gc-funcao, gc-estado-civil) continua sendo a fonte de verdade;
+// o picker só lê as options dele e, ao escolher, seta o .value — sem
+// duplicar dados nem mexer no restante do form (leitura em gcSalvar,
+// reset em gcLimparForm etc. continuam funcionando normalmente). ──
+let _gcPickerTarget = null;
+
+function atualizarBotaoGcPicker(selectId) {
+  const sel   = document.getElementById(selectId);
+  const label = document.getElementById(selectId + '-btn-label');
+  if (!sel || !label) return;
+  const placeholder = sel.options[0] ? sel.options[0].textContent : '-- Selecione --';
+  if (sel.value) {
+    label.textContent = sel.value;
+    label.classList.remove('placeholder');
+  } else {
+    label.textContent = placeholder;
+    label.classList.add('placeholder');
+  }
+}
+
+function abrirGcPicker(selectId, titulo) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  _gcPickerTarget = selectId;
+  document.getElementById('gc-picker-titulo').textContent = titulo || 'Selecionar';
+  const overlay = document.getElementById('gc-picker-overlay');
+  const search  = document.getElementById('gc-picker-search');
+  search.value = '';
+  renderGcPickerList('');
+  overlay.style.display = 'flex';
+  setTimeout(() => search.focus(), 50);
+}
+window.abrirGcPicker = abrirGcPicker;
+
+function fecharGcPicker() {
+  document.getElementById('gc-picker-overlay').style.display = 'none';
+  _gcPickerTarget = null;
+}
+window.fecharGcPicker = fecharGcPicker;
+
+function gcPickerFiltrar() {
+  renderGcPickerList(document.getElementById('gc-picker-search').value || '');
+}
+window.gcPickerFiltrar = gcPickerFiltrar;
+
+function renderGcPickerList(termo) {
+  if (!_gcPickerTarget) return;
+  const sel  = document.getElementById(_gcPickerTarget);
+  const list = document.getElementById('gc-picker-list');
+  if (!sel || !list) return;
+  const termoNorm = termo.trim().toLowerCase();
+  const opcoes = Array.from(sel.options)
+    .map(o => o.value)
+    .filter(v => v)
+    .filter(v => !termoNorm || v.toLowerCase().includes(termoNorm));
+
+  if (!opcoes.length) {
+    list.innerHTML = '<div class="posto-picker-empty">Nenhum resultado encontrado</div>';
+    return;
+  }
+  list.innerHTML = opcoes.map(nome => {
+    const selecionado = nome === sel.value;
+    return `<button type="button" class="posto-picker-item${selecionado ? ' selected' : ''}" onclick="selecionarGcPickerItem('${nome.replace(/'/g, "\\'")}')">
+      <span>${esc(nome)}</span>
+      ${selecionado ? '<span class="posto-picker-item-check">✓</span>' : ''}
+    </button>`;
+  }).join('');
+}
+
+function selecionarGcPickerItem(nome) {
+  if (!_gcPickerTarget) return;
+  const sel = document.getElementById(_gcPickerTarget);
+  if (!sel) return;
+  sel.value = nome;
+  sel.dispatchEvent(new Event('change'));
+  atualizarBotaoGcPicker(_gcPickerTarget);
+  fecharGcPicker();
+}
+window.selecionarGcPickerItem = selecionarGcPickerItem;
 
 // ─── Atualiza preview do avatar no form ───────────────────────────────
 function gcAtualizarPreview() {
@@ -9115,6 +9229,7 @@ function gcLimparForm() {
   ['gc-posto','gc-funcao','gc-estado-civil'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.selectedIndex = 0;
+    atualizarBotaoGcPicker(id);
   });
   ['gc-nome-err','gc-login-err'].forEach(id => {
     const el = document.getElementById(id);
