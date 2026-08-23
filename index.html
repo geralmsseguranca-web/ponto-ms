@@ -8213,7 +8213,7 @@ function ftAbrirModal(id) {
 }
 
 // Motivos que exigem colaborador ausente
-const FT_MOTIVOS_COM_AUSENTE = ['Atestado','Afastamento','Cobertura de Férias','Suspensão'];
+const FT_MOTIVOS_COM_AUSENTE = ['Atestado','Afastamento','Cobertura de Férias','Suspensão','Folga do Vigia'];
 
 // Rótulo dinâmico do colaborador vinculado, conforme o motivo selecionado.
 // Usado em todo o sistema: modais, cards, PDF e planilha.
@@ -8222,6 +8222,7 @@ const FT_LABEL_COLAB_POR_MOTIVO = {
   'Cobertura de Férias': 'Colaborador de férias',
   'Atestado':            'Colaborador de atestado',
   'Afastamento':         'Colaborador afastado',
+  'Folga do Vigia':      'Vigia coberto',
 };
 function labelColabVinculado(motivo) {
   return FT_LABEL_COLAB_POR_MOTIVO[motivo] || 'Colaborador ausente';
