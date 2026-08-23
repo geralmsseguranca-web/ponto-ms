@@ -122,13 +122,13 @@ body {
   overflow-x: hidden;
 }
 /* Enquanto um picker (posto/gc) está aberto: trava o scroll do body para o
-   navegador não tentar "rolar até o campo" quando o teclado abre — é isso
-   que empurrava a lista pra baixo do teclado antes de ancorarmos no topo. */
+   navegador não tentar "rolar até o campo" quando o teclado abre. Só
+   overflow:hidden — nada de position:fixed/top deslocado, que bagunçava o
+   cálculo da área visível e escondia o cabeçalho do picker atrás do topo. */
 body.picker-lock {
-  position: fixed;
-  inset: 0;
-  width: 100%;
   overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
 }
 body::before {
   content:'';
@@ -1338,7 +1338,9 @@ main {
 .posto-picker-btn-chevron { color: var(--muted); font-size: 12px; flex-shrink: 0; transition: transform .2s; }
 
 .posto-picker-overlay {
-  position: fixed; inset: 0; background: #000c; z-index: 300;
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 100vh; height: 100dvh;
+  background: #000c; z-index: 300;
   display: flex; align-items: flex-start; justify-content: center;
   padding-top: max(14px, env(safe-area-inset-top));
   animation: fadeIn .2s ease;
@@ -1349,7 +1351,8 @@ main {
 .posto-picker-panel {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 20px; width: 100%; max-width: 480px;
-  max-height: 80vh; max-height: 80dvh; display: flex; flex-direction: column;
+  max-height: calc(100vh - 28px); max-height: calc(100dvh - 28px);
+  display: flex; flex-direction: column;
   animation: slideDown .25s ease; box-shadow: 0 12px 60px #0007;
 }
 @media (min-width: 640px) {
@@ -5034,51 +5037,32 @@ function atualizarBotaoPosto() {
 }
 
 // ── Trava/destrava o scroll do body enquanto um picker (posto/gc) está aberto.
-// Sem isso, ao focar o campo de busca o navegador tenta "rolar até o campo",
-// o que empurrava a lista pra baixo do teclado mesmo com o painel ancorado
-// no topo. Compartilhada pelo posto-picker (Bater Ponto) e pelo gc-picker
-// (telas de Gestão/FT), que usam a mesma estrutura .posto-picker-overlay. ──
-let _pickerScrollY = 0;
+// Só overflow:hidden — sem deslocar o body com top negativo (essa técnica
+// "chique" foi o que causava o desalinhamento: o cálculo de offsetTop do
+// visualViewport ficava incorreto por causa do deslocamento manual do body,
+// escondendo o cabeçalho/lupa do picker). Compartilhada pelo posto-picker
+// (Bater Ponto) e pelo gc-picker (Gestão/FT), mesma estrutura de overlay. ──
 function bloquearScrollBody() {
-  _pickerScrollY = window.scrollY || window.pageYOffset || 0;
-  document.body.style.top = (-_pickerScrollY) + 'px';
   document.body.classList.add('picker-lock');
 }
 function restaurarScrollBody() {
   document.body.classList.remove('picker-lock');
-  document.body.style.top = '';
-  window.scrollTo(0, _pickerScrollY);
 }
 
-// ── Mantém o painel do picker dentro da área realmente visível (acima do
-// teclado) — usa a Visual Viewport API. Importante: não basta ajustar a
-// altura do painel — o overlay (position:fixed;inset:0) fica ancorado ao
-// viewport de LAYOUT, que muitos navegadores mobile NÃO encolhem quando o
-// teclado abre; em vez disso, a área visível "desliza" para baixo dele.
-// Por isso sincronizamos top/height do overlay com o visualViewport real
-// (offsetTop/height), senão o topo do painel (título/busca) fica acima da
-// tela visível e só a lista aparece. ──
+// ── Fallback de altura do painel para navegadores sem suporte a dvh — o
+// CSS (100dvh) já resolve isso sozinho na maioria dos aparelhos; isto só
+// ajusta o max-height, nunca a posição do overlay. ──
 function ajustarPickerAltura() {
   const vv = window.visualViewport;
+  if (!vv) return;
   document.querySelectorAll('.posto-picker-overlay').forEach(overlay => {
     if (getComputedStyle(overlay).display === 'none') return;
-    if (vv) {
-      overlay.style.top    = vv.offsetTop + 'px';
-      overlay.style.left   = vv.offsetLeft + 'px';
-      overlay.style.width  = vv.width + 'px';
-      overlay.style.height = vv.height + 'px';
-    }
     const panel = overlay.querySelector('.posto-picker-panel');
-    const altura = vv ? vv.height : window.innerHeight;
-    if (panel) panel.style.maxHeight = Math.max(220, altura - 28) + 'px';
+    if (panel) panel.style.maxHeight = Math.max(220, vv.height - 28) + 'px';
   });
-}
-function limparPosicaoPicker(overlay) {
-  overlay.style.top = overlay.style.left = overlay.style.width = overlay.style.height = '';
 }
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', ajustarPickerAltura);
-  window.visualViewport.addEventListener('scroll', ajustarPickerAltura);
 }
 
 function abrirPostoPicker() {
@@ -5095,9 +5079,7 @@ function abrirPostoPicker() {
 }
 
 function fecharPostoPicker() {
-  const overlay = document.getElementById('posto-picker-overlay');
-  overlay.style.display = 'none';
-  limparPosicaoPicker(overlay);
+  document.getElementById('posto-picker-overlay').style.display = 'none';
   restaurarScrollBody();
 }
 
@@ -9149,9 +9131,7 @@ function abrirGcPicker(selectId, titulo) {
 window.abrirGcPicker = abrirGcPicker;
 
 function fecharGcPicker() {
-  const overlay = document.getElementById('gc-picker-overlay');
-  overlay.style.display = 'none';
-  limparPosicaoPicker(overlay);
+  document.getElementById('gc-picker-overlay').style.display = 'none';
   _gcPickerTarget = null;
   restaurarScrollBody();
 }
