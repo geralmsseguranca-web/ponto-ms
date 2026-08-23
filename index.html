@@ -5051,19 +5051,34 @@ function restaurarScrollBody() {
 }
 
 // ── Mantém o painel do picker dentro da área realmente visível (acima do
-// teclado) — usa a Visual Viewport API, que reflete o espaço disponível de
-// verdade quando o teclado abre/fecha, ao contrário de vh/dvh isolados. ──
+// teclado) — usa a Visual Viewport API. Importante: não basta ajustar a
+// altura do painel — o overlay (position:fixed;inset:0) fica ancorado ao
+// viewport de LAYOUT, que muitos navegadores mobile NÃO encolhem quando o
+// teclado abre; em vez disso, a área visível "desliza" para baixo dele.
+// Por isso sincronizamos top/height do overlay com o visualViewport real
+// (offsetTop/height), senão o topo do painel (título/busca) fica acima da
+// tela visível e só a lista aparece. ──
 function ajustarPickerAltura() {
   const vv = window.visualViewport;
-  const altura = vv ? vv.height : window.innerHeight;
   document.querySelectorAll('.posto-picker-overlay').forEach(overlay => {
     if (getComputedStyle(overlay).display === 'none') return;
+    if (vv) {
+      overlay.style.top    = vv.offsetTop + 'px';
+      overlay.style.left   = vv.offsetLeft + 'px';
+      overlay.style.width  = vv.width + 'px';
+      overlay.style.height = vv.height + 'px';
+    }
     const panel = overlay.querySelector('.posto-picker-panel');
+    const altura = vv ? vv.height : window.innerHeight;
     if (panel) panel.style.maxHeight = Math.max(220, altura - 28) + 'px';
   });
 }
+function limparPosicaoPicker(overlay) {
+  overlay.style.top = overlay.style.left = overlay.style.width = overlay.style.height = '';
+}
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', ajustarPickerAltura);
+  window.visualViewport.addEventListener('scroll', ajustarPickerAltura);
 }
 
 function abrirPostoPicker() {
@@ -5076,11 +5091,13 @@ function abrirPostoPicker() {
   overlay.style.display = 'flex';
   bloquearScrollBody();
   ajustarPickerAltura();
-  setTimeout(() => search.focus(), 50);
+  setTimeout(() => { ajustarPickerAltura(); search.focus(); }, 50);
 }
 
 function fecharPostoPicker() {
-  document.getElementById('posto-picker-overlay').style.display = 'none';
+  const overlay = document.getElementById('posto-picker-overlay');
+  overlay.style.display = 'none';
+  limparPosicaoPicker(overlay);
   restaurarScrollBody();
 }
 
@@ -9127,12 +9144,14 @@ function abrirGcPicker(selectId, titulo) {
   overlay.style.display = 'flex';
   bloquearScrollBody();
   ajustarPickerAltura();
-  setTimeout(() => search.focus(), 50);
+  setTimeout(() => { ajustarPickerAltura(); search.focus(); }, 50);
 }
 window.abrirGcPicker = abrirGcPicker;
 
 function fecharGcPicker() {
-  document.getElementById('gc-picker-overlay').style.display = 'none';
+  const overlay = document.getElementById('gc-picker-overlay');
+  overlay.style.display = 'none';
+  limparPosicaoPicker(overlay);
   _gcPickerTarget = null;
   restaurarScrollBody();
 }
