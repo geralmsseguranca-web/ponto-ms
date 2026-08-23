@@ -2694,11 +2694,16 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     /* Correção: header da sidebar é position:fixed, então sai do fluxo do
        grid do body. Sem isso, main-content (único item do grid) era
        auto-posicionado na 1ª coluna (240px) em vez de ocupar o espaço
-       livre à direita — deixando uma faixa vazia enorme na tela. */
-    grid-column: 1 / -1;
+       livre à direita — deixando uma faixa vazia enorme na tela.
+       Antes: grid-column:1/-1 (largura total) + margin-left:240px somavam
+       100% + 240px de largura, estourando a tela pela direita — e como o
+       body tem overflow-x:hidden, esse excesso ficava simplesmente
+       cortado/invisível (abas "encobertas" à direita). Agora o
+       main-content ocupa só a 2ª coluna do grid (1fr = espaço livre após
+       os 240px da sidebar), sem margin extra. */
+    grid-column: 2;
     width: 100%;
     box-sizing: border-box;
-    margin-left: 240px;
     max-width: none;
     /* Menos respiro à direita que à esquerda — puxa o conteúdo pra perto
        da sidebar, evitando que a borda direita das telas fique cortada. */
@@ -2819,8 +2824,9 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
    LAYOUT DESKTOP LARGO  ≥ 1440px
 ══════════════════════════════════════════ */
 @media (min-width: 1440px) and (hover: hover) and (pointer: fine) {
+  body { grid-template-columns: 260px 1fr; }
   header#main-header { width: 260px; }
-  main#main-content  { margin-left: 260px; padding: 0 32px 60px 64px; }
+  main#main-content  { padding: 0 32px 60px 64px; }
   .desktop-topbar     { margin: 0 -32px 32px -64px; padding: 20px 32px 20px 64px; }
   #offline-banner    { left: 260px; }
   #sync-toast        { left: calc(260px + 50%); }
