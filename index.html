@@ -3609,6 +3609,20 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
       </div><!-- /desktop-ponto-right -->
     </div><!-- /desktop-ponto-layout -->
 
+    <!-- ─── PICKER DE POSTO DE TRABALHO (lista bonita, substitui o select nativo) ─── -->
+    <div class="posto-picker-overlay" id="posto-picker-overlay" style="display:none" onclick="if(event.target===this)fecharPostoPicker()">
+      <div class="posto-picker-panel">
+        <div class="posto-picker-head">
+          <h3 class="posto-picker-titulo">📍 Posto de trabalho</h3>
+          <button class="posto-picker-close" onclick="fecharPostoPicker()">✕</button>
+        </div>
+        <div class="posto-picker-search-wrap">
+          <input type="text" class="posto-picker-search" id="posto-picker-search" placeholder="🔎 Buscar posto..." oninput="postoPickerFiltrar()">
+        </div>
+        <div class="posto-picker-list" id="posto-picker-list"></div>
+      </div>
+    </div>
+
   </section>
 
   <!-- ─── ABA: DASHBOARD ─── -->
@@ -3764,20 +3778,6 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
             <button class="pj-confirm-btn pj-confirm-btn-cancelar" onclick="pjConfirmarCancelar()">Cancelar</button>
             <button class="pj-confirm-btn pj-confirm-btn-confirmar" onclick="pjConfirmarOk()">🗑️ Excluir</button>
           </div>
-        </div>
-      </div>
-
-      <!-- ─── PICKER DE POSTO DE TRABALHO (lista bonita, substitui o select nativo) ─── -->
-      <div class="posto-picker-overlay" id="posto-picker-overlay" style="display:none" onclick="if(event.target===this)fecharPostoPicker()">
-        <div class="posto-picker-panel">
-          <div class="posto-picker-head">
-            <h3 class="posto-picker-titulo">📍 Posto de trabalho</h3>
-            <button class="posto-picker-close" onclick="fecharPostoPicker()">✕</button>
-          </div>
-          <div class="posto-picker-search-wrap">
-            <input type="text" class="posto-picker-search" id="posto-picker-search" placeholder="🔎 Buscar posto..." oninput="postoPickerFiltrar()">
-          </div>
-          <div class="posto-picker-list" id="posto-picker-list"></div>
         </div>
       </div>
 
