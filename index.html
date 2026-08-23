@@ -121,6 +121,15 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
 }
+/* Enquanto um picker (posto/gc) está aberto: trava o scroll do body para o
+   navegador não tentar "rolar até o campo" quando o teclado abre — é isso
+   que empurrava a lista pra baixo do teclado antes de ancorarmos no topo. */
+body.picker-lock {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+}
 body::before {
   content:'';
   position:fixed; inset:0; pointer-events:none; z-index:0;
@@ -1323,23 +1332,25 @@ main {
 }
 .posto-picker-btn:hover  { border-color: var(--accent); }
 .posto-picker-btn:active { transform: scale(.99); }
+.posto-picker-btn:disabled { opacity: .6; cursor: not-allowed; }
 .posto-picker-btn-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .posto-picker-btn-label.placeholder { color: var(--muted); }
 .posto-picker-btn-chevron { color: var(--muted); font-size: 12px; flex-shrink: 0; transition: transform .2s; }
 
 .posto-picker-overlay {
   position: fixed; inset: 0; background: #000c; z-index: 300;
-  display: flex; align-items: flex-end; justify-content: center;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: max(14px, env(safe-area-inset-top));
   animation: fadeIn .2s ease;
 }
 @media (min-width: 640px) {
-  .posto-picker-overlay { align-items: center; }
+  .posto-picker-overlay { align-items: center; padding-top: 0; }
 }
 .posto-picker-panel {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 24px 24px 0 0; width: 100%; max-width: 480px;
-  max-height: 80vh; display: flex; flex-direction: column;
-  animation: slideUp .25s ease; box-shadow: 0 -12px 60px #0007;
+  border-radius: 20px; width: 100%; max-width: 480px;
+  max-height: 80vh; max-height: 80dvh; display: flex; flex-direction: column;
+  animation: slideDown .25s ease; box-shadow: 0 12px 60px #0007;
 }
 @media (min-width: 640px) {
   .posto-picker-panel { border-radius: 22px; max-height: 78vh; margin: 0 20px; }
@@ -2481,6 +2492,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
 @keyframes fadeUp   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 @keyframes fadeIn   { from{opacity:0} to{opacity:1} }
 @keyframes slideUp  { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+@keyframes slideDown{ from{transform:translateY(-16px);opacity:0} to{transform:translateY(0);opacity:1} }
 @keyframes scanAnim { 0%,100%{transform:translateY(-100%)} 50%{transform:translateY(100%)} }
 @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:.5} }
 
@@ -4036,7 +4048,11 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
         </div>
         <div class="ft-modal-field ft-modal-full" id="ftm-colab-ausente-wrap" style="display:none">
           <label class="ft-modal-label"><span id="ftm-colab-ausente-label">👤 Colaborador ausente</span> <span style="color:var(--red)">*</span></label>
-          <select id="ftm-colab-ausente" class="ft-modal-input">
+          <button type="button" class="posto-picker-btn" id="ftm-colab-ausente-btn" onclick="abrirGcPicker('ftm-colab-ausente', document.getElementById('ftm-colab-ausente-label').textContent)">
+            <span class="posto-picker-btn-label placeholder" id="ftm-colab-ausente-btn-label">-- Selecione --</span>
+            <span class="posto-picker-btn-chevron">▼</span>
+          </button>
+          <select id="ftm-colab-ausente" style="display:none">
             <option value="">-- Selecione --</option>
           </select>
         </div>
@@ -4160,7 +4176,11 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
         </div>
         <div class="ft-modal-field ft-modal-full" id="ftvm-colab-ausente-wrap" style="display:none">
           <label class="ft-modal-label"><span id="ftvm-colab-ausente-label">👤 Colaborador ausente</span> <span style="color:var(--red)">*</span></label>
-          <select id="ftvm-colab-ausente" class="ft-modal-input">
+          <button type="button" class="posto-picker-btn" id="ftvm-colab-ausente-btn" onclick="abrirGcPicker('ftvm-colab-ausente', document.getElementById('ftvm-colab-ausente-label').textContent)">
+            <span class="posto-picker-btn-label placeholder" id="ftvm-colab-ausente-btn-label">-- Selecione --</span>
+            <span class="posto-picker-btn-chevron">▼</span>
+          </button>
+          <select id="ftvm-colab-ausente" style="display:none">
             <option value="">-- Selecione --</option>
           </select>
         </div>
@@ -5013,6 +5033,39 @@ function atualizarBotaoPosto() {
   }
 }
 
+// ── Trava/destrava o scroll do body enquanto um picker (posto/gc) está aberto.
+// Sem isso, ao focar o campo de busca o navegador tenta "rolar até o campo",
+// o que empurrava a lista pra baixo do teclado mesmo com o painel ancorado
+// no topo. Compartilhada pelo posto-picker (Bater Ponto) e pelo gc-picker
+// (telas de Gestão/FT), que usam a mesma estrutura .posto-picker-overlay. ──
+let _pickerScrollY = 0;
+function bloquearScrollBody() {
+  _pickerScrollY = window.scrollY || window.pageYOffset || 0;
+  document.body.style.top = (-_pickerScrollY) + 'px';
+  document.body.classList.add('picker-lock');
+}
+function restaurarScrollBody() {
+  document.body.classList.remove('picker-lock');
+  document.body.style.top = '';
+  window.scrollTo(0, _pickerScrollY);
+}
+
+// ── Mantém o painel do picker dentro da área realmente visível (acima do
+// teclado) — usa a Visual Viewport API, que reflete o espaço disponível de
+// verdade quando o teclado abre/fecha, ao contrário de vh/dvh isolados. ──
+function ajustarPickerAltura() {
+  const vv = window.visualViewport;
+  const altura = vv ? vv.height : window.innerHeight;
+  document.querySelectorAll('.posto-picker-overlay').forEach(overlay => {
+    if (getComputedStyle(overlay).display === 'none') return;
+    const panel = overlay.querySelector('.posto-picker-panel');
+    if (panel) panel.style.maxHeight = Math.max(220, altura - 28) + 'px';
+  });
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', ajustarPickerAltura);
+}
+
 function abrirPostoPicker() {
   const sel = document.getElementById('ponto-posto-select');
   if (!sel) return;
@@ -5021,11 +5074,14 @@ function abrirPostoPicker() {
   search.value = '';
   renderPostoPickerList('');
   overlay.style.display = 'flex';
+  bloquearScrollBody();
+  ajustarPickerAltura();
   setTimeout(() => search.focus(), 50);
 }
 
 function fecharPostoPicker() {
   document.getElementById('posto-picker-overlay').style.display = 'none';
+  restaurarScrollBody();
 }
 
 function postoPickerFiltrar() {
@@ -8178,6 +8234,7 @@ function ftAbrirModal(id) {
       .sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'))
       .map(c => `<option value="${esc(c.nome)}"${ft.colaboradorAusente===c.nome?' selected':''}>${esc(c.nome)}</option>`)
       .join('');
+  atualizarBotaoGcPicker('ftm-colab-ausente');
 
   // Motivo sempre visível quando pendente ou rejeitada
   const motivoWrap = document.getElementById('ftm-motivo-wrap');
@@ -8188,7 +8245,7 @@ function ftAbrirModal(id) {
 
   // Bloqueia campos se já validada
   const soLeitura = ft.status === 'validada';
-  ['ftm-posto','ftm-hora-entrada','ftm-hora-saida','ftm-data','ftm-obs','ftm-motivo','ftm-valor','ftm-colab-ausente'].forEach(fId => {
+  ['ftm-posto','ftm-hora-entrada','ftm-hora-saida','ftm-data','ftm-obs','ftm-motivo','ftm-valor','ftm-colab-ausente','ftm-colab-ausente-btn'].forEach(fId => {
     const el = document.getElementById(fId);
     if (el) el.disabled = soLeitura;
   });
@@ -8235,6 +8292,7 @@ function ftToggleColabAusente() {
   wrap.style.display = FT_MOTIVOS_COM_AUSENTE.includes(motivo) ? '' : 'none';
   const lbl = document.getElementById('ftm-colab-ausente-label');
   if (lbl) lbl.textContent = '👤 ' + labelColabVinculado(motivo);
+  atualizarBotaoGcPicker('ftm-colab-ausente');
 }
 
 function ftFecharModal() {
@@ -8475,6 +8533,7 @@ function ftvAbrirEdicao(id) {
       .sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'))
       .map(c => `<option value="${esc(c.nome)}"${ft.colaboradorAusente===c.nome?' selected':''}>${esc(c.nome)}</option>`)
       .join('');
+  atualizarBotaoGcPicker('ftvm-colab-ausente');
 
   // Colaborador ausente: mostra conforme motivo atual (Atestado, Suspensão, Cobertura de Férias, Afastamento)
   ftvToggleColabAusente();
@@ -8489,6 +8548,7 @@ function ftvToggleColabAusente() {
   wrap.style.display = FT_MOTIVOS_COM_AUSENTE.includes(motivo) ? '' : 'none';
   const lbl = document.getElementById('ftvm-colab-ausente-label');
   if (lbl) lbl.textContent = '👤 ' + labelColabVinculado(motivo);
+  atualizarBotaoGcPicker('ftvm-colab-ausente');
 }
 
 function ftvFecharModal() {
@@ -9053,6 +9113,7 @@ function atualizarBotaoGcPicker(selectId) {
     label.classList.add('placeholder');
   }
 }
+window.atualizarBotaoGcPicker = atualizarBotaoGcPicker;
 
 function abrirGcPicker(selectId, titulo) {
   const sel = document.getElementById(selectId);
@@ -9064,6 +9125,8 @@ function abrirGcPicker(selectId, titulo) {
   search.value = '';
   renderGcPickerList('');
   overlay.style.display = 'flex';
+  bloquearScrollBody();
+  ajustarPickerAltura();
   setTimeout(() => search.focus(), 50);
 }
 window.abrirGcPicker = abrirGcPicker;
@@ -9071,6 +9134,7 @@ window.abrirGcPicker = abrirGcPicker;
 function fecharGcPicker() {
   document.getElementById('gc-picker-overlay').style.display = 'none';
   _gcPickerTarget = null;
+  restaurarScrollBody();
 }
 window.fecharGcPicker = fecharGcPicker;
 
