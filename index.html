@@ -2700,15 +2700,22 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     box-sizing: border-box;
     margin-left: 240px;
     max-width: none;
-    padding: 0 48px 60px;
+    /* Menos respiro à direita que à esquerda — puxa o conteúdo pra perto
+       da sidebar, evitando que a borda direita das telas fique cortada. */
+    padding: 0 24px 60px 40px;
     min-height: 100vh;
   }
+
+  /* Trava de segurança: nenhum item de grid dentro do conteúdo pode
+     forçar a página a ficar mais larga que a tela (texto/números longos
+     empurrando a coluna). Isso é o que causava abas "cobertas" à direita. */
+  main#main-content [class*="-grid"] > * { min-width: 0; }
 
   /* ── Barra superior — breadcrumb + relógio ── */
   .desktop-topbar {
     display: flex; align-items: center; justify-content: space-between;
     position: sticky; top: 0; z-index: 50;
-    margin: 0 -48px 32px; padding: 18px 48px;
+    margin: 0 -24px 32px -40px; padding: 18px 24px 18px 40px;
     background: rgba(238,246,241,.86);
     backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border);
@@ -2813,8 +2820,8 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
 ══════════════════════════════════════════ */
 @media (min-width: 1440px) and (hover: hover) and (pointer: fine) {
   header#main-header { width: 260px; }
-  main#main-content  { margin-left: 260px; padding: 0 64px 60px; }
-  .desktop-topbar     { margin: 0 -64px 32px; padding: 20px 64px; }
+  main#main-content  { margin-left: 260px; padding: 0 32px 60px 64px; }
+  .desktop-topbar     { margin: 0 -32px 32px -64px; padding: 20px 32px 20px 64px; }
   #offline-banner    { left: 260px; }
   #sync-toast        { left: calc(260px + 50%); }
   .dash-kpi-grid     { grid-template-columns: repeat(5, 1fr); }
