@@ -1312,6 +1312,77 @@ main {
 .input:focus { border-color: var(--accent); }
 .input option { background: var(--surface2); }
 
+/* ── Picker de posto — lista bonita e responsiva, substitui o <select> nativo ── */
+.posto-picker-btn {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; color: var(--text); padding: 13px 14px;
+  font-size: 15px; font-family: var(--font-body); text-align: left;
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; cursor: pointer; transition: border-color .2s, box-shadow .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.posto-picker-btn:hover  { border-color: var(--accent); }
+.posto-picker-btn:active { transform: scale(.99); }
+.posto-picker-btn-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.posto-picker-btn-label.placeholder { color: var(--muted); }
+.posto-picker-btn-chevron { color: var(--muted); font-size: 12px; flex-shrink: 0; transition: transform .2s; }
+
+.posto-picker-overlay {
+  position: fixed; inset: 0; background: #000c; z-index: 300;
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: fadeIn .2s ease;
+}
+@media (min-width: 640px) {
+  .posto-picker-overlay { align-items: center; }
+}
+.posto-picker-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 24px 24px 0 0; width: 100%; max-width: 480px;
+  max-height: 80vh; display: flex; flex-direction: column;
+  animation: slideUp .25s ease; box-shadow: 0 -12px 60px #0007;
+}
+@media (min-width: 640px) {
+  .posto-picker-panel { border-radius: 22px; max-height: 78vh; margin: 0 20px; }
+}
+.posto-picker-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 20px 14px; flex-shrink: 0;
+}
+.posto-picker-titulo {
+  font-family: var(--font-head); font-size: 17px; font-weight: 700;
+  color: var(--text); letter-spacing: .3px;
+}
+.posto-picker-close {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 8px; width: 32px; height: 32px;
+  cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+  transition: all .15s; flex-shrink: 0;
+}
+.posto-picker-close:hover { border-color: var(--red); color: var(--red); }
+.posto-picker-search-wrap { padding: 0 20px 14px; flex-shrink: 0; }
+.posto-picker-search {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; color: var(--text); padding: 12px 14px;
+  font-size: 14px; font-family: var(--font-body); outline: none;
+  width: 100%; transition: border-color .2s;
+}
+.posto-picker-search:focus { border-color: var(--accent); }
+.posto-picker-list {
+  overflow-y: auto; padding: 4px 12px 20px; flex: 1;
+  scrollbar-width: thin; scrollbar-color: var(--muted2) transparent;
+}
+.posto-picker-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; background: none; border: none; text-align: left;
+  padding: 14px 10px; border-radius: 12px; cursor: pointer;
+  font-size: 15px; font-family: var(--font-body); color: var(--text);
+  transition: background .15s; -webkit-tap-highlight-color: transparent;
+}
+.posto-picker-item:hover, .posto-picker-item:active { background: var(--surface2); }
+.posto-picker-item.selected { background: var(--green-bg); color: var(--accent2); font-weight: 700; }
+.posto-picker-item-check { color: var(--accent); font-size: 16px; flex-shrink: 0; }
+.posto-picker-empty { text-align: center; padding: 30px 10px; color: var(--muted); font-size: 14px; }
+
 /* ══════════════════════════════════════════
    BOTÕES PONTO
 ══════════════════════════════════════════ */
@@ -3515,7 +3586,11 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           <label style="display:block;font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;font-family:var(--font-mono)">
             📍 Posto de trabalho <span style="color:var(--red);font-size:12px">*obrigatório</span>
           </label>
-          <select id="ponto-posto-select" class="input" style="font-size:15px;padding:13px 14px;border-radius:12px">
+          <button type="button" class="posto-picker-btn" id="ponto-posto-btn" onclick="abrirPostoPicker()">
+            <span class="posto-picker-btn-label placeholder" id="ponto-posto-btn-label">-- Selecione o posto --</span>
+            <span class="posto-picker-btn-chevron">▼</span>
+          </button>
+          <select id="ponto-posto-select" style="display:none">
             <option value="">-- Selecione o posto --</option>
           </select>
         </div>
@@ -3689,6 +3764,20 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
             <button class="pj-confirm-btn pj-confirm-btn-cancelar" onclick="pjConfirmarCancelar()">Cancelar</button>
             <button class="pj-confirm-btn pj-confirm-btn-confirmar" onclick="pjConfirmarOk()">🗑️ Excluir</button>
           </div>
+        </div>
+      </div>
+
+      <!-- ─── PICKER DE POSTO DE TRABALHO (lista bonita, substitui o select nativo) ─── -->
+      <div class="posto-picker-overlay" id="posto-picker-overlay" style="display:none" onclick="if(event.target===this)fecharPostoPicker()">
+        <div class="posto-picker-panel">
+          <div class="posto-picker-head">
+            <h3 class="posto-picker-titulo">📍 Posto de trabalho</h3>
+            <button class="posto-picker-close" onclick="fecharPostoPicker()">✕</button>
+          </div>
+          <div class="posto-picker-search-wrap">
+            <input type="text" class="posto-picker-search" id="posto-picker-search" placeholder="🔎 Buscar posto..." oninput="postoPickerFiltrar()">
+          </div>
+          <div class="posto-picker-list" id="posto-picker-list"></div>
         </div>
       </div>
 
@@ -4873,6 +4962,74 @@ function populatePostoSelects() {
   sel.innerHTML = '<option value="">-- Selecione o posto --</option>'
     + lista.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
   if (atualVal) sel.value = atualVal;
+  atualizarBotaoPosto();
+}
+
+// ─── PICKER DE POSTO — lista bonita e responsiva no lugar do <select> nativo ──
+// O <select id="ponto-posto-select"> continua sendo a fonte de verdade (todo o
+// resto do app lê/escreve nele normalmente); o picker só lê as options dele
+// para montar a lista e, ao escolher, seta sel.value — zero duplicação de dados.
+function atualizarBotaoPosto() {
+  const sel   = document.getElementById('ponto-posto-select');
+  const label = document.getElementById('ponto-posto-btn-label');
+  if (!sel || !label) return;
+  if (sel.value) {
+    label.textContent = sel.value;
+    label.classList.remove('placeholder');
+  } else {
+    label.textContent = '-- Selecione o posto --';
+    label.classList.add('placeholder');
+  }
+}
+
+function abrirPostoPicker() {
+  const sel = document.getElementById('ponto-posto-select');
+  if (!sel) return;
+  const overlay = document.getElementById('posto-picker-overlay');
+  const search  = document.getElementById('posto-picker-search');
+  search.value = '';
+  renderPostoPickerList('');
+  overlay.style.display = 'flex';
+  setTimeout(() => search.focus(), 50);
+}
+
+function fecharPostoPicker() {
+  document.getElementById('posto-picker-overlay').style.display = 'none';
+}
+
+function postoPickerFiltrar() {
+  renderPostoPickerList(document.getElementById('posto-picker-search').value || '');
+}
+
+function renderPostoPickerList(termo) {
+  const sel   = document.getElementById('ponto-posto-select');
+  const list  = document.getElementById('posto-picker-list');
+  const termoNorm = termo.trim().toLowerCase();
+  const opcoes = Array.from(sel.options)
+    .map(o => o.value)
+    .filter(v => v)
+    .filter(v => !termoNorm || v.toLowerCase().includes(termoNorm));
+
+  if (!opcoes.length) {
+    list.innerHTML = '<div class="posto-picker-empty">Nenhum posto encontrado</div>';
+    return;
+  }
+  list.innerHTML = opcoes.map(nome => {
+    const selecionado = nome === sel.value;
+    return `<button type="button" class="posto-picker-item${selecionado ? ' selected' : ''}" onclick="selecionarPostoPicker('${nome.replace(/'/g, "\\'")}')">
+      <span>${esc(nome)}</span>
+      ${selecionado ? '<span class="posto-picker-item-check">✓</span>' : ''}
+    </button>`;
+  }).join('');
+}
+
+function selecionarPostoPicker(nome) {
+  const sel = document.getElementById('ponto-posto-select');
+  if (!sel) return;
+  sel.value = nome;
+  sel.dispatchEvent(new Event('change'));
+  atualizarBotaoPosto();
+  fecharPostoPicker();
 }
 
 function listaPostosLimpa() {
@@ -5054,6 +5211,7 @@ function renderColabPonto() {
           // (onde ele bateu o ponto), para a saída ser registrada no mesmo posto.
           const ultM = ultimoReg(meuColab.id);
           sel.value = (ultM && ultM.tipo === 'entrada' && ultM.posto) ? ultM.posto : (meuColab.posto || '');
+          atualizarBotaoPosto();
         }, 50);
       }
       // Recalcula SEMPRE (não só na troca de colaborador) — os registros chegam do
@@ -5150,6 +5308,7 @@ function selectColab(c) {
     // (onde ele bateu o ponto), para a saída ser registrada no mesmo posto.
     const ult = ultimoReg(selectedColab.id);
     sel.value = (ult && ult.tipo === 'entrada' && ult.posto) ? ult.posto : (selectedColab.posto || '');
+    atualizarBotaoPosto();
     postoSel.style.display  = 'block';
     pontoBtns.style.display = 'grid';
   } else {
@@ -5224,11 +5383,10 @@ async function baterPonto(tipo) {
   // Validar posto
   const postoEscolhido = document.getElementById('ponto-posto-select').value;
   if (!postoEscolhido) {
-    const sel = document.getElementById('ponto-posto-select');
-    sel.style.borderColor = 'var(--red)';
-    sel.style.boxShadow   = '0 0 0 3px #e8273f33';
-    sel.focus();
-    setTimeout(() => { sel.style.borderColor = ''; sel.style.boxShadow = ''; }, 3000);
+    const btn = document.getElementById('ponto-posto-btn');
+    btn.style.borderColor = 'var(--red)';
+    btn.style.boxShadow   = '0 0 0 3px #e8273f33';
+    setTimeout(() => { btn.style.borderColor = ''; btn.style.boxShadow = ''; }, 3000);
     mostrarSyncToast('⚠️ Selecione o posto antes de registrar!', 'gold');
     return;
   }
