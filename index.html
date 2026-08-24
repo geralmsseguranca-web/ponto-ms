@@ -4932,7 +4932,9 @@ function loadData() {
     const u1 = window._fbOnValue(window._fbRef(window._db,'colaboradores'), snap => {
       const data = snap.val();
       if (data) {
-        const doFB = fromFirebaseObj(data);
+        const doFB = fromFirebaseObj(data).map(c =>
+          c.posto === '[object Object]' ? { ...c, posto: '' } : c
+        );
         const idsFB = new Set(doFB.map(c => c.id));
         const pendentes = colaboradores.filter(c => !idsFB.has(c.id));
         colaboradores = [...doFB, ...pendentes];
@@ -4993,7 +4995,12 @@ function loadData() {
 
     const u4 = window._fbOnValue(window._fbRef(window._db,'postos'), snap => {
       const data = snap.val();
-      postos = data ? Object.values(data) : [];
+      const brutos = data ? Object.values(data) : [];
+      // Normaliza e descarta entradas malformadas (objeto sem "nome" válido),
+      // que antes vazavam como a string literal "[object Object]" na lista.
+      postos = brutos
+        .map(p => typeof p === 'string' ? p : (p && typeof p.nome === 'string' ? p.nome : ''))
+        .filter(Boolean);
       localStorage.setItem('ms_postos', JSON.stringify(postos));
       populatePostoSelects();
     });
@@ -9094,14 +9101,18 @@ function gcPopularSelectPostos() {
   const current = sel.value;
   sel.innerHTML = '<option value="">Posto de serviço...</option>';
   postos.forEach(p => {
-    const nome = typeof p === 'string' ? p : (p.nome || p);
+    const nome = typeof p === 'string' ? p : (p && typeof p.nome === 'string' ? p.nome : '');
+    if (!nome) return; // ignora entradas malformadas (objeto sem "nome"), evita "[object Object]"
     const opt = document.createElement('option');
     opt.value = nome; opt.textContent = nome;
     if (nome === current) opt.selected = true;
     sel.appendChild(opt);
   });
   // Adiciona postos dos colaboradores existentes se não estiverem na lista
-  const postosExistentes = new Set(postos.map(p => typeof p === 'string' ? p : (p.nome || p)));
+  const postosExistentes = new Set(
+    postos.map(p => typeof p === 'string' ? p : (p && typeof p.nome === 'string' ? p.nome : ''))
+          .filter(Boolean)
+  );
   colaboradores.forEach(c => {
     if (c.posto && !postosExistentes.has(c.posto)) {
       const opt = document.createElement('option');
@@ -9360,8 +9371,11 @@ function gcRenderPostos() {
 
   // Coleta postos: da lista postos[] + dos colaboradores
   const set = new Set();
-  postos.forEach(p => set.add(typeof p === 'string' ? p : (p.nome || p)));
-  colaboradores.forEach(c => { if (c.posto) set.add(c.posto); });
+  postos.forEach(p => {
+    const nome = typeof p === 'string' ? p : (p && typeof p.nome === 'string' ? p.nome : '');
+    if (nome) set.add(nome);
+  });
+  colaboradores.forEach(c => { if (c.posto && c.posto !== '[object Object]') set.add(c.posto); });
   const arr = [...set].sort();
 
   if (!arr.length) {
@@ -9395,7 +9409,9 @@ async function gcExcluirPosto(nome) {
   const aviso = qtd > 0 ? `\n⚠️ ${qtd} colaborador(es) ainda alocado(s) neste posto.` : '';
   if (!confirm(`Excluir o posto "${nome}"?${aviso}`)) return;
 
-  postos = postos.filter(p => (typeof p === 'string' ? p : (p.nome || p)) !== nome);
+  postos = postos
+    .map(p => typeof p === 'string' ? p : (p && typeof p.nome === 'string' ? p.nome : ''))
+    .filter(p => p && p !== nome);
   localStorage.setItem('ms_postos', JSON.stringify(postos));
 
   if (window._firebaseReady && window._db) {
@@ -9415,7 +9431,10 @@ async function gcAdicionarPosto() {
   const inp = document.getElementById('gc-posto-novo');
   const nome = (inp?.value || '').trim();
   if (!nome) return;
-  const set = new Set(postos.map(p => typeof p === 'string' ? p : (p.nome || p)));
+  const set = new Set(
+    postos.map(p => typeof p === 'string' ? p : (p && typeof p.nome === 'string' ? p.nome : ''))
+          .filter(Boolean)
+  );
   set.add(nome);
   postos = [...set];
   localStorage.setItem('ms_postos', JSON.stringify(postos));
