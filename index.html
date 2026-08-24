@@ -777,6 +777,35 @@ body::before {
   border-radius: 50%;
 }
 
+/* ── FAIXA ROLANTE INSTITUCIONAL (fundo da tela) ─────────────── */
+.login-marquee {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 0;
+  height: 34px; overflow: hidden; pointer-events: none;
+  display: flex; align-items: center;
+  background: linear-gradient(180deg, transparent, rgba(8,12,24,.5) 55%);
+  border-top: 1px solid rgba(0,212,255,.07);
+}
+.login-marquee-track {
+  display: flex; align-items: center; gap: 30px; white-space: nowrap;
+  padding-left: 30px; flex-shrink: 0;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.8px;
+  color: rgba(184,196,212,.26); text-transform: uppercase;
+  animation: lmScroll 48s linear infinite;
+  will-change: transform;
+}
+.login-marquee .lm-dot { color: rgba(0,212,255,.28); font-size: 6px; }
+@keyframes lmScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-marquee-track { animation: none; }
+}
+@media (max-width: 480px) {
+  .login-marquee { height: 28px; }
+  .login-marquee-track { font-size: 9px; letter-spacing: 1.4px; gap: 22px; padding-left: 22px; animation-duration: 36s; }
+}
+
 /* ── LAYOUT INTERNO ───────────────────── */
 .login-layout {
   display: flex; width: 100%; max-width: 960px;
@@ -3120,6 +3149,26 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
 
 <!-- ══ TELA DE LOGIN ══ -->
 <div id="login-screen">
+  <div class="login-marquee" aria-hidden="true">
+    <div class="login-marquee-track">
+      <span>PJ TECNOLOGIA E SISTEMAS</span><span class="lm-dot">●</span>
+      <span>CONTROLE DE ACESSO</span><span class="lm-dot">●</span>
+      <span>PONTO ELETRÔNICO</span><span class="lm-dot">●</span>
+      <span>SUPERVISÃO & RONDAS</span><span class="lm-dot">●</span>
+      <span>GESTÃO DE EQUIPES E POSTOS</span><span class="lm-dot">●</span>
+      <span>SINCRONIZAÇÃO EM NUVEM EM TEMPO REAL</span><span class="lm-dot">●</span>
+      <span>SISTEMAS SOB MEDIDA PARA SEGURANÇA PRIVADA</span><span class="lm-dot">●</span>
+      <span>PJTECNOLOGIAESISTEMAS.COM.BR</span><span class="lm-dot">●</span>
+      <span>PJ TECNOLOGIA E SISTEMAS</span><span class="lm-dot">●</span>
+      <span>CONTROLE DE ACESSO</span><span class="lm-dot">●</span>
+      <span>PONTO ELETRÔNICO</span><span class="lm-dot">●</span>
+      <span>SUPERVISÃO & RONDAS</span><span class="lm-dot">●</span>
+      <span>GESTÃO DE EQUIPES E POSTOS</span><span class="lm-dot">●</span>
+      <span>SINCRONIZAÇÃO EM NUVEM EM TEMPO REAL</span><span class="lm-dot">●</span>
+      <span>SISTEMAS SOB MEDIDA PARA SEGURANÇA PRIVADA</span><span class="lm-dot">●</span>
+      <span>PJTECNOLOGIAESISTEMAS.COM.BR</span><span class="lm-dot">●</span>
+    </div>
+  </div>
   <div class="login-layout">
 
     <!-- ══ PAINEL ESQUERDO — visual ══ -->
@@ -3438,7 +3487,8 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           </div>
         </div>
         <div class="wiz-alerta-box">
-          ⚠️ <strong>Guarde essas credenciais!</strong> Esta tela não aparecerá novamente. Se perder o acesso, solicite ao administrador.
+          ⚠️ <strong>Guarde essas credenciais!</strong> Esta tela não aparecerá novamente. Se perder o acesso, solicite ao administrador.<br>
+          🔑 Sua <strong>senha</strong> é sempre os <strong>6 primeiros números do seu CPF</strong>.
         </div>
         <button class="btn-wiz-entrar" onclick="wizEntrarAgora()">🔓 Entrar agora</button>
       </div>
@@ -10066,15 +10116,18 @@ function wizVoltar(step) {
 window.wizVoltar = wizVoltar;
 
 // ─── Gerar login/senha automático ────────────────────────────────────────────
-function wizGerarCredenciais(nome) {
+function wizGerarCredenciais(nome, cpf) {
   // login: primeirnome + 3 dígitos aleatórios (sem acentos, minúsculo)
   const primeiroNome = nome.trim().split(' ')[0]
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .toLowerCase().replace(/[^a-z]/g,'');
   const sufixo = String(Math.floor(100 + Math.random() * 900));
   const login  = primeiroNome + sufixo;
-  // senha: 4 dígitos numéricos
-  const senha  = String(Math.floor(1000 + Math.random() * 9000));
+  // senha: 6 primeiros números do CPF informado no cadastro
+  const cpfDigitos = (cpf || '').replace(/\D/g, '');
+  const senha = cpfDigitos.length >= 6
+    ? cpfDigitos.slice(0, 6)
+    : String(Math.floor(1000 + Math.random() * 9000)); // fallback se CPF inválido/incompleto
   return { login, senha };
 }
 
@@ -10100,7 +10153,7 @@ async function wizCriarCadastro() {
   const estado  = (document.getElementById('wiz-estado')?.value||'SP');
   const posto   = (document.getElementById('wiz-posto')?.value||'').trim();
 
-  const creds = wizGerarCredenciais(nome);
+  const creds = wizGerarCredenciais(nome, cpf);
   _wizCredenciais = creds;
 
   const novoId = uid();
