@@ -1672,6 +1672,28 @@ body.has-banner header { top: 44px; }
 .pj3d-btn-ok:active { box-shadow: inset 0 2px 0 #ffffff55, 0 1px 0 var(--c3), 0 3px 6px #0005; }
 .pj3d-btn-cancel:active { box-shadow: inset 0 2px 0 #fff, 0 1px 0 #9fb3a7, 0 3px 6px #0004; }
 .pj3d-btn:focus-visible { outline: 3px solid var(--c1); outline-offset: 2px; }
+.pj3d-digitar { margin-top: 14px; text-align: center; }
+.pj3d-digitar label { display:block; font-size: 12px; color: #55705f; margin-bottom: 6px; }
+.pj3d-digitar label strong { color: var(--c2); letter-spacing: 1px; }
+.pj3d-digitar input {
+  width: 100%; text-align: center; letter-spacing: 3px; text-transform: uppercase;
+  font-family: var(--font-mono); font-size: 16px; padding: 12px 14px; border-radius: 12px;
+  border: 2px solid var(--c1)88; background: #fff; color: #12271b; outline: none;
+  box-shadow: inset 0 3px 6px #0002;
+}
+.pj3d-digitar input:focus { border-color: var(--c2); }
+.pj3d-btn[disabled] { filter: grayscale(.85) opacity(.6); cursor: not-allowed; }
+.ftv-zerar-row { margin: 22px 0 4px; padding-top: 18px; border-top: 1px dashed #dc262655; }
+.ftv-zerar-info { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+.ftv-btn-zerar {
+  width: 100%; min-height: 50px; border: 0; border-radius: 14px; cursor: pointer;
+  font-family: var(--font-head); font-size: 16px; font-weight: 700; letter-spacing: .5px; color: #fff;
+  text-shadow: 0 1px 1px #0006;
+  background: linear-gradient(180deg, #f87171 0%, #b91c1c 100%);
+  box-shadow: inset 0 2px 0 #ffffff55, 0 5px 0 #6f1010, 0 10px 16px #0004;
+  transition: transform .08s ease, box-shadow .08s ease; -webkit-tap-highlight-color: transparent;
+}
+.ftv-btn-zerar:active { transform: translateY(4px); box-shadow: inset 0 2px 0 #ffffff55, 0 1px 0 #6f1010, 0 3px 6px #0004; }
 @media (max-width: 480px) {
   .pj3d-box { padding: 44px 16px 16px; border-radius: 22px; }
   .pj3d-acoes { flex-direction: column-reverse; gap: 14px; }
@@ -3319,6 +3341,14 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     var m = box.querySelector('.pj3d-msg');
     if (o.html) m.innerHTML = o.msg; else m.innerHTML = escH(o.msg).replace(/\n/g,'<br>');
     if (o.aviso) { var av = box.querySelector('.pj3d-aviso'); av.textContent = o.aviso; av.style.display = 'block'; }
+    var campo = null;
+    if (o.digitar) {
+      var dg = document.createElement('div'); dg.className = 'pj3d-digitar';
+      dg.innerHTML = '<label>Para confirmar, digite <strong>' + escH(o.digitar) + '</strong></label>' +
+        '<input type="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="' + escH(o.digitar) + '">';
+      box.insertBefore(dg, box.querySelector('.pj3d-acoes'));
+      campo = dg.querySelector('input');
+    }
     var acoes = box.querySelector('.pj3d-acoes'), btnOk, btnCancel;
     if (o.confirmar) {
       btnCancel = document.createElement('button'); btnCancel.type='button';
@@ -3330,6 +3360,11 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     btnOk.className = 'pj3d-btn pj3d-btn-ok'; btnOk.textContent = o.textoOk || (o.confirmar ? 'Confirmar' : 'OK');
     btnOk.onclick = function(){ fechar(true); };
     acoes.appendChild(btnOk);
+    if (campo) {
+      btnOk.disabled = true;
+      campo.addEventListener('input', function(){ btnOk.disabled = campo.value.trim().toUpperCase() !== String(o.digitar).toUpperCase(); });
+      campo.addEventListener('keydown', function(e){ if (e.key === 'Enter' && !btnOk.disabled) { e.preventDefault(); fechar(true); } });
+    }
     ov.addEventListener('mousedown', function(e){ if (e.target === ov) fechar(o.confirmar ? false : true); });
     var onKey = function(e){
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fechar(o.confirmar ? false : true); }
@@ -3345,7 +3380,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     requestAnimationFrame(function(){ requestAnimationFrame(function(){
       ov.classList.add('show');
       // foco no botão seguro: em exclusão, o foco vai em "Cancelar"
-      (o.tipo === 'perigo' && btnCancel ? btnCancel : btnOk).focus();
+      (campo ? campo : (o.tipo === 'perigo' && btnCancel ? btnCancel : btnOk)).focus();
     }); });
   }
 
@@ -3363,7 +3398,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   window.pjConfirm = function(msg, opts){
     opts = opts || {};
     return abrir({ msg: String(msg), html: !!opts.html, tipo: opts.tipo || 'aviso', titulo: opts.titulo, icone: opts.icone,
-      textoOk: opts.textoOk, textoCancelar: opts.textoCancelar, aviso: opts.aviso, confirmar: true });
+      textoOk: opts.textoOk, textoCancelar: opts.textoCancelar, aviso: opts.aviso, digitar: opts.digitar, confirmar: true });
   };
   /* alert() nativo passa a abrir o balão 3D (inclusive onclick="alert(...)" inline) */
   window.alert = function(msg){ window.pjAlert(msg); };
@@ -4367,6 +4402,12 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
     <div class="ftv-export-row">
       <button class="ftv-btn-export ftv-btn-pdf" onclick="ftvExportarPDF()">🖨️ Exportar PDF</button>
       <button class="ftv-btn-export ftv-btn-excel" onclick="ftvExportarExcel()">📊 Exportar Excel</button>
+    </div>
+
+    <!-- Zerar FTs + Dashboard -->
+    <div class="ftv-zerar-row">
+      <div class="ftv-zerar-info">Apaga <strong>todas as FTs lançadas</strong> (pendentes e validadas) e os registros de ponto que alimentam o <strong>Dashboard</strong>. Colaboradores, postos e usuários são mantidos. Exporte o PDF/Excel antes, se precisar guardar.</div>
+      <button class="ftv-btn-zerar" onclick="ftvZerarTudo()">🧹 Zerar FTs e Dashboard</button>
     </div>
 
     <!-- Lista de cards -->
@@ -8858,6 +8899,55 @@ async function ftvConfirmarDel() {
     mostrarSyncToast('❌ Erro ao excluir: ' + e.message, 'red');
   }
 }
+
+// ─── Zerar todas as FTs lançadas + Dashboard ──────────────────────────────────
+async function ftvZerarTudo() {
+  if (!(window._firebaseReady && window._db)) {
+    pjAlert('Sem conexão com o servidor. Conecte-se à internet para zerar, senão os outros aparelhos continuariam com os dados antigos.', { tipo: 'aviso', titulo: 'Sem conexão' });
+    return;
+  }
+  const nFts = _fts.length, nReg = registros.length;
+  const ok = await pjConfirm(
+    `Isto apaga <strong>permanentemente</strong>:<br>` +
+    `🗑️ todas as FTs lançadas (<strong>${nFts}</strong>, pendentes e validadas)<br>` +
+    `🗑️ todos os registros de ponto (<strong>${nReg}</strong>) que alimentam o Dashboard<br>` +
+    `🗑️ a fila offline pendente<br><br>` +
+    `✅ Colaboradores, postos e usuários são mantidos.<br>` +
+    `A validação automática por inteligência também recomeça do zero, pois ela aprende com as FTs validadas.`,
+    { html: true, tipo: 'perigo', titulo: 'Zerar FTs e Dashboard?', icone: '🧹', textoOk: 'Zerar tudo',
+      digitar: 'ZERAR', aviso: 'Esta ação não pode ser desfeita.' }
+  );
+  if (!ok) return;
+
+  mostrarSyncToast('🧹 Zerando FTs e Dashboard…', 'gold');
+  let erros = 0;
+  try {
+    try { await window._fbRemove(window._fbRef(window._db, 'registros')); } catch (e) { console.warn('[Zerar] registros:', e.message); erros++; }
+    try { await window._fbRemove(window._fbRef(window._db, 'fts')); }       catch (e) { console.warn('[Zerar] fts:', e.message); erros++; }
+
+    if (erros === 0) {
+      registros = [];
+      _fts = [];
+      localStorage.removeItem('ms_registros');
+      localStorage.removeItem(OFFLINE_QUEUE_KEY);
+      window._ftsReparadas = false;
+    }
+
+    atualizarBadgeOffline();
+    renderColabPonto();
+    if (document.getElementById('tab-dashboard')?.classList.contains('active'))  renderDashboard();
+    if (document.getElementById('tab-historico')?.classList.contains('active'))  renderHistorico();
+    if (document.getElementById('tab-ft-auto')?.classList.contains('active'))    ftRenderLista();
+    ftvCarregar();
+
+    if (erros === 0) mostrarSyncToast('✅ FTs e Dashboard zerados!', 'green');
+    else pjAlert('Não foi possível apagar tudo no servidor (' + erros + ' falha(s)). Verifique a conexão e as permissões do Firebase e tente de novo.', { tipo: 'erro' });
+  } catch (e) {
+    console.error('[ftvZerarTudo]', e.message);
+    mostrarSyncToast('❌ Erro ao zerar: ' + e.message, 'red');
+  }
+}
+window.ftvZerarTudo = ftvZerarTudo;
 
 // ─── Busca rápida por colaborador ─────────────────────────────────────────────
 let _ftvBuscaFiltradas = null; // null = sem busca ativa
