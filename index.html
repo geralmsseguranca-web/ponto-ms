@@ -1582,6 +1582,121 @@ body.has-banner header { top: 44px; }
 
 
 /* ══════════════════════════════════════════
+   DASHBOARD — CARDS 3D RESPONSIVOS (cores e sombras em destaque)
+══════════════════════════════════════════ */
+@keyframes dash3dIn {
+  from { opacity: 0; transform: perspective(900px) rotateX(-20deg) translateY(22px) scale(.93); }
+  to   { opacity: 1; transform: perspective(900px) rotateX(0) translateY(0) scale(1); }
+}
+
+/* ── KPIs coloridos ── */
+#tab-dashboard .dash2-stat-grid { gap: 20px 16px; margin-bottom: 30px; perspective: 1000px; }
+#tab-dashboard .dash2-stat-card {
+  --edge: #172554; --glow: #2563eb99;
+  border: 1px solid #ffffff59; border-radius: 22px; padding: 26px 16px 22px;
+  transform-style: preserve-3d; will-change: transform;
+  box-shadow:
+    inset 0 2px 0 #ffffff66,
+    inset 0 -6px 14px #00000038,
+    0 7px 0 var(--edge),
+    0 13px 0 #00000026,
+    0 26px 34px -6px var(--glow);
+  transition: transform .22s cubic-bezier(.2,1.4,.4,1), box-shadow .22s ease;
+  animation: dash3dIn .55s cubic-bezier(.2,1.3,.4,1) backwards;
+}
+#tab-dashboard .dash2-stat-card:nth-child(2) { animation-delay: .08s; }
+#tab-dashboard .dash2-stat-card:nth-child(3) { animation-delay: .16s; }
+#tab-dashboard .dash2-stat-card.stat-amber { --edge:#172554; --glow:#2563ebaa; background: linear-gradient(145deg,#60a5fa 0%,#2563eb 45%,#1e3a8a 100%); }
+#tab-dashboard .dash2-stat-card.stat-green { --edge:#0b3a1f; --glow:#16a34aaa; background: linear-gradient(145deg,#4ade80 0%,#16a34a 45%,#14532d 100%); }
+#tab-dashboard .dash2-stat-card.stat-red   { --edge:#5c1010; --glow:#ef4444b3; background: linear-gradient(145deg,#fca5a5 0%,#ef4444 45%,#7f1d1d 100%); }
+/* brilho de vidro */
+#tab-dashboard .dash2-stat-card::before {
+  content: ''; position: absolute; inset: 0 0 48% 0; border-radius: 22px 22px 60% 60% / 22px 22px 28px 28px;
+  background: linear-gradient(180deg, #ffffff59 0%, #ffffff00 100%); pointer-events: none;
+}
+#tab-dashboard .dash2-stat-val {
+  font-size: clamp(34px, 10vw, 48px);
+  text-shadow: 0 1px 0 #ffffff66, 0 3px 0 #00000040, 0 9px 14px #0000004d;
+}
+#tab-dashboard .dash2-stat-label { font-weight: 600; text-shadow: 0 1px 2px #0000004d; }
+#tab-dashboard .dash2-stat-card:active {
+  transform: translateY(5px) scale(.985);
+  box-shadow: inset 0 2px 0 #ffffff55, inset 0 -4px 10px #00000038, 0 2px 0 var(--edge), 0 5px 0 #00000022, 0 10px 16px -4px var(--glow);
+}
+@media (hover: hover) and (pointer: fine) {
+  #tab-dashboard .dash2-stat-card:hover {
+    transform: perspective(900px) translateY(-6px) rotateX(5deg) scale(1.02);
+    box-shadow: inset 0 2px 0 #ffffff7a, inset 0 -6px 14px #00000038, 0 10px 0 var(--edge), 0 17px 0 #00000026, 0 34px 44px -6px var(--glow);
+  }
+}
+
+/* ── Cartões de seção e gráfico ── */
+#tab-dashboard .card.dash2-section,
+#tab-dashboard .card.dash-chart-card {
+  --edge-s: #9bc9ad; --glow-s: #16a34a55; --tint: #f3fbf6;
+  position: relative; overflow: hidden;
+  background: linear-gradient(170deg, #ffffff 0%, var(--tint) 100%);
+  border: 1px solid #ffffffcc; border-radius: 22px;
+  margin-bottom: 28px;
+  box-shadow: inset 0 2px 0 #fff, 0 6px 0 var(--edge-s), 0 12px 0 #0000000d, 0 24px 32px -10px var(--glow-s);
+  animation: dash3dIn .55s cubic-bezier(.2,1.3,.4,1) backwards;
+}
+#tab-dashboard .card.dash2-section::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 6px;
+  background: linear-gradient(90deg, var(--c-a), var(--c-b));
+}
+#tab-dashboard .dash2-section.sec-green { --c-a:#4ade80; --c-b:#15803d; --edge-s:#86c9a0; --glow-s:#16a34a66; --tint:#ecfaf1; }
+#tab-dashboard .dash2-section.sec-red   { --c-a:#fca5a5; --c-b:#dc2626; --edge-s:#e9a3a3; --glow-s:#dc262666; --tint:#fdf0ef; }
+#tab-dashboard .dash2-section.sec-white { --c-a:#cbd5e1; --c-b:#64748b; --edge-s:#b6c1ce; --glow-s:#64748b55; --tint:#f4f7f9; }
+#tab-dashboard .dash2-section-head { padding-top: 6px; }
+#tab-dashboard .dash2-dot {
+  width: 15px; height: 15px; border: 0;
+  background: radial-gradient(circle at 32% 28%, #fff 0%, var(--c-a) 38%, var(--c-b) 100%);
+  box-shadow: inset 0 -2px 3px #00000040, 0 2px 0 #00000030, 0 4px 8px var(--glow-s);
+}
+#tab-dashboard .dash2-count {
+  color: #fff; text-shadow: 0 1px 1px #0005; min-width: 32px; height: 32px;
+  background: linear-gradient(180deg, var(--c-a), var(--c-b));
+  box-shadow: inset 0 2px 0 #ffffff66, 0 3px 0 var(--edge-s), 0 6px 10px -2px var(--glow-s);
+}
+#tab-dashboard .dash-chart-card { --edge-s:#a5cfb6; --glow-s:#16a34a55; }
+
+/* ── Cartões de colaborador ── */
+#tab-dashboard .dash2-colab-card {
+  position: relative; border: 1px solid #ffffffd9; border-left: 5px solid var(--c-b);
+  background: linear-gradient(170deg, #ffffff 0%, var(--tint) 100%);
+  box-shadow: inset 0 1px 0 #fff, 0 4px 0 var(--edge-s), 0 10px 14px -6px var(--glow-s);
+  transition: transform .18s cubic-bezier(.2,1.4,.4,1), box-shadow .18s ease;
+}
+#tab-dashboard .dash2-colab-card:active { transform: translateY(3px); box-shadow: inset 0 1px 0 #fff, 0 1px 0 var(--edge-s), 0 3px 6px -2px var(--glow-s); }
+@media (hover: hover) and (pointer: fine) {
+  #tab-dashboard .dash2-colab-card:hover { transform: translateY(-3px); box-shadow: inset 0 1px 0 #fff, 0 7px 0 var(--edge-s), 0 16px 20px -6px var(--glow-s); }
+}
+#tab-dashboard .dash2-colab-av {
+  position: relative; overflow: hidden; border-radius: 13px;
+  box-shadow: inset 0 -4px 6px #00000038, 0 3px 0 #00000040, 0 6px 10px -2px #0000004d;
+  text-shadow: 0 1px 2px #0000005a;
+}
+#tab-dashboard .dash2-colab-av::after {
+  content: ''; position: absolute; inset: 0 0 50% 0; background: linear-gradient(180deg, #ffffff66, #ffffff00); pointer-events: none;
+}
+#tab-dashboard .dash2-colab-badge {
+  box-shadow: inset 0 1px 0 #ffffffb3, 0 3px 0 #00000026;
+  border: 1px solid #00000010;
+}
+
+@media (max-width: 480px) {
+  #tab-dashboard .dash2-stat-grid { gap: 18px 12px; }
+  #tab-dashboard .dash2-stat-card { padding: 22px 12px 18px; border-radius: 20px;
+    box-shadow: inset 0 2px 0 #ffffff66, inset 0 -5px 12px #00000038, 0 6px 0 var(--edge), 0 11px 0 #00000026, 0 20px 26px -6px var(--glow); }
+  #tab-dashboard .card.dash2-section, #tab-dashboard .card.dash-chart-card { padding: 14px; border-radius: 20px; margin-bottom: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #tab-dashboard .dash2-stat-card, #tab-dashboard .card.dash2-section, #tab-dashboard .card.dash-chart-card { animation: none; }
+  #tab-dashboard .dash2-stat-card:hover { transform: none; }
+}
+
+/* ══════════════════════════════════════════
    BALÃO 3D RESPONSIVO (substitui alert/confirm nativos e toasts)
 ══════════════════════════════════════════ */
 .pj3d-overlay {
@@ -4319,7 +4434,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           <label class="ft-modal-label">📝 Observação</label>
           <textarea id="ftm-obs" class="ft-modal-input ft-modal-textarea" placeholder="Observações (opcional)…" rows="2"></textarea>
         </div>
-        <div class="ft-modal-field">
+        <div class="ft-modal-field" id="ftm-valor-wrap">
           <label class="ft-modal-label">💰 Valor (R$)</label>
           <input id="ftm-valor" class="ft-modal-input" type="number" min="0" step="0.01" placeholder="Ex: 160.00"/>
         </div>
@@ -4453,7 +4568,7 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
           <label class="ft-modal-label">📝 Observação</label>
           <textarea id="ftvm-obs" class="ft-modal-input ft-modal-textarea" placeholder="Observações…" rows="2"></textarea>
         </div>
-        <div class="ft-modal-field">
+        <div class="ft-modal-field" id="ftvm-valor-wrap">
           <label class="ft-modal-label">💰 Valor (R$)</label>
           <input id="ftvm-valor" class="ft-modal-input" type="number" min="0" step="0.01" placeholder="Ex: 160.00"/>
         </div>
@@ -8289,7 +8404,7 @@ async function ftCriarSeNecessario(reg) {
   const padrao = ftBuscarPadrao(reg.colaboradorNome, postoFinal, turnoDetectado);
 
   const motivoAuto  = padrao?.motivo || '';
-  const valorAuto    = padrao?.valorMedio ? String(padrao.valorMedio) : '';
+  const valorAuto    = (padrao?.valorMedio && !ftEhPlantaoFixo(motivoAuto)) ? String(padrao.valorMedio) : '';
   const precisaAusente = FT_MOTIVOS_COM_AUSENTE.includes(motivoAuto);
   const ausenteAuto = precisaAusente ? (padrao?.colaboradorAusente || '') : '';
   const confianca   = padrao ? padrao.confianca : 0;
@@ -8541,6 +8656,19 @@ function ftAbrirModal(id) {
 // Motivos que exigem colaborador ausente
 const FT_MOTIVOS_COM_AUSENTE = ['Atestado','Afastamento','Cobertura de Férias','Suspensão','Folga do Vigia'];
 
+// Plantão normal / fixo NÃO é FT: não tem valor nem colaborador ausente.
+function ftEhPlantaoFixo(motivo) {
+  const m = String(motivo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  return m === 'plantao' || m === 'plantao normal' || m === 'plantao fixo';
+}
+
+// Mostra/oculta o campo Valor conforme o motivo (prefixo: 'ftm' ou 'ftvm')
+function ftAplicarRegraPlantao(prefixo) {
+  const motivo = document.getElementById(prefixo + '-motivo')?.value || '';
+  const wrap = document.getElementById(prefixo + '-valor-wrap');
+  if (wrap) wrap.style.display = ftEhPlantaoFixo(motivo) ? 'none' : '';
+}
+
 // Rótulo dinâmico do colaborador vinculado, conforme o motivo selecionado.
 // Usado em todo o sistema: modais, cards, PDF e planilha.
 const FT_LABEL_COLAB_POR_MOTIVO = {
@@ -8559,6 +8687,7 @@ function ftToggleColabAusente() {
   const wrap   = document.getElementById('ftm-colab-ausente-wrap');
   if (!wrap) return;
   wrap.style.display = FT_MOTIVOS_COM_AUSENTE.includes(motivo) ? '' : 'none';
+  ftAplicarRegraPlantao('ftm');
   const lbl = document.getElementById('ftm-colab-ausente-label');
   if (lbl) lbl.textContent = '👤 ' + labelColabVinculado(motivo);
   atualizarBotaoGcPicker('ftm-colab-ausente');
@@ -8582,7 +8711,7 @@ async function ftAcao(novoStatus) {
     dataKey:            document.getElementById('ftm-data').value                || ft.dataKey,
     obs:                document.getElementById('ftm-obs').value.trim(),
     motivo:             document.getElementById('ftm-motivo').value,
-    valor:              document.getElementById('ftm-valor').value               || ft.valor || '',
+    valor:              ftEhPlantaoFixo(document.getElementById('ftm-motivo').value) ? '' : (document.getElementById('ftm-valor').value || ft.valor || ''),
     colaboradorAusente: FT_MOTIVOS_COM_AUSENTE.includes(document.getElementById('ftm-motivo').value)
                           ? (document.getElementById('ftm-colab-ausente').value || ft.colaboradorAusente || '')
                           : '',
@@ -8730,7 +8859,7 @@ function ftvRenderCard(ft) {
     ? `<span class="ftv-chip ftv-chip-ia">🤖 Inteligência</span>`
     : '';
   const chipValor = valorDisp ? `<span class="ftv-chip ftv-chip-valor">💰 ${valorDisp}</span>` : '';
-  const chipMotivo = ft.motivo ? `<span class="ftv-chip ftv-chip-motivo">💬 ${esc(ft.motivo)}</span>` : '';
+  const chipMotivo = ft.motivo ? `<span class="ftv-chip ftv-chip-motivo">💬 ${esc(ft.motivo)}${ftEhPlantaoFixo(ft.motivo) ? ' · plantão fixo (não é FT)' : ''}</span>` : '';
   const chipAusente = (ft.colaboradorAusente && FT_MOTIVOS_COM_AUSENTE.includes(ft.motivo))
     ? `<span class="ftv-chip ftv-chip-motivo">👤 ${esc(labelColabVinculado(ft.motivo))}: ${esc(ft.colaboradorAusente)}</span>`
     : '';
@@ -8815,6 +8944,7 @@ function ftvToggleColabAusente() {
   const wrap   = document.getElementById('ftvm-colab-ausente-wrap');
   if (!wrap) return;
   wrap.style.display = FT_MOTIVOS_COM_AUSENTE.includes(motivo) ? '' : 'none';
+  ftAplicarRegraPlantao('ftvm');
   const lbl = document.getElementById('ftvm-colab-ausente-label');
   if (lbl) lbl.textContent = '👤 ' + labelColabVinculado(motivo);
   atualizarBotaoGcPicker('ftvm-colab-ausente');
@@ -8845,7 +8975,7 @@ async function ftvSalvarEdicao() {
     dataKey,
     dataDisplay,
     obs:         document.getElementById('ftvm-obs').value.trim(),
-    valor:       document.getElementById('ftvm-valor').value               || ft.valor || '',
+    valor:       ftEhPlantaoFixo(document.getElementById('ftvm-motivo').value) ? '' : (document.getElementById('ftvm-valor').value || ft.valor || ''),
     motivo:      document.getElementById('ftvm-motivo').value,
     colaboradorAusente: FT_MOTIVOS_COM_AUSENTE.includes(document.getElementById('ftvm-motivo').value)
                           ? (document.getElementById('ftvm-colab-ausente').value || ft.colaboradorAusente || '')
@@ -9763,9 +9893,16 @@ async function gcAdicionarPosto() {
 window.gcAdicionarPosto = gcAdicionarPosto;
 
 // ─── Motivos ────────────────────────────────────────────────────────────
-const GC_MOTIVOS_DEFAULT = ['Atestado','Afastamento','Cobertura de Férias','Suspensão','Bico Fixo','Folga do Vigia','Falta Justificada','Falta Injustificada','Atraso','Outro'];
+const GC_MOTIVOS_DEFAULT = ['Plantão Normal','Atestado','Afastamento','Cobertura de Férias','Suspensão','Bico Fixo','Folga do Vigia','Falta Justificada','Falta Injustificada','Atraso','Outro'];
 let _gcMotivos = (function(){
-  try { return JSON.parse(localStorage.getItem('ms_motivos_ft')) || [...GC_MOTIVOS_DEFAULT]; } catch { return [...GC_MOTIVOS_DEFAULT]; }
+  let lista;
+  try { lista = JSON.parse(localStorage.getItem('ms_motivos_ft')) || [...GC_MOTIVOS_DEFAULT]; } catch { lista = [...GC_MOTIVOS_DEFAULT]; }
+  // Migração: listas salvas antes desta versão não têm "Plantão Normal"
+  if (!lista.some(m => ftEhPlantaoFixo(m))) {
+    lista.unshift('Plantão Normal');
+    try { localStorage.setItem('ms_motivos_ft', JSON.stringify(lista)); } catch {}
+  }
+  return lista;
 })();
 
 function gcRenderMotivos() {
