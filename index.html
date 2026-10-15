@@ -2646,6 +2646,23 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   -webkit-tap-highlight-color: transparent;
 }
 .ftv-btn-atualizar:hover { border-color: var(--accent); color: var(--accent); }
+/* Filtros do Plantão Normal */
+.pt-filtros { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+.pt-filtros .pt-busca { width: 100%; min-width: 0; flex: none; padding: 13px 14px; font-size: 15px; border-radius: 12px; cursor: text; }
+.pt-filtros-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pt-f-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pt-f-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pt-filtros .pt-date { min-width: 0; width: 100%; flex: none; padding: 12px; font-size: 15px; border-radius: 12px; min-height: 48px; box-sizing: border-box; }
+.pt-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.pt-chips::-webkit-scrollbar { display: none; }
+.pt-chip { flex: 0 0 auto; background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 999px; padding: 8px 14px; font-size: 13px; font-family: var(--font-body); cursor: pointer; white-space: nowrap;
+  -webkit-tap-highlight-color: transparent; transition: all .15s; }
+.pt-chip.active { background: var(--accent); border-color: var(--accent); color: #04121f; font-weight: 700; }
+.pt-filtros-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.pt-count { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.pt-foot-btns { display: flex; gap: 8px; }
+@media (max-width: 380px) { .pt-filtros-row { grid-template-columns: 1fr; } }
 .ftv-busca-wrap {
   display: flex; gap: 8px; align-items: center;
   margin-bottom: 14px; flex-wrap: wrap;
@@ -4898,13 +4915,58 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
       </div>
     </div>
 
-    <div class="ftv-filtros-wrap">
-      <select id="pt-f-colab" class="ftv-select" onchange="ptAplicarFiltros()">
-        <option value="">Todos os colaboradores</option>
-      </select>
-      <input type="date" id="pt-f-de" class="ftv-select" onchange="ptAplicarFiltros()" title="Data inicial"/>
-      <input type="date" id="pt-f-ate" class="ftv-select" onchange="ptAplicarFiltros()" title="Data final"/>
-      <button class="ftv-btn-atualizar" onclick="ptCarregar()">🔄 Atualizar visão</button>
+    <div class="pt-filtros">
+      <input type="search" id="pt-f-busca" class="ftv-select pt-busca" placeholder="🔎 Buscar por nome, posto ou observação..." oninput="ptAplicarFiltros()" autocomplete="off"/>
+
+      <div class="pt-filtros-row">
+        <div class="pt-f-field">
+          <label class="pt-f-label">👤 Colaborador</label>
+          <button type="button" class="posto-picker-btn" id="pt-f-colab-btn" onclick="abrirGcPicker('pt-f-colab','👤 Colaborador')">
+            <span class="posto-picker-btn-label" id="pt-f-colab-btn-label">Todos os colaboradores</span>
+            <span class="posto-picker-btn-chevron">▼</span>
+          </button>
+          <select id="pt-f-colab" data-todos="1" style="display:none" onchange="ptAplicarFiltros()">
+            <option value="">Todos os colaboradores</option>
+          </select>
+        </div>
+        <div class="pt-f-field">
+          <label class="pt-f-label">📍 Posto</label>
+          <button type="button" class="posto-picker-btn" id="pt-f-posto-btn" onclick="abrirGcPicker('pt-f-posto','📍 Posto de trabalho')">
+            <span class="posto-picker-btn-label" id="pt-f-posto-btn-label">Todos os postos</span>
+            <span class="posto-picker-btn-chevron">▼</span>
+          </button>
+          <select id="pt-f-posto" data-todos="1" style="display:none" onchange="ptAplicarFiltros()">
+            <option value="">Todos os postos</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pt-chips" id="pt-chips">
+        <button type="button" class="pt-chip" data-p="hoje"  onclick="ptPeriodo('hoje')">Hoje</button>
+        <button type="button" class="pt-chip" data-p="7d"    onclick="ptPeriodo('7d')">7 dias</button>
+        <button type="button" class="pt-chip" data-p="mes"   onclick="ptPeriodo('mes')">Este mês</button>
+        <button type="button" class="pt-chip" data-p="ant"   onclick="ptPeriodo('ant')">Mês anterior</button>
+        <button type="button" class="pt-chip active" data-p="tudo" onclick="ptPeriodo('tudo')">Tudo</button>
+      </div>
+
+      <div class="pt-filtros-row">
+        <div class="pt-f-field">
+          <label class="pt-f-label" for="pt-f-de">📅 De</label>
+          <input type="date" id="pt-f-de" class="ftv-select pt-date" onchange="ptDataManual()"/>
+        </div>
+        <div class="pt-f-field">
+          <label class="pt-f-label" for="pt-f-ate">📅 Até</label>
+          <input type="date" id="pt-f-ate" class="ftv-select pt-date" onchange="ptDataManual()"/>
+        </div>
+      </div>
+
+      <div class="pt-filtros-foot">
+        <span class="pt-count" id="pt-f-count"></span>
+        <div class="pt-foot-btns">
+          <button type="button" class="ftv-btn-atualizar" onclick="ptLimparFiltros()">✖ Limpar</button>
+          <button type="button" class="ftv-btn-atualizar" onclick="ptCarregar()">🔄 Atualizar</button>
+        </div>
+      </div>
     </div>
 
     <div class="ftv-export-row">
@@ -9522,40 +9584,87 @@ function ftvBuscaPDF() {
 // ══════════════════════════════════════════════════════════════════════════════
 let _ptFiltradas = [];
 
+function ptNorm(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
+function ptHojeKey(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
 function ptBase() {
   const colab = document.getElementById('pt-f-colab')?.value || '';
+  const posto = document.getElementById('pt-f-posto')?.value || '';
   const de    = document.getElementById('pt-f-de')?.value    || '';
   const ate   = document.getElementById('pt-f-ate')?.value   || '';
+  const termo = ptNorm(document.getElementById('pt-f-busca')?.value);
   let base = _fts.filter(ftEhPlantaoNormalValidado);
   if (colab) base = base.filter(ft => ft.colaboradorNome === colab);
+  if (posto) base = base.filter(ft => ft.posto === posto);
   if (de)    base = base.filter(ft => (ft.dataKey || '') >= de);
   if (ate)   base = base.filter(ft => (ft.dataKey || '') <= ate);
+  if (termo) base = base.filter(ft => ptNorm([ft.colaboradorNome, ft.posto, ft.obs, ft.dataDisplay, ft.dataKey].join(' ')).includes(termo));
   return base;
 }
 
 function ptCarregar() {
-  const sel = document.getElementById('pt-f-colab');
-  if (sel) {
+  const todos = _fts.filter(ftEhPlantaoNormalValidado);
+  const ordena = (a,b) => a.localeCompare(b,'pt-BR',{sensitivity:'base'});
+  const preencher = (id, rotuloTodos, valores) => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
     const atual = sel.value;
-    const nomes = [...new Set(_fts.filter(ftEhPlantaoNormalValidado).map(ft => ft.colaboradorNome))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    sel.innerHTML = '<option value="">Todos os colaboradores</option>' +
-      nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
-    if (nomes.includes(atual)) sel.value = atual;
-  }
+    sel.innerHTML = `<option value="">${rotuloTodos}</option>` +
+      valores.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    if (valores.includes(atual)) sel.value = atual;
+    atualizarBotaoGcPicker(id);
+  };
+  preencher('pt-f-colab', 'Todos os colaboradores', [...new Set(todos.map(ft => ft.colaboradorNome).filter(Boolean))].sort(ordena));
+  preencher('pt-f-posto', 'Todos os postos',         [...new Set(todos.map(ft => ft.posto).filter(Boolean))].sort(ordena));
   ptAplicarFiltros();
 }
+
+// Atalhos de período (Hoje / 7 dias / Este mês / Mês anterior / Tudo)
+function ptPeriodo(tipo) {
+  const hoje = new Date();
+  let de = '', ate = '';
+  if (tipo === 'hoje') { de = ate = ptHojeKey(hoje); }
+  else if (tipo === '7d') { const d = new Date(hoje); d.setDate(d.getDate() - 6); de = ptHojeKey(d); ate = ptHojeKey(hoje); }
+  else if (tipo === 'mes') { de = ptHojeKey(new Date(hoje.getFullYear(), hoje.getMonth(), 1)); ate = ptHojeKey(new Date(hoje.getFullYear(), hoje.getMonth()+1, 0)); }
+  else if (tipo === 'ant') { de = ptHojeKey(new Date(hoje.getFullYear(), hoje.getMonth()-1, 1)); ate = ptHojeKey(new Date(hoje.getFullYear(), hoje.getMonth(), 0)); }
+  document.getElementById('pt-f-de').value  = de;
+  document.getElementById('pt-f-ate').value = ate;
+  ptMarcarChip(tipo);
+  ptAplicarFiltros();
+}
+function ptMarcarChip(tipo) {
+  document.querySelectorAll('#pt-chips .pt-chip').forEach(c => c.classList.toggle('active', c.dataset.p === tipo));
+}
+function ptDataManual() {
+  const de = document.getElementById('pt-f-de').value, ate = document.getElementById('pt-f-ate').value;
+  ptMarcarChip(!de && !ate ? 'tudo' : '');
+  ptAplicarFiltros();
+}
+function ptLimparFiltros() {
+  ['pt-f-busca','pt-f-colab','pt-f-posto','pt-f-de','pt-f-ate'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  atualizarBotaoGcPicker('pt-f-colab');
+  atualizarBotaoGcPicker('pt-f-posto');
+  ptMarcarChip('tudo');
+  ptAplicarFiltros();
+}
+window.ptPeriodo = ptPeriodo; window.ptDataManual = ptDataManual; window.ptLimparFiltros = ptLimparFiltros;
 
 function ptAplicarFiltros() {
   const base = ptBase();
   base.sort((a,b) => (b.dataKey || '').localeCompare(a.dataKey || '') || (b.validadaEm || 0) - (a.validadaEm || 0));
   _ptFiltradas = base;
+  const cnt = document.getElementById('pt-f-count');
+  if (cnt) cnt.textContent = base.length === 1 ? '1 plantão encontrado' : base.length + ' plantões encontrados';
   ptAtualizarKPIs();
   ptRenderLista();
 }
 
 function ptAtualizarKPIs() {
   const base = ptBase();
-  const mesAtual = new Date().toISOString().slice(0, 7);
+  const mesAtual = ptHojeKey().slice(0, 7);
   const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
   el('pt-kpi-total', base.length);
   el('pt-kpi-mes',   base.filter(ft => (ft.dataKey || '').startsWith(mesAtual)).length);
@@ -10107,11 +10216,14 @@ function renderGcPickerList(termo) {
   const list = document.getElementById('gc-picker-list');
   if (!sel || !list) return;
   const termoNorm = termo.trim().toLowerCase();
-  const opcoes = Array.from(sel.options)
+  let opcoes = Array.from(sel.options)
     .map(o => o.value)
     .filter(v => v)
     .filter(v => !termoNorm || v.toLowerCase().includes(termoNorm))
     .sort((a,b) => a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
+  // Selects de filtro (data-todos) ganham a opção "Todos" no topo para limpar o filtro
+  const comTodos = sel.dataset.todos === '1' && !termoNorm;
+  if (comTodos) opcoes = ['', ...opcoes];
 
   if (!opcoes.length) {
     list.innerHTML = '<div class="posto-picker-empty">Nenhum resultado encontrado</div>';
@@ -10119,8 +10231,9 @@ function renderGcPickerList(termo) {
   }
   list.innerHTML = opcoes.map(nome => {
     const selecionado = nome === sel.value;
+    const rotulo = nome === '' ? (sel.options[0]?.textContent || 'Todos') : nome;
     return `<button type="button" class="posto-picker-item${selecionado ? ' selected' : ''}" onclick="selecionarGcPickerItem('${nome.replace(/'/g, "\\'")}')">
-      <span>${esc(nome)}</span>
+      <span>${esc(rotulo)}</span>
       ${selecionado ? '<span class="posto-picker-item-check">✓</span>' : ''}
     </button>`;
   }).join('');
