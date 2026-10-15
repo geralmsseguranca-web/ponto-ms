@@ -4773,7 +4773,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
         </div>
         <div class="ft-modal-field ft-modal-full" id="ftm-motivo-wrap" style="display:none">
           <label class="ft-modal-label">💬 Motivo <span style="color:var(--red)">*</span></label>
-          <select id="ftm-motivo" class="ft-modal-input" onchange="ftToggleColabAusente()">
+          <button type="button" class="posto-picker-btn" id="ftm-motivo-btn" onclick="abrirGcPicker('ftm-motivo','💬 Motivo')">
+            <span class="posto-picker-btn-label placeholder" id="ftm-motivo-btn-label">— Selecione —</span>
+            <span class="posto-picker-btn-chevron">▼</span>
+          </button>
+          <select id="ftm-motivo" style="display:none" onchange="ftToggleColabAusente()">
             <option value="">— Selecione —</option>
           </select>
         </div>
@@ -4954,7 +4958,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
         </div>
         <div class="ft-modal-field ft-modal-full">
           <label class="ft-modal-label">💬 Motivo</label>
-          <select id="ftvm-motivo" class="ft-modal-input" onchange="ftvToggleColabAusente()">
+          <button type="button" class="posto-picker-btn" id="ftvm-motivo-btn" onclick="abrirGcPicker('ftvm-motivo','💬 Motivo')">
+            <span class="posto-picker-btn-label placeholder" id="ftvm-motivo-btn-label">— Selecione —</span>
+            <span class="posto-picker-btn-chevron">▼</span>
+          </button>
+          <select id="ftvm-motivo" style="display:none" onchange="ftvToggleColabAusente()">
             <option value="">— Selecione —</option>
           </select>
         </div>
@@ -5867,7 +5875,8 @@ function renderPostoPickerList(termo) {
   const opcoes = Array.from(sel.options)
     .map(o => o.value)
     .filter(v => v)
-    .filter(v => !termoNorm || v.toLowerCase().includes(termoNorm));
+    .filter(v => !termoNorm || v.toLowerCase().includes(termoNorm))
+    .sort((a,b) => a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
 
   if (!opcoes.length) {
     list.innerHTML = '<div class="posto-picker-empty">Nenhum posto encontrado</div>';
@@ -8986,6 +8995,7 @@ function ftAbrirModal(id) {
   // Popular select dinâmico de motivos antes de setar o value
   gcPopularSelectsMotivo();
   document.getElementById('ftm-motivo').value       = ft.motivo       || '';
+  atualizarBotaoGcPicker('ftm-motivo');
 
   // Popular select de colaboradores ausentes
   const selColab = document.getElementById('ftm-colab-ausente');
@@ -9005,7 +9015,7 @@ function ftAbrirModal(id) {
 
   // Bloqueia campos se já validada
   const soLeitura = ft.status === 'validada';
-  ['ftm-posto','ftm-hora-entrada','ftm-hora-saida','ftm-data','ftm-obs','ftm-motivo','ftm-valor','ftm-colab-ausente','ftm-colab-ausente-btn'].forEach(fId => {
+  ['ftm-posto','ftm-hora-entrada','ftm-hora-saida','ftm-data','ftm-obs','ftm-motivo','ftm-motivo-btn','ftm-valor','ftm-colab-ausente','ftm-colab-ausente-btn'].forEach(fId => {
     const el = document.getElementById(fId);
     if (el) el.disabled = soLeitura;
   });
@@ -9317,6 +9327,7 @@ function ftvAbrirEdicao(id) {
   // Popular select dinâmico de motivos antes de setar o value
   gcPopularSelectsMotivo();
   document.getElementById('ftvm-motivo').value       = ft.motivo      || '';
+  atualizarBotaoGcPicker('ftvm-motivo');
 
   // Popular select de colaboradores ausentes
   const selColabV = document.getElementById('ftvm-colab-ausente');
@@ -10099,7 +10110,8 @@ function renderGcPickerList(termo) {
   const opcoes = Array.from(sel.options)
     .map(o => o.value)
     .filter(v => v)
-    .filter(v => !termoNorm || v.toLowerCase().includes(termoNorm));
+    .filter(v => !termoNorm || v.toLowerCase().includes(termoNorm))
+    .sort((a,b) => a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
 
   if (!opcoes.length) {
     list.innerHTML = '<div class="posto-picker-empty">Nenhum resultado encontrado</div>';
@@ -10397,6 +10409,7 @@ let _gcMotivos = (function(){
     lista.unshift('Plantão Normal');
     try { localStorage.setItem('ms_motivos_ft', JSON.stringify(lista)); } catch {}
   }
+  lista.sort((a,b) => a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
   return lista;
 })();
 
@@ -10420,6 +10433,7 @@ function gcPopularSelectsMotivo() {
     const val = sel.value; // preserva seleção atual
     sel.innerHTML = opts;
     sel.value = val;
+    atualizarBotaoGcPicker(id);
   });
 }
 window.gcPopularSelectsMotivo = gcPopularSelectsMotivo;
@@ -10429,6 +10443,7 @@ function gcAdicionarMotivo() {
   const nome = (inp?.value || '').trim();
   if (!nome || _gcMotivos.includes(nome)) return;
   _gcMotivos.push(nome);
+  _gcMotivos.sort((a,b) => a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
   localStorage.setItem('ms_motivos_ft', JSON.stringify(_gcMotivos));
   inp.value = '';
   gcRenderMotivos();
