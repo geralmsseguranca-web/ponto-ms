@@ -4293,6 +4293,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
       <button class="tab-btn admin-tab" id="tab-btn-dashboard"      onclick="showTab('dashboard',this)"      style="display:none">📊 Dashboard</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft"             onclick="showTab('ft-auto',this)"        style="display:none">📋 FT Automática</button>
       <button class="tab-btn admin-tab" id="tab-btn-ft-validadas"   onclick="showTab('ft-validadas',this)"   style="display:none">✅ FTs Validadas</button>
+      <button class="tab-btn admin-tab" id="tab-btn-plantao"         onclick="showTab('plantao',this)"        style="display:none">🗓️ Plantão Normal</button>
       <button class="tab-btn admin-tab" id="tab-btn-gestao"         onclick="showTab('gestao',this)"         style="display:none">⚙️ Gestão</button>
     </nav>
   </div>
@@ -4867,6 +4868,53 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
       <div class="ft-empty-sub">As FTs validadas aparecerão aqui após aprovação na aba FT Automática.</div>
     </div>
 
+  </section>
+
+  <!-- ═══ ABA: PLANTÃO NORMAL ═══ -->
+  <section id="tab-plantao" class="tab-content">
+    <div class="ftv-header">
+      <div>
+        <h2 class="ftv-titulo">🗓️ Plantão Normal</h2>
+        <p class="ftv-subtitulo">Plantões normais já validados — não são FT e não aparecem em FTs Validadas</p>
+      </div>
+    </div>
+
+    <div class="ftv-kpi-grid">
+      <div class="ftv-kpi ftv-kpi-green">
+        <div class="ftv-kpi-val" id="pt-kpi-total">—</div>
+        <div class="ftv-kpi-label">PLANTÕES</div>
+      </div>
+      <div class="ftv-kpi ftv-kpi-blue">
+        <div class="ftv-kpi-val" id="pt-kpi-mes">—</div>
+        <div class="ftv-kpi-label">NESTE MÊS</div>
+      </div>
+      <div class="ftv-kpi ftv-kpi-gold">
+        <div class="ftv-kpi-val" id="pt-kpi-colab">—</div>
+        <div class="ftv-kpi-label">COLABORADORES</div>
+      </div>
+    </div>
+
+    <div class="ftv-filtros-wrap">
+      <select id="pt-f-colab" class="ftv-select" onchange="ptAplicarFiltros()">
+        <option value="">Todos os colaboradores</option>
+      </select>
+      <input type="date" id="pt-f-de" class="ftv-select" onchange="ptAplicarFiltros()" title="Data inicial"/>
+      <input type="date" id="pt-f-ate" class="ftv-select" onchange="ptAplicarFiltros()" title="Data final"/>
+      <button class="ftv-btn-atualizar" onclick="ptCarregar()">🔄 Atualizar visão</button>
+    </div>
+
+    <div class="ftv-export-row">
+      <button class="ftv-btn-export ftv-btn-pdf" onclick="ptExportarPDF()">🖨️ Exportar PDF</button>
+      <button class="ftv-btn-export ftv-btn-excel" onclick="ptExportarExcel()">📊 Exportar Excel</button>
+    </div>
+
+    <div id="pt-lista" class="ftv-lista"></div>
+
+    <div id="pt-empty" class="ft-empty" style="display:none">
+      <div class="ft-empty-icon">🗓️</div>
+      <div class="ft-empty-titulo">Nenhum plantão normal encontrado</div>
+      <div class="ft-empty-sub">Quando uma FT for validada com o motivo "Plantão Normal", ela aparecerá aqui — e não em FTs Validadas.</div>
+    </div>
   </section>
 
   <!-- ─── MODAL EDITAR FT VALIDADA ─── -->
@@ -5562,6 +5610,7 @@ const _tabInfo = {
   'dashboard':      { icon: '📊', label: 'Dashboard' },
   'ft-auto':        { icon: '📋', label: 'FT Automática' },
   'ft-validadas':   { icon: '✅', label: 'FTs Validadas' },
+  'plantao':        { icon: '🗓️', label: 'Plantão Normal' },
   'gestao':         { icon: '⚙️', label: 'Gestão' },
 };
 function showTab(id, btn) {
@@ -5581,6 +5630,7 @@ function showTab(id, btn) {
   if (id === 'colaboradores') renderColaboradores();
   if (id === 'ft-auto')       renderFtAuto();
   if (id === 'ft-validadas')  ftvCarregar();
+  if (id === 'plantao')       ptCarregar();
   if (id === 'gestao') {
     // Garante que o select de postos esteja populado ao abrir a aba
     if (window.gcPopularSelectPostos) window.gcPopularSelectPostos();
@@ -5715,6 +5765,7 @@ function loadData() {
       } else {
         ftvAtualizarKPIs();
       }
+      ptRefreshSeAtiva();
     });
 
     _fbUnsubs = [u1, u2, u3, u4, u5];
@@ -6577,6 +6628,7 @@ function entrarSistema(usuario) {
   document.getElementById('tab-btn-dashboard').style.display     = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft').style.display            = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-ft-validadas').style.display  = isAdmin ? '' : 'none';
+  document.getElementById('tab-btn-plantao').style.display       = isAdmin ? '' : 'none';
   document.getElementById('tab-btn-gestao').style.display        = isAdmin ? '' : 'none';
 
   // Divider admin: só aparece no desktop quando é admin
@@ -8974,6 +9026,7 @@ function ftAbrirModal(id) {
       <button class="ft-btn" onclick="ftFecharModal()">Fechar</button>`;
   }
 
+  ftAtualizarRotuloValidar();
   document.getElementById('ft-modal-overlay').style.display = 'flex';
 }
 
@@ -8985,6 +9038,11 @@ function ftEhPlantaoFixo(motivo) {
   const m = String(motivo || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
   return m === 'plantao' || m === 'plantao normal' || m === 'plantao fixo';
 }
+
+// Classificação das FTs já validadas: o MOTIVO decide em qual aba o registro aparece.
+// Plantão Normal NÃO é FT → vai para a aba "Plantão Normal", nunca para "FTs Validadas".
+function ftEhPlantaoNormalValidado(ft) { return !!ft && ft.status === 'validada' && ftEhPlantaoFixo(ft.motivo); }
+function ftEhFTValidada(ft)            { return !!ft && ft.status === 'validada' && !ftEhPlantaoFixo(ft.motivo); }
 
 // Mostra/oculta o campo Valor conforme o motivo (prefixo: 'ftm' ou 'ftvm')
 function ftAplicarRegraPlantao(prefixo) {
@@ -9006,12 +9064,21 @@ function labelColabVinculado(motivo) {
   return FT_LABEL_COLAB_POR_MOTIVO[motivo] || 'Colaborador ausente';
 }
 
+// Botão "Validar" avisa quando o motivo é Plantão Normal (vai para a aba própria, não para FTs Validadas)
+function ftAtualizarRotuloValidar() {
+  const motivo = document.getElementById('ftm-motivo')?.value || '';
+  document.querySelectorAll('#ft-modal-acoes .ft-btn-validar').forEach(b => {
+    if (!b.dataset.rot) b.dataset.rot = b.textContent.trim();
+    b.textContent = ftEhPlantaoFixo(motivo) ? '🗓️ Validar como Plantão Normal' : b.dataset.rot;
+  });
+}
 function ftToggleColabAusente() {
   const motivo = document.getElementById('ftm-motivo')?.value || '';
   const wrap   = document.getElementById('ftm-colab-ausente-wrap');
   if (!wrap) return;
   wrap.style.display = FT_MOTIVOS_COM_AUSENTE.includes(motivo) ? '' : 'none';
   ftAplicarRegraPlantao('ftm');
+  ftAtualizarRotuloValidar();
   const lbl = document.getElementById('ftm-colab-ausente-label');
   if (lbl) lbl.textContent = '👤 ' + labelColabVinculado(motivo);
   atualizarBotaoGcPicker('ftm-colab-ausente');
@@ -9061,13 +9128,16 @@ async function ftAcao(novoStatus) {
   if (document.getElementById('tab-ft-validadas')?.classList.contains('active') && typeof ftvAplicarFiltros === 'function') {
     ftvAplicarFiltros();
   }
+  ptRefreshSeAtiva();
 
   try {
     if (window._firebaseReady && window._db) {
       await window._fbSet(window._fbRef(window._db, 'fts/' + ft.id), atualizado);
     }
     ftFecharModal();
-    const msg = novoStatus === 'validada' ? '✅ FT validada com sucesso!' : '❌ FT rejeitada';
+    const msg = novoStatus === 'validada'
+      ? (ftEhPlantaoFixo(atualizado.motivo) ? '✅ Plantão Normal validado — enviado para a aba Plantão Normal' : '✅ FT validada com sucesso!')
+      : '❌ FT rejeitada';
     const cor = novoStatus === 'validada' ? 'green' : 'red';
     mostrarSyncToast(msg, cor);
   } catch(e) {
@@ -9105,7 +9175,7 @@ function ftvCarregar() {
   // Popular select de colaboradores
   const selColab = document.getElementById('ftv-f-colab');
   if (selColab) {
-    const nomes = [...new Set(_fts.filter(ft => ft.status === 'validada').map(ft => ft.colaboradorNome))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const nomes = [...new Set(_fts.filter(ftEhFTValidada).map(ft => ft.colaboradorNome))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
     selColab.innerHTML = '<option value="">Todos os colaboradores</option>' +
       nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
   }
@@ -9118,7 +9188,7 @@ function ftvAplicarFiltros() {
   const de    = document.getElementById('ftv-f-de')?.value    || '';
   const ate   = document.getElementById('ftv-f-ate')?.value   || '';
 
-  let base = _fts.filter(ft => ft.status === 'validada');
+  let base = _fts.filter(ftEhFTValidada);
 
   if (tipo === 'adm') base = base.filter(ft => ftvTipoValidacao(ft) === 'adm');
   if (tipo === 'ia')  base = base.filter(ft => ftvTipoValidacao(ft) === 'ia');
@@ -9142,7 +9212,7 @@ function ftvAtualizarKPIs() {
   const de    = document.getElementById('ftv-f-de')?.value    || '';
   const ate   = document.getElementById('ftv-f-ate')?.value   || '';
 
-  let base = _fts.filter(ft => ft.status === 'validada');
+  let base = _fts.filter(ftEhFTValidada);
   if (colab) base = base.filter(ft => ft.colaboradorNome === colab);
   if (de)    base = base.filter(ft => (ft.dataKey || '') >= de);
   if (ate)   base = base.filter(ft => (ft.dataKey || '') <= ate);
@@ -9313,6 +9383,7 @@ async function ftvSalvarEdicao() {
       const idx = _fts.findIndex(x => x.id === ft.id);
       if (idx > -1) _fts[idx] = atualizado;
       ftvAplicarFiltros();
+      ptRefreshSeAtiva();
     }
     ftvFecharModal();
     mostrarSyncToast('✅ FT atualizada com sucesso!', 'green');
@@ -9346,6 +9417,7 @@ async function ftvConfirmarDel() {
     } else {
       _fts = _fts.filter(x => x.id !== _ftvDelId);
       ftvAplicarFiltros();
+      ptRefreshSeAtiva();
     }
     ftvFecharDel();
     mostrarSyncToast('🗑️ FT excluída definitivamente', 'gold');
@@ -9414,7 +9486,7 @@ function ftvBuscaFiltrar() {
     if (count) count.textContent = '';
     return;
   }
-  const base = _fts.filter(ft => ft.status === 'validada');
+  const base = _fts.filter(ftEhFTValidada);
   _ftvBuscaFiltradas = base.filter(ft => ft.colaboradorNome.toLowerCase().includes(q));
   if (count) count.textContent = _ftvBuscaFiltradas.length + ' FT(s)';
 }
@@ -9434,19 +9506,117 @@ function ftvBuscaPDF() {
   _ftvFiltradas = lista_orig;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// ABA: PLANTÃO NORMAL  (FT validada com motivo "Plantão Normal" — não é FT)
+// ══════════════════════════════════════════════════════════════════════════════
+let _ptFiltradas = [];
+
+function ptBase() {
+  const colab = document.getElementById('pt-f-colab')?.value || '';
+  const de    = document.getElementById('pt-f-de')?.value    || '';
+  const ate   = document.getElementById('pt-f-ate')?.value   || '';
+  let base = _fts.filter(ftEhPlantaoNormalValidado);
+  if (colab) base = base.filter(ft => ft.colaboradorNome === colab);
+  if (de)    base = base.filter(ft => (ft.dataKey || '') >= de);
+  if (ate)   base = base.filter(ft => (ft.dataKey || '') <= ate);
+  return base;
+}
+
+function ptCarregar() {
+  const sel = document.getElementById('pt-f-colab');
+  if (sel) {
+    const atual = sel.value;
+    const nomes = [...new Set(_fts.filter(ftEhPlantaoNormalValidado).map(ft => ft.colaboradorNome))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    sel.innerHTML = '<option value="">Todos os colaboradores</option>' +
+      nomes.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    if (nomes.includes(atual)) sel.value = atual;
+  }
+  ptAplicarFiltros();
+}
+
+function ptAplicarFiltros() {
+  const base = ptBase();
+  base.sort((a,b) => (b.dataKey || '').localeCompare(a.dataKey || '') || (b.validadaEm || 0) - (a.validadaEm || 0));
+  _ptFiltradas = base;
+  ptAtualizarKPIs();
+  ptRenderLista();
+}
+
+function ptAtualizarKPIs() {
+  const base = ptBase();
+  const mesAtual = new Date().toISOString().slice(0, 7);
+  const el = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  el('pt-kpi-total', base.length);
+  el('pt-kpi-mes',   base.filter(ft => (ft.dataKey || '').startsWith(mesAtual)).length);
+  el('pt-kpi-colab', new Set(base.map(ft => ft.colaboradorNome)).size);
+}
+
+// Atualiza a aba só se ela estiver aberta; senão mantém apenas os números em dia
+function ptRefreshSeAtiva() {
+  if (document.getElementById('tab-plantao')?.classList.contains('active')) ptCarregar();
+  else ptAtualizarKPIs();
+}
+
+function ptRenderLista() {
+  const lista = document.getElementById('pt-lista');
+  const empty = document.getElementById('pt-empty');
+  if (!lista) return;
+  if (!_ptFiltradas.length) {
+    lista.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  lista.innerHTML = _ptFiltradas.map(ptRenderCard).join('');
+}
+
+function ptRenderCard(ft) {
+  const horario = ft.horaSaida ? `${ft.horaEntrada} – ${ft.horaSaida}` : (ft.horaEntrada || '—');
+  const validadaEm = ft.validadaEm ? new Date(ft.validadaEm).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+  const porIA = ftvTipoValidacao(ft) === 'ia';
+  return `<div class="ftv-card">
+    <div class="ftv-card-top">
+      <div class="ftv-card-av" style="background:${avatarColor(ft.colaboradorNome)}">${esc(ft.colaboradorNome.charAt(0))}</div>
+      <div class="ftv-card-info">
+        <div class="ftv-card-nome">${esc(ft.colaboradorNome)}</div>
+        <div class="ftv-card-meta">📅 ${esc(ft.dataDisplay || ft.dataKey || '—')}${validadaEm ? ` &nbsp;·&nbsp; Validado: ${validadaEm}` : ''}</div>
+      </div>
+      <span class="ft-card-status-tag ft-status-validada">🗓️ Plantão</span>
+    </div>
+    <div class="ftv-chips">
+      <span class="ftv-chip ftv-chip-posto">📍 ${esc(ft.posto || '—')}</span>
+      <span class="ftv-chip ftv-chip-hora">🕐 ${esc(horario)}</span>
+      <span class="ftv-chip ftv-chip-motivo">💬 ${esc(ft.motivo || 'Plantão Normal')}</span>
+      ${porIA ? '<span class="ftv-chip ftv-chip-ia">🤖 Inteligência</span>' : ''}
+    </div>
+    ${ft.obs ? `<div class="ftv-card-meta" style="margin:6px 2px 0">📝 ${esc(ft.obs)}</div>` : ''}
+    <div class="ftv-card-acoes">
+      <button class="ftv-btn ftv-btn-editar" onclick="ftvAbrirEdicao('${ft.id}')">✏️ Editar</button>
+      <button class="ftv-btn ftv-btn-excluir" onclick="ftvAbrirDel('${ft.id}')">🗑️ Excluir</button>
+    </div>
+  </div>`;
+}
+
+function ptExportarPDF()   { ftvExportarPDF({ lista: _ptFiltradas, titulo: 'Plantão Normal', unidade: 'plantões', badge: '🗓️' }); }
+function ptExportarExcel() { ftvExportarExcel({ lista: _ptFiltradas, aba: 'Plantão Normal', arquivo: 'plantao-normal' }); }
+
 // ─── Exportar PDF robusto ─────────────────────────────────────────────────────
-function ftvExportarPDF() {
-  if (!_ftvFiltradas.length) {
-    mostrarSyncToast('⚠️ Nenhuma FT para exportar', 'gold');
+function ftvExportarPDF(opts) {
+  const _L = (opts && opts.lista) || _ftvFiltradas;
+  const _T = (opts && opts.titulo) || 'Folhas de Trabalho Validadas';
+  const _U = (opts && opts.unidade) || 'FTs';
+  const _B = (opts && opts.badge) || '✅';
+  if (!_L.length) {
+    mostrarSyncToast('⚠️ Nada para exportar', 'gold');
     return;
   }
 
   const empresa   = document.querySelector('.topbar-nome')?.textContent?.trim() || 'PJ Tecnologia e Sistemas';
   const geradoEm  = new Date().toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
-  const totalVal  = _ftvFiltradas.reduce((s, ft) => s + (parseFloat(ft.valor) || 0), 0);
+  const totalVal  = _L.reduce((s, ft) => s + (parseFloat(ft.valor) || 0), 0);
   const totalValStr = totalVal > 0 ? `R$ ${totalVal.toFixed(2).replace('.',',')}` : '—';
 
-  const linhas = _ftvFiltradas.map((ft, i) => {
+  const linhas = _L.map((ft, i) => {
     const horario    = ft.horaSaida ? `${ft.horaEntrada} – ${ft.horaSaida}` : (ft.horaEntrada || '—');
     const valorStr   = ft.valor ? `R$ ${parseFloat(ft.valor).toFixed(2).replace('.',',')}` : '—';
     const validadaEm = ft.validadaEm ? new Date(ft.validadaEm).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
@@ -9482,7 +9652,7 @@ function ftvExportarPDF() {
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>FTs Validadas — ${empresa}</title>
+  <title>${_T} — ${empresa}</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; background:#fff; color:#1e293b; }
@@ -9512,19 +9682,19 @@ function ftvExportarPDF() {
 <body>
   <div class="header">
     <div class="header-left">
-      <h1>📋 Folhas de Trabalho Validadas</h1>
+      <h1>📋 ${_T}</h1>
       <p>${empresa} &nbsp;·&nbsp; Gerado em ${geradoEm}</p>
     </div>
     <div class="header-right">
-      <div class="badge">✅ ${_ftvFiltradas.length} FTs validadas</div>
+      <div class="badge">${_B} ${_L.length} ${opts && opts.unidade ? _U : 'FTs validadas'}</div>
       <div>Total acumulado: <strong>${totalValStr}</strong></div>
     </div>
   </div>
 
   <div class="kpis">
-    <div class="kpi"><div class="kpi-val">${_ftvFiltradas.length}</div><div class="kpi-label">Total de FTs</div></div>
-    <div class="kpi"><div class="kpi-val">${_ftvFiltradas.filter(ft => ft.horaSaida).length}</div><div class="kpi-label">Com horário completo</div></div>
-    <div class="kpi"><div class="kpi-val">${_ftvFiltradas.filter(ft => ft.motivo).length}</div><div class="kpi-label">Com motivo</div></div>
+    <div class="kpi"><div class="kpi-val">${_L.length}</div><div class="kpi-label">Total de ${_U}</div></div>
+    <div class="kpi"><div class="kpi-val">${_L.filter(ft => ft.horaSaida).length}</div><div class="kpi-label">Com horário completo</div></div>
+    <div class="kpi"><div class="kpi-val">${_L.filter(ft => ft.motivo).length}</div><div class="kpi-label">Com motivo</div></div>
     <div class="kpi"><div class="kpi-val">${totalValStr}</div><div class="kpi-label">Valor total</div></div>
   </div>
 
@@ -9550,7 +9720,7 @@ function ftvExportarPDF() {
     </tfoot>
   </table>
 
-  <div class="footer">${empresa} &nbsp;·&nbsp; Ponto Eletrônico &nbsp;·&nbsp; ${geradoEm} &nbsp;·&nbsp; ${_ftvFiltradas.length} registros</div>
+  <div class="footer">${empresa} &nbsp;·&nbsp; Ponto Eletrônico &nbsp;·&nbsp; ${geradoEm} &nbsp;·&nbsp; ${_L.length} registros</div>
 
   <button class="btn-print no-print" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
 </body>
@@ -9564,9 +9734,10 @@ function ftvExportarPDF() {
 }
 
 // ─── Exportar Excel (.xlsx real, coluna por coluna) ──────────────────────────
-function ftvExportarExcel() {
-  if (!_ftvFiltradas.length) {
-    mostrarSyncToast('⚠️ Nenhuma FT para exportar', 'gold');
+function ftvExportarExcel(opts) {
+  const _L = (opts && opts.lista) || _ftvFiltradas;
+  if (!_L.length) {
+    mostrarSyncToast('⚠️ Nada para exportar', 'gold');
     return;
   }
   if (typeof XLSX === 'undefined') {
@@ -9575,7 +9746,7 @@ function ftvExportarExcel() {
   }
 
   const header = ['Colaborador','Data','Posto','Entrada','Saída','Motivo','Colaborador Vinculado ao Motivo','Valor','Validado por','Validado em'];
-  const rows = _ftvFiltradas.map(ft => [
+  const rows = _L.map(ft => [
     ft.colaboradorNome || '',
     ft.dataDisplay || ft.dataKey || '',
     ft.posto || '',
@@ -9603,10 +9774,10 @@ function ftvExportarExcel() {
   ws['!freeze'] = { xSplit: 0, ySplit: 1 };
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'FTs Validadas');
+  XLSX.utils.book_append_sheet(wb, ws, (opts && opts.aba) || 'FTs Validadas');
 
   const dataStr = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, `fts-validadas_${dataStr}.xlsx`);
+  XLSX.writeFile(wb, `${(opts && opts.arquivo) || 'fts-validadas'}_${dataStr}.xlsx`);
 
   mostrarSyncToast('📊 Excel (.xlsx) gerado com sucesso!', 'green');
 }
@@ -10412,6 +10583,7 @@ async function limparTodosDados() {
     if (tabFt?.classList.contains('active')) ftRenderLista();
     const tabFtV = document.getElementById('tab-ft-validadas');
     if (tabFtV?.classList.contains('active')) ftvCarregar();
+    ptRefreshSeAtiva();
 
     if (erros === 0) {
       mostrarSyncToast('✅ Dados limpos com sucesso!', 'green');
