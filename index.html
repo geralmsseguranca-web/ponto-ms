@@ -3546,6 +3546,96 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
   .ftv-btn-export, .btn-export, .dash-feed-btn-pdf, .dash-feed-btn-csv { flex: 1 1 calc(50% - 8px); justify-content:center; text-align:center; }
   .btn-ponto { border-radius: 18px; }
 }
+
+/* ══════════════════════════════════════════
+   LOGIN 3D — cenário com profundidade (mesmas cores)
+══════════════════════════════════════════ */
+#login-screen { --rx:0deg; --ry:0deg; --hx:50%; --hy:20%; }
+#login-screen::before { -webkit-mask-image:linear-gradient(to bottom,#000 0%,transparent 62%); mask-image:linear-gradient(to bottom,#000 0%,transparent 62%); }
+
+.l3d-scene { position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden; perspective:900px; }
+.l3d-glow { position:absolute; left:50%; bottom:-18%; width:140%; height:60%; transform:translateX(-50%);
+  background:radial-gradient(ellipse at 50% 100%, rgba(0,212,255,.30) 0%, rgba(14,165,233,.12) 38%, transparent 70%); }
+.l3d-floor { position:absolute; left:-60%; right:-60%; bottom:0; height:52%;
+  transform-origin:50% 100%; transform:perspective(420px) rotateX(64deg);
+  background-image:
+    linear-gradient(rgba(0,212,255,.38) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, rgba(0,212,255,.38) 1.5px, transparent 1.5px);
+  background-size:58px 58px;
+  -webkit-mask-image:linear-gradient(to top,#000 5%,transparent 88%); mask-image:linear-gradient(to top,#000 5%,transparent 88%);
+  animation:l3dFloor 2.6s linear infinite; }
+@keyframes l3dFloor { from{background-position:0 0} to{background-position:0 58px} }
+
+.l3d-world { position:absolute; inset:0; transform-style:preserve-3d;
+  transform:rotateX(calc(var(--rx) * -1)) rotateY(var(--ry)); transition:transform .12s linear; }
+
+.l3d-cube { position:absolute; width:var(--s); height:var(--s); transform-style:preserve-3d;
+  animation:l3dSpin var(--t) ease-in-out infinite; will-change:transform; }
+.l3d-cube i { position:absolute; inset:0; border:1px solid rgba(0,212,255,.55);
+  background:linear-gradient(135deg, rgba(0,212,255,.14), rgba(14,165,233,.03));
+  box-shadow:inset 0 0 14px rgba(0,212,255,.30), 0 0 10px rgba(0,212,255,.18); backface-visibility:visible; }
+.l3d-cube i:nth-child(1){ transform:translateZ(calc(var(--s) / 2)); }
+.l3d-cube i:nth-child(2){ transform:rotateY(180deg) translateZ(calc(var(--s) / 2)); }
+.l3d-cube i:nth-child(3){ transform:rotateY(90deg)  translateZ(calc(var(--s) / 2)); }
+.l3d-cube i:nth-child(4){ transform:rotateY(-90deg) translateZ(calc(var(--s) / 2)); }
+.l3d-cube i:nth-child(5){ transform:rotateX(90deg)  translateZ(calc(var(--s) / 2)); }
+.l3d-cube i:nth-child(6){ transform:rotateX(-90deg) translateZ(calc(var(--s) / 2)); }
+@keyframes l3dSpin {
+  0%   { transform:translate3d(0,0,var(--z)) rotateX(20deg)  rotateY(0deg); }
+  50%  { transform:translate3d(0,-18px,var(--z)) rotateX(200deg) rotateY(180deg); }
+  100% { transform:translate3d(0,0,var(--z)) rotateX(380deg) rotateY(360deg); }
+}
+.l3d-p { position:absolute; left:var(--x); bottom:-10px; width:var(--s); height:var(--s); border-radius:50%;
+  background:#7be8ff; box-shadow:0 0 8px #00d4ff; opacity:0; animation:l3dRise var(--t) linear var(--d) infinite; }
+@keyframes l3dRise { 0%{transform:translate3d(0,0,0);opacity:0} 12%{opacity:.85} 100%{transform:translate3d(var(--dx),-105vh,0);opacity:0} }
+
+/* Card de vidro que inclina (toque / mouse / giroscópio) */
+.login-panel-right { background:linear-gradient(180deg, rgba(14,26,54,.55) 0%, rgba(8,16,36,.35) 100%);
+  -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); perspective:1100px; }
+.login-card { animation:none; position:relative; transform-style:preserve-3d;
+  padding:26px 22px 22px; border-radius:22px;
+  transform:rotateX(var(--rx)) rotateY(var(--ry)); transition:transform .12s linear; will-change:transform; }
+.login-card::before { content:''; position:absolute; inset:0; border-radius:inherit; z-index:-1; transform:translateZ(-2px);
+  background:linear-gradient(160deg, rgba(18,36,74,.72), rgba(6,13,31,.66));
+  border:1px solid rgba(0,212,255,.24);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 34px 60px -22px #000d, 0 0 46px -12px rgba(0,212,255,.38);
+  -webkit-backdrop-filter:blur(12px) saturate(1.25); backdrop-filter:blur(12px) saturate(1.25); }
+.login-card::after { content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; transform:translateZ(1px);
+  background:radial-gradient(circle at var(--hx) var(--hy), rgba(255,255,255,.11), transparent 46%); }
+@media (max-width:720px){ .login-panel-right { background:transparent; -webkit-backdrop-filter:none; backdrop-filter:none; padding:40px 18px 32px; } }
+@media (min-width:721px){ .login-panel-right { padding:48px 28px 40px; } }
+
+/* Camadas de profundidade + entrada em 3D */
+.login-card > * { transform-style:preserve-3d; }
+.login-logo-wrap { --z:22px; } .login-title { --z:26px; } .login-subtitle { --z:14px; }
+.login-field { --z:18px; } .btn-login { --z:34px; } .login-links { --z:10px; }
+.login-card > * { translate:0 0 var(--z,0px); animation:l3dFlipIn .75s cubic-bezier(.16,1,.3,1) backwards; transform-origin:50% 0; }
+.login-card:focus-within > * { translate:none; }
+.login-card > :nth-child(1){animation-delay:.05s} .login-card > :nth-child(2){animation-delay:.12s}
+.login-card > :nth-child(3){animation-delay:.18s} .login-card > :nth-child(4){animation-delay:.24s}
+.login-card > :nth-child(5){animation-delay:.30s} .login-card > :nth-child(6){animation-delay:.36s}
+.login-card > :nth-child(7){animation-delay:.42s} .login-card > :nth-child(8){animation-delay:.48s}
+.login-card > :nth-child(n+9){animation-delay:.54s}
+@keyframes l3dFlipIn { from{ opacity:0; transform:perspective(700px) rotateX(-65deg) translateY(22px); } to{ opacity:1; transform:none; } }
+
+/* Logo: giro suave + anel orbital */
+.login-logo-wrap { position:relative; }
+.login-logo-hex { animation:l3dLogo 7s ease-in-out infinite; will-change:transform; }
+@keyframes l3dLogo { 0%,100%{ transform:perspective(320px) rotateY(-30deg) translateY(0); } 50%{ transform:perspective(320px) rotateY(30deg) translateY(-3px); } }
+.login-logo-wrap::after { content:''; position:absolute; left:-10px; top:50%; width:72px; height:72px; margin-top:-36px; border-radius:50%;
+  border:1.5px solid rgba(0,212,255,.22); border-top-color:#7be8ff; box-shadow:0 0 12px rgba(0,212,255,.35); pointer-events:none;
+  animation:l3dOrbit 3.6s linear infinite; }
+@keyframes l3dOrbit { from{ transform:perspective(230px) rotateX(68deg) rotateZ(0deg); } to{ transform:perspective(230px) rotateX(68deg) rotateZ(360deg); } }
+.lpl-orb svg { animation:l3dLogo 8s ease-in-out infinite; }
+
+/* Botão ENTRAR: brilho periódico */
+.btn-login::after { animation:l3dShine 4.5s ease-in-out 1.2s infinite; }
+@keyframes l3dShine { 0%,70%{ transform:translateX(-100%); } 100%{ transform:translateX(100%); } }
+
+@media (prefers-reduced-motion:reduce){
+  .l3d-floor,.l3d-cube,.l3d-p,.login-logo-hex,.login-logo-wrap::after,.lpl-orb svg,.btn-login::after,.login-card > * { animation:none !important; }
+  .login-card,.l3d-world { transform:none !important; }
+}
 </style>
 </head>
 <body>
@@ -3683,6 +3773,51 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
 
 <!-- ══ TELA DE LOGIN ══ -->
 <div id="login-screen">
+  <div class="l3d-scene" aria-hidden="true">
+    <div class="l3d-glow"></div>
+    <div class="l3d-floor"></div>
+    <div class="l3d-world">
+      <div class="l3d-cube" style="left:8%;top:13%;--s:46px;--z:60px;--t:18s;animation-delay:0s"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="l3d-cube" style="left:76%;top:20%;--s:34px;--z:40px;--t:22s;animation-delay:-6s"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="l3d-cube" style="left:82%;top:60%;--s:58px;--z:70px;--t:26s;animation-delay:-3s"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="l3d-cube" style="left:4%;top:68%;--s:38px;--z:50px;--t:20s;animation-delay:-9s"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="l3d-cube" style="left:48%;top:86%;--s:28px;--z:30px;--t:16s;animation-delay:-4s"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <span class="l3d-p" style="--x:43%;--s:3px;--t:15s;--d:-10s;--dx:-34px"></span><span class="l3d-p" style="--x:11%;--s:2px;--t:14s;--d:-9s;--dx:-33px"></span><span class="l3d-p" style="--x:66%;--s:3px;--t:9s;--d:-1s;--dx:15px"></span><span class="l3d-p" style="--x:55%;--s:2px;--t:12s;--d:-1s;--dx:30px"></span><span class="l3d-p" style="--x:56%;--s:2px;--t:18s;--d:-1s;--dx:-12px"></span><span class="l3d-p" style="--x:82%;--s:2px;--t:18s;--d:-9s;--dx:10px"></span><span class="l3d-p" style="--x:8%;--s:3px;--t:9s;--d:-8s;--dx:-23px"></span><span class="l3d-p" style="--x:39%;--s:4px;--t:11s;--d:-8s;--dx:-25px"></span><span class="l3d-p" style="--x:75%;--s:3px;--t:17s;--d:-13s;--dx:-17px"></span><span class="l3d-p" style="--x:15%;--s:3px;--t:14s;--d:-1s;--dx:30px"></span><span class="l3d-p" style="--x:93%;--s:2px;--t:18s;--d:-0s;--dx:39px"></span><span class="l3d-p" style="--x:28%;--s:4px;--t:17s;--d:-6s;--dx:0px"></span><span class="l3d-p" style="--x:61%;--s:4px;--t:14s;--d:-4s;--dx:-9px"></span><span class="l3d-p" style="--x:25%;--s:3px;--t:10s;--d:-9s;--dx:-2px"></span>
+    </div>
+  </div>
+  <script>
+  (function(){
+    var scr=document.getElementById('login-screen');
+    if(!scr||(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches))return;
+    var rx=0,ry=0,tx=0,ty=0,raf=0,hx=50,hy=0;
+    function vis(){return scr.offsetParent!==null||getComputedStyle(scr).position==='fixed'&&getComputedStyle(scr).display!=='none';}
+    function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+    function tick(){
+      raf=0;
+      rx+=(tx-rx)*.12; ry+=(ty-ry)*.12;
+      scr.style.setProperty('--rx',rx.toFixed(2)+'deg');
+      scr.style.setProperty('--ry',ry.toFixed(2)+'deg');
+      scr.style.setProperty('--hx',(50+ry*4).toFixed(1)+'%');
+      scr.style.setProperty('--hy',(20-rx*5).toFixed(1)+'%');
+      if(Math.abs(tx-rx)>.04||Math.abs(ty-ry)>.04)raf=requestAnimationFrame(tick);
+    }
+    function aim(x,y){ // x,y em -1..1
+      if(scr.querySelector('.login-card:focus-within')){tx=0;ty=0;}
+      else{tx=-y*6;ty=x*8;}
+      if(!raf)raf=requestAnimationFrame(tick);
+    }
+    window.addEventListener('pointermove',function(e){
+      if(!vis())return;
+      aim((e.clientX/innerWidth-.5)*2,(e.clientY/innerHeight-.5)*2);
+    },{passive:true});
+    window.addEventListener('deviceorientation',function(e){
+      if(!vis()||e.gamma==null)return;
+      aim(clamp(e.gamma,-25,25)/25,clamp((e.beta||45)-45,-25,25)/25);
+    },{passive:true});
+    scr.addEventListener('focusin',function(){tx=0;ty=0;if(!raf)raf=requestAnimationFrame(tick);});
+    // iOS exige permissão do sensor, pedida no 1º toque
+    scr.addEventListener('touchend',function once(){
+      scr.removeEventListener('touchend',once);
+      try{if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function')DeviceOrientationEvent.requestPermission().catch(function(){});}catch(_){}
+    },{passive:true});
+  })();
+  </script>
   <div class="login-marquee" aria-hidden="true">
     <div class="login-marquee-track">
       <span>PJ TECNOLOGIA E SISTEMAS</span><span class="lm-dot">●</span>
