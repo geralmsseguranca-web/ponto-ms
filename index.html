@@ -3555,6 +3555,23 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
 .btn-entrada:disabled, .btn-saida:disabled { transform:none !important; filter: grayscale(.4);
   box-shadow: inset 0 2px 0 #ffffff22, 0 5px 0 var(--b-edge); }
 
+/* Botão de ALMOÇO — só aparece para colaboradores com almoço habilitado */
+.btn-ponto.btn-almoco { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 12px;
+  padding: 20px 18px; font-size: 22px; color: #2b1a00; --b-edge:#7a4a00;
+  background: linear-gradient(180deg,#ffd166 0%,#e08a00 100%);
+  box-shadow: inset 0 2px 0 #ffffff66, 0 8px 0 var(--b-edge), 0 18px 30px -8px #ffb30077; }
+.btn-ponto.btn-almoco .icon { font-size: 30px; }
+.btn-ponto.btn-almoco.retorno { color:#fff; --b-edge:#0b3a7d;
+  background: linear-gradient(180deg,#52b0ff 0%,#1d6fd6 100%);
+  box-shadow: inset 0 2px 0 #ffffff55, 0 8px 0 var(--b-edge), 0 18px 30px -8px #2f8bff77; }
+@media (hover:hover) { .btn-ponto.btn-almoco:hover:not(:disabled) { transform: translateY(-3px); filter: brightness(1.08); } }
+.btn-ponto.btn-almoco:active:not(:disabled) { transform: translateY(6px); filter:none;
+  box-shadow: inset 0 2px 0 #ffffff33, 0 2px 0 var(--b-edge), 0 5px 10px -2px #000a; }
+.btn-ponto.btn-almoco:disabled { transform:none !important; filter: grayscale(.5); font-size: 16px;
+  box-shadow: inset 0 2px 0 #ffffff22, 0 5px 0 var(--b-edge); }
+.feedback.saida_almoco, .feedback.retorno_almoco { background:#2b1f05; border:2px solid #ffb30055; }
+.feedback.saida_almoco .feedback-title, .feedback.retorno_almoco .feedback-title { color:#ffc23d; }
+
 /* alvo de toque confortável no celular */
 @media (pointer:coarse) {
   :is(.btn-rec-fechar,.btn-wiz-back,.btn-cancel,.btn-clear,.btn-ponto-acao,.btn-page,.colab-card-btn,.colab-form-btn-cancel,.ft-filtro-btn,.ft-btn,.pj-confirm-btn-cancelar,.ftv-btn-atualizar,.ftv-btn,.gc-btn-cancel,.dash2-refresh-btn,.b3d-neutral,.btn-rec-buscar,.btn-rec-usar,.btn-wiz-next,.btn-wiz-criar,.btn-wiz-entrar,.colab-mgr-btn-novo,.colab-form-btn-save,.gc-btn-save,.ftv-btn-excel,.btn-export-xlsx,.dash-feed-btn-csv,.b3d-green,.btn-camera,.btn-instalar,.b3d-cyan,.btn-primeiro-acesso,.b3d-blue,.btn-export-pdf,.dash-feed-btn-pdf,.ftv-btn-pdf,.ftv-busca-btn-pdf,.b3d-red,.btn-ponto-excluir,.colab-form-btn-del,.pj-confirm-btn-confirmar,.b3d-soft):not(.btn-ponto-acao):not(.ft-btn):not(.ftv-btn):not(.colab-card-btn):not(.ft-filtro-btn) { min-height: 44px; }
@@ -4392,6 +4409,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
           <button class="btn-ponto btn-saida" onclick="baterPonto('saida')">
             <span class="icon">🔴</span> SAÍDA
           </button>
+          <!-- Almoço: só aparece quando o administrador habilita no cadastro do colaborador -->
+          <button class="btn-ponto btn-almoco" id="btn-almoco" style="display:none" onclick="baterPontoAlmoco()">
+            <span class="icon">🍽️</span> <span id="btn-almoco-txt">ALMOÇO</span>
+          </button>
         </div>
 
       </div><!-- /desktop-ponto-right -->
@@ -4480,9 +4501,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
           <option value="">Todos os postos</option>
         </select>
         <select class="input" id="f-tipo" onchange="renderHistorico()">
-          <option value="">Entrada e Saída</option>
+          <option value="">Todos os registros</option>
           <option value="entrada">🟢 Apenas Entradas</option>
           <option value="saida">🔴 Apenas Saídas</option>
+          <option value="saida_almoco">🍽️ Apenas Saídas p/ almoço</option>
+          <option value="retorno_almoco">☕ Apenas Retornos do almoço</option>
         </select>
         <input class="input" id="f-nome" type="text" placeholder="🔍 Busca livre por nome..." oninput="renderHistorico()"/>
       </div>
@@ -4531,6 +4554,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
               <th>Posto</th>
               <th>Entrada</th>
               <th>Saída</th>
+              <th>Almoço</th>
               <th>Duração</th>
               <th>Localização</th>
               <th>Foto</th>
@@ -4561,6 +4585,16 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
               <label class="ft-modal-label" id="ponto-modal-saida-label">🔴 Saída</label>
               <input id="ponto-modal-saida" class="ft-modal-input" type="datetime-local"/>
               <button class="btn-ponto-excluir" id="ponto-modal-saida-excluir-btn" onclick="pontoExcluirRegistro('saida')">🗑️ Excluir esta saída</button>
+            </div>
+            <div class="ft-modal-field" id="ponto-modal-almsai-wrap" style="display:none">
+              <label class="ft-modal-label">🍽️ Saída para o almoço</label>
+              <input id="ponto-modal-almsai" class="ft-modal-input" type="datetime-local"/>
+              <button class="btn-ponto-excluir" id="ponto-modal-almsai-excluir-btn" onclick="pontoExcluirRegistro('saida_almoco')">🗑️ Excluir esta saída p/ almoço</button>
+            </div>
+            <div class="ft-modal-field" id="ponto-modal-almret-wrap" style="display:none">
+              <label class="ft-modal-label">☕ Retorno do almoço</label>
+              <input id="ponto-modal-almret" class="ft-modal-input" type="datetime-local"/>
+              <button class="btn-ponto-excluir" id="ponto-modal-almret-excluir-btn" onclick="pontoExcluirRegistro('retorno_almoco')">🗑️ Excluir este retorno</button>
             </div>
           </div>
 
@@ -4687,6 +4721,17 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
               <span class="colab-form-toggle-track"><span class="colab-form-toggle-thumb"></span></span>
             </label>
             <span id="cf-ativo-label" style="font-size:13px;color:var(--muted);font-family:var(--font-mono)">Ativo</span>
+          </div>
+        </div>
+
+        <div class="colab-form-field colab-form-full" id="cf-almoco-wrap">
+          <label class="colab-form-label">🍽️ Ponto de almoço</label>
+          <div class="colab-form-toggle-row">
+            <label class="colab-form-toggle">
+              <input type="checkbox" id="cf-almoco" onchange="colabMgrAtualizarLabelAlmoco()"/>
+              <span class="colab-form-toggle-track"><span class="colab-form-toggle-thumb"></span></span>
+            </label>
+            <span id="cf-almoco-label" style="font-size:13px;color:var(--muted);font-family:var(--font-mono)">Apenas entrada e saída</span>
           </div>
         </div>
 
@@ -5644,8 +5689,8 @@ function renderFilaOffline() {
   }
   lista.innerHTML = q.map(r => {
     const hora = new Date(r.timestamp).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const cor  = r.tipo === 'entrada' ? 'var(--green)' : 'var(--red)';
-    const icon = r.tipo === 'entrada' ? '▲' : '▼';
+    const cor  = r.tipo === 'entrada' ? 'var(--green)' : (TIPOS_ALMOCO.includes(r.tipo) ? '#ffc23d' : 'var(--red)');
+    const icon = r.tipo === 'entrada' ? '▲' : (TIPOS_ALMOCO.includes(r.tipo) ? '🍽️' : '▼');
     const esp  = Math.round((Date.now() - r._queuedAt) / 60000);
     return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px">
       <span style="color:${cor};font-size:20px">${icon}</span>
@@ -5990,6 +6035,86 @@ function ultimoReg(colabId) {
   return ult;
 }
 
+// ─── ALMOÇO (opcional, habilitado por colaborador pelo administrador) ─────────
+const TIPOS_ALMOCO = ['saida_almoco', 'retorno_almoco'];
+const TIPO_LABEL = {
+  entrada:        '🟢 Entrada',
+  saida:          '🔴 Saída',
+  saida_almoco:   '🍽️ Saída p/ almoço',
+  retorno_almoco: '☕ Retorno do almoço'
+};
+const TIPO_REGISTRAR_LABEL = {
+  entrada:        '🟢 Registrar ENTRADA',
+  saida:          '🔴 Registrar SAÍDA',
+  saida_almoco:   '🍽️ Registrar SAÍDA PARA ALMOÇO',
+  retorno_almoco: '☕ Registrar RETORNO DO ALMOÇO'
+};
+const TIPO_FEEDBACK_TITULO = {
+  entrada:        '✅ Entrada registrada!',
+  saida:          '🚪 Saída registrada!',
+  saida_almoco:   '🍽️ Saída para o almoço registrada!',
+  retorno_almoco: '☕ Retorno do almoço registrado!'
+};
+
+// Turno aberto = entrou e ainda não saiu (inclui quem está no intervalo de almoço)
+function tipoTurnoAberto(tipo) {
+  return tipo === 'entrada' || tipo === 'saida_almoco' || tipo === 'retorno_almoco';
+}
+function colabTemAlmoco(colabId) {
+  const c = colaboradores.find(x => x.id === colabId);
+  return !!(c && c.almoco === true);
+}
+function emAlmoco(colabId) {
+  const u = ultimoReg(colabId);
+  return !!(u && u.tipo === 'saida_almoco');
+}
+// Já houve almoço no turno atual? (olha do registro mais novo para trás, até a entrada)
+function almocoJaRegistradoNoTurno(colabId) {
+  const regs = registros.filter(r => r.colaboradorId === colabId).sort((a,b) => b.timestamp - a.timestamp);
+  for (const r of regs) {
+    if (r.tipo === 'saida') return false;
+    if (r.tipo === 'entrada') return false;
+    if (TIPOS_ALMOCO.includes(r.tipo)) return true;
+  }
+  return false;
+}
+// Qual é a próxima batida de almoço e se ela está liberada agora
+function estadoAlmoco(colabId) {
+  const ult = ultimoReg(colabId);
+  if (!ult || !tipoTurnoAberto(ult.tipo)) return { tipo: 'saida_almoco', ok: false, motivo: 'sem_turno' };
+  if (ult.tipo === 'saida_almoco') return { tipo: 'retorno_almoco', ok: true };
+  if (almocoJaRegistradoNoTurno(colabId)) return { tipo: 'saida_almoco', ok: false, motivo: 'ja_registrado' };
+  return { tipo: 'saida_almoco', ok: true };
+}
+
+function atualizarBtnAlmoco() {
+  const btn = document.getElementById('btn-almoco');
+  if (!btn) return;
+  if (!selectedColab || !colabTemAlmoco(selectedColab.id)) { btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  const txt  = document.getElementById('btn-almoco-txt');
+  const icon = btn.querySelector('.icon');
+  const st   = estadoAlmoco(selectedColab.id);
+  btn.classList.toggle('retorno', st.tipo === 'retorno_almoco');
+  if (st.ok) {
+    btn.disabled = false;
+    icon.textContent = st.tipo === 'retorno_almoco' ? '☕' : '🍽️';
+    txt.textContent  = st.tipo === 'retorno_almoco' ? 'RETORNO DO ALMOÇO' : 'SAÍDA PARA ALMOÇO';
+  } else {
+    btn.disabled = true;
+    icon.textContent = '🔒';
+    txt.textContent  = st.motivo === 'ja_registrado' ? 'Almoço já registrado neste turno' : 'Almoço (registre a entrada antes)';
+  }
+}
+
+function baterPontoAlmoco() {
+  if (!selectedColab) return;
+  const st = estadoAlmoco(selectedColab.id);
+  if (!st.ok) { atualizarBtnAlmoco(); return; }
+  baterPonto(st.tipo);
+}
+window.baterPontoAlmoco = baterPontoAlmoco;
+
 // ─── Verifica se o colaborador tem um turno realmente aberto ─────────────────
 // (última batida foi ENTRADA, sem SAÍDA correspondente ainda). Usado para
 // travar o botão de SAÍDA e impedir registros "fantasma" — uma saída batida
@@ -5997,7 +6122,7 @@ function ultimoReg(colabId) {
 // relatórios (ex.: turnos que cruzam a meia-noite ficando com pares errados).
 function temTurnoAberto(colabId) {
   const ult = ultimoReg(colabId);
-  return !!(ult && ult.tipo === 'entrada');
+  return !!(ult && tipoTurnoAberto(ult.tipo));
 }
 
 // ─── COOLDOWN ENTRADA e SAÍDA (1 hora) ────────────────────────────────────────
@@ -6064,6 +6189,12 @@ function atualizarBtnSaida() {
   if (!selectedColab) {
     btn.disabled = false;
     btn.innerHTML = '<span class="icon">🔴</span> SAÍDA';
+    return;
+  }
+  // No intervalo de almoço → precisa registrar o retorno antes de sair.
+  if (emAlmoco(selectedColab.id)) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="icon">🍽️</span> Em almoço';
     return;
   }
   // Sem turno aberto (última batida não foi ENTRADA) → trava a SAÍDA de vez.
@@ -6140,7 +6271,7 @@ function renderColabPonto() {
           // Se o colaborador está "DENTRO", usa o posto do registro de entrada
           // (onde ele bateu o ponto), para a saída ser registrada no mesmo posto.
           const ultM = ultimoReg(meuColab.id);
-          sel.value = (ultM && ultM.tipo === 'entrada' && ultM.posto) ? ultM.posto : (meuColab.posto || '');
+          sel.value = (ultM && tipoTurnoAberto(ultM.tipo) && ultM.posto) ? ultM.posto : (meuColab.posto || '');
           atualizarBotaoPosto();
         }, 50);
       }
@@ -6151,6 +6282,7 @@ function renderColabPonto() {
       // mesmo depois que os dados corretos já tinham chegado.
       atualizarBtnEntrada();
       atualizarBtnSaida();
+      atualizarBtnAlmoco();
       const instrEl = document.getElementById('ponto-instrucao');
       if (instrEl) instrEl.style.display = 'none';
     } else {
@@ -6193,9 +6325,11 @@ function renderColabPonto() {
     let statusClass, tagClass, tagLabel;
     if (!ult) {
       statusClass = 'status-absent'; tagClass = 'tag-absent'; tagLabel = '⚠ SEM REG.';
-    } else if (ult.tipo === 'entrada' && (agora - ult.timestamp) > OITO_H) {
+    } else if (ult.tipo === 'saida_almoco') {
+      statusClass = 'status-warn'; tagClass = 'tag-warn'; tagLabel = '🍽️ ALMOÇO';
+    } else if (tipoTurnoAberto(ult.tipo) && (agora - ult.timestamp) > OITO_H) {
       statusClass = 'status-warn'; tagClass = 'tag-warn'; tagLabel = '⏱ +8H DENTRO';
-    } else if (ult.tipo === 'entrada') {
+    } else if (tipoTurnoAberto(ult.tipo)) {
       statusClass = 'status-ok'; tagClass = 'tag-in'; tagLabel = '▲ DENTRO';
     } else if (ult.timestamp >= HOJE_INI.getTime()) {
       statusClass = 'status-warn'; tagClass = 'tag-out'; tagLabel = '▼ FORA';
@@ -6206,7 +6340,7 @@ function renderColabPonto() {
     // Quando o colaborador está "DENTRO" (último registro é entrada), o posto exibido
     // deve ser o do registro de entrada (onde ele realmente bateu o ponto),
     // não o posto fixo cadastrado — evita divergência entre tela inicial e histórico.
-    const postoAtual = (ult && ult.tipo === 'entrada' && ult.posto) ? ult.posto : c.posto;
+    const postoAtual = (ult && tipoTurnoAberto(ult.tipo) && ult.posto) ? ult.posto : c.posto;
 
     const div = document.createElement('div');
     div.className = 'colab-item' + (isSelected ? ' selected' : '') + ' ' + statusClass;
@@ -6225,6 +6359,7 @@ function renderColabPonto() {
     `;
     container.appendChild(div);
   });
+  atualizarBtnAlmoco();
 }
 
 // ─── SELECIONAR COLABORADOR ───────────────────────────────────────────────────
@@ -6237,7 +6372,7 @@ function selectColab(c) {
     // Se o colaborador está "DENTRO", usa o posto do registro de entrada
     // (onde ele bateu o ponto), para a saída ser registrada no mesmo posto.
     const ult = ultimoReg(selectedColab.id);
-    sel.value = (ult && ult.tipo === 'entrada' && ult.posto) ? ult.posto : (selectedColab.posto || '');
+    sel.value = (ult && tipoTurnoAberto(ult.tipo) && ult.posto) ? ult.posto : (selectedColab.posto || '');
     atualizarBotaoPosto();
     postoSel.style.display  = 'block';
     pontoBtns.style.display = 'grid';
@@ -6247,6 +6382,7 @@ function selectColab(c) {
   }
   atualizarBtnEntrada();
   atualizarBtnSaida();
+  atualizarBtnAlmoco();
   renderColabPonto();
 }
 
@@ -6271,6 +6407,23 @@ function linkMaps(loc) {
 async function baterPonto(tipo) {
   if (!selectedColab) return;
 
+  // Almoço: só para quem o administrador habilitou, e na ordem certa
+  if (TIPOS_ALMOCO.includes(tipo)) {
+    if (!colabTemAlmoco(selectedColab.id)) {
+      mostrarSyncToast('🍽️ O ponto de almoço não está habilitado para este colaborador.', 'gold');
+      atualizarBtnAlmoco();
+      return;
+    }
+    const st = estadoAlmoco(selectedColab.id);
+    if (!st.ok || st.tipo !== tipo) {
+      mostrarSyncToast(st.motivo === 'ja_registrado'
+        ? '🍽️ O almoço deste turno já foi registrado.'
+        : '🔒 Registre a ENTRADA antes de sair para o almoço.', 'gold');
+      atualizarBtnAlmoco();
+      return;
+    }
+  }
+
   // Cooldown de 1h para entrada
   if (tipo === 'entrada') {
     const restante = tempoRestanteCooldown(selectedColab.id);
@@ -6285,7 +6438,7 @@ async function baterPonto(tipo) {
     // de fechar vire confusão no histórico junto com o turno de hoje.
     const ultAntes = ultimoReg(selectedColab.id);
     const OITO_H_MS = 8 * 60 * 60 * 1000;
-    if (ultAntes && ultAntes.tipo === 'entrada' && (Date.now() - ultAntes.timestamp) > OITO_H_MS) {
+    if (ultAntes && tipoTurnoAberto(ultAntes.tipo) && (Date.now() - ultAntes.timestamp) > OITO_H_MS) {
       const desde = fmtHora(ultAntes.timestamp);
       const confirmaNovoTurno = await pjConfirm(
         `${selectedColab.nome} ainda está com um turno em aberto desde ${desde} (sem saída registrada).\n\n` +
@@ -6298,9 +6451,15 @@ async function baterPonto(tipo) {
   }
   // Cooldown de 1h para saída
   if (tipo === 'saida') {
+    if (emAlmoco(selectedColab.id)) {
+      mostrarSyncToast('🍽️ Registre o RETORNO DO ALMOÇO antes de bater a saída.', 'gold');
+      atualizarBtnSaida();
+      return;
+    }
     if (!temTurnoAberto(selectedColab.id)) {
       mostrarSyncToast('🔒 Não há turno aberto para este colaborador. Registre a ENTRADA primeiro.', 'gold');
       atualizarBtnSaida();
+      atualizarBtnAlmoco();
       return;
     }
     const restante = tempoRestanteCooldownSaida(selectedColab.id);
@@ -6350,7 +6509,7 @@ let camState  = 'idle';
 let _camAutoTimer = null;
 
 function openFaceModal() {
-  document.getElementById('face-tipo-label').textContent = pendingTipo === 'entrada' ? '🟢 Registrar ENTRADA' : '🔴 Registrar SAÍDA';
+  document.getElementById('face-tipo-label').textContent = TIPO_REGISTRAR_LABEL[pendingTipo] || '🔴 Registrar SAÍDA';
   document.getElementById('face-nome-label').textContent = selectedColab.nome;
   document.getElementById('face-overlay').style.display = 'flex';
   resetCamera();
@@ -6458,7 +6617,7 @@ function verFotoPontoPorId(id) {
   if (!reg || !reg.foto) { mostrarSyncToast('📷 Nenhuma foto registrada para este ponto', 'gold'); return; }
   document.getElementById('foto-ponto-img').src = reg.foto;
   document.getElementById('foto-ponto-info').textContent =
-    `${reg.colaboradorNome || ''} — ${reg.tipo === 'entrada' ? '🟢 Entrada' : '🔴 Saída'} às ${fmtHora(reg.timestamp)}`;
+    `${reg.colaboradorNome || ''} — ${TIPO_LABEL[reg.tipo] || '🔴 Saída'} às ${fmtHora(reg.timestamp)}`;
   document.getElementById('foto-ponto-overlay').style.display = 'flex';
 }
 function fecharFotoPonto() {
@@ -6573,7 +6732,7 @@ function showFeedback(tipo, nome, loc) {
     ? `<div class="feedback-sub" style="margin-top:6px">${linkMaps(loc)}</div>`
     : `<div class="feedback-sub" style="margin-top:6px;color:var(--muted)">📍 Localização não capturada</div>`;
   el.innerHTML = `
-    <div class="feedback-title">${tipo==='entrada'?'✅ Entrada registrada!':'🚪 Saída registrada!'}</div>
+    <div class="feedback-title">${TIPO_FEEDBACK_TITULO[tipo] || '🚪 Saída registrada!'}</div>
     <div class="feedback-sub">${esc(nome)} &nbsp;·&nbsp; ${fmtHora(Date.now())}</div>
     ${locHtml}
   `;
@@ -6955,43 +7114,77 @@ function _buildParesPonto(lista) {
     (porColab[k] = porColab[k] || []).push(r);
   });
 
-  const pares  = {};   // pairKey -> { entradas:[], saidas:[], dia }
+  const pares  = {};   // pairKey -> { entradas:[], saidas:[], almocos:[], dia }
   const regKey = {};   // registro.id -> pairKey
 
-  const fecharAberta = (aberta, saida) => {
+  const fecharAberta = (aberta, saida, almocos) => {
     const k = 'p_' + aberta.id;
     pares[k] = {
       entradas: [aberta],
       saidas:   saida ? [saida] : [],
+      almocos:  almocos || [],
       dia:      new Date(aberta.timestamp).toLocaleDateString('pt-BR')
     };
     regKey[aberta.id] = k;
     if (saida) regKey[saida.id] = k;
+    (almocos || []).forEach(a => { regKey[a.id] = k; });
   };
 
   Object.values(porColab).forEach(regsColab => {
     const ordenada = [...regsColab].sort((a,b) => a.timestamp - b.timestamp);
-    let aberta = null;
+    let aberta  = null;
+    let almocos = [];   // saída/retorno de almoço do turno em aberto
     ordenada.forEach(r => {
       if (r.tipo === 'entrada') {
-        if (aberta) fecharAberta(aberta, null); // entrada anterior nunca foi fechada
-        aberta = r;
+        if (aberta) fecharAberta(aberta, null, almocos); // entrada anterior nunca foi fechada
+        aberta  = r;
+        almocos = [];
+      } else if (TIPOS_ALMOCO.includes(r.tipo)) {
+        if (aberta) {
+          almocos.push(r);
+        } else {
+          // almoço sem entrada em aberto correspondente
+          const k = 'p_' + r.id;
+          pares[k] = { entradas:[], saidas:[], almocos:[r], dia: new Date(r.timestamp).toLocaleDateString('pt-BR') };
+          regKey[r.id] = k;
+        }
       } else { // saida
         if (aberta) {
-          fecharAberta(aberta, r);
-          aberta = null;
+          fecharAberta(aberta, r, almocos);
+          aberta  = null;
+          almocos = [];
         } else {
           // saída sem entrada em aberto correspondente
           const k = 'p_' + r.id;
-          pares[k] = { entradas:[], saidas:[r], dia: new Date(r.timestamp).toLocaleDateString('pt-BR') };
+          pares[k] = { entradas:[], saidas:[r], almocos:[], dia: new Date(r.timestamp).toLocaleDateString('pt-BR') };
           regKey[r.id] = k;
         }
       }
     });
-    if (aberta) fecharAberta(aberta, null);
+    if (aberta) fecharAberta(aberta, null, almocos);
   });
 
   return { pares, regKey };
+}
+
+// Intervalo de almoço de um turno: { sai, ret, ms } (ms = 0 se o retorno não foi batido)
+function _almocoDoPar(g) {
+  const al  = [...((g && g.almocos) || [])].sort((a,b) => a.timestamp - b.timestamp);
+  const sai = al.find(x => x.tipo === 'saida_almoco') || null;
+  const ret = sai
+    ? (al.find(x => x.tipo === 'retorno_almoco' && x.timestamp >= sai.timestamp) || null)
+    : (al.find(x => x.tipo === 'retorno_almoco') || null);
+  const ms  = (sai && ret && ret.timestamp > sai.timestamp) ? (ret.timestamp - sai.timestamp) : 0;
+  return { sai, ret, ms };
+}
+function _fmtDurMs(ms) {
+  return `${Math.floor(ms/3600000)}h${Math.floor((ms%3600000)/60000).toString().padStart(2,'0')}m`;
+}
+// Texto simples do almoço para PDF/Excel
+function _almocoTexto(g) {
+  const a = _almocoDoPar(g);
+  if (!a.sai && !a.ret) return '';
+  return `${a.sai ? fmtHora(a.sai.timestamp) : '—'} → ${a.ret ? fmtHora(a.ret.timestamp) : '—'}` + (a.ms ? ` (${_fmtDurMs(a.ms)})` : '');
 }
 
 // ─── Balão de confirmação genérico (agora usa o balão 3D global) ──────────────
@@ -7004,24 +7197,28 @@ function pjConfirmar(mensagemHTML, onConfirm, titulo) {
 window.pjConfirmar = pjConfirmar;
 
 // ─── Excluir turno inteiro direto da lista (lixeira na coluna Ações) ─────────
-async function pontoExcluirLinha(entId, saiId) {
+async function pontoExcluirLinha(entId, saiId, almIdsStr) {
   const regEnt = entId ? registros.find(r => r.id === entId) : null;
   const regSai = saiId ? registros.find(r => r.id === saiId) : null;
-  const base = regEnt || regSai;
+  const regsAlm = (almIdsStr || '').split(',').filter(Boolean)
+    .map(id => registros.find(r => r.id === id)).filter(Boolean);
+  const base = regEnt || regSai || regsAlm[0];
   if (!base) return;
 
   const partes = [];
   if (regEnt) partes.push('entrada');
+  if (regsAlm.length) partes.push('almoço');
   if (regSai) partes.push('saída');
 
   pjConfirmar(
     `Excluir o registro de <strong>${esc(partes.join(' e '))}</strong> de<br>` +
     `<strong>${esc(base.colaboradorNome || '—')}</strong> · ${esc(base.posto || '—')}` +
     (regEnt ? `<br>🟢 ${fmtHora(regEnt.timestamp)}` : '') +
+    regsAlm.map(a => `<br>${a.tipo === 'saida_almoco' ? '🍽️' : '☕'} ${fmtHora(a.timestamp)}`).join('') +
     (regSai ? `<br>🔴 ${fmtHora(regSai.timestamp)}` : ''),
     async () => {
       try {
-        const ids = [entId, saiId].filter(Boolean);
+        const ids = [entId, saiId, ...regsAlm.map(a => a.id)].filter(Boolean);
         for (const id of ids) {
           if (window._firebaseReady && window._db) {
             await window._fbRemove(window._fbRef(window._db, 'registros/' + id));
@@ -7052,7 +7249,7 @@ function _histRenderTbody() {
   const pagina  = _histFiltrado.slice(inicio, inicio + HIST_POR_PAG);
 
   if (!pagina.length) {
-    const cols = isAdmin ? 9 : 9;
+    const cols = isAdmin ? 10 : 10;
     tbody.innerHTML = `<tr class="empty-row"><td colspan="${cols}" style="text-align:center;padding:40px;color:var(--muted)">📭 Nenhum registro encontrado com estes filtros</td></tr>`;
     return;
   }
@@ -7074,13 +7271,24 @@ function _histRenderTbody() {
 
     let duracao = '—';
     if (g.entradas.length && g.saidas.length) {
-      const diffMs = Math.max(...g.saidas.map(x=>x.timestamp)) - Math.min(...g.entradas.map(x=>x.timestamp));
+      const diffMs = Math.max(...g.saidas.map(x=>x.timestamp)) - Math.min(...g.entradas.map(x=>x.timestamp)) - _almocoDoPar(g).ms; // desconta o almoço
       if (diffMs > 0) {
         const h = Math.floor(diffMs/3600000);
         const m = Math.floor((diffMs%3600000)/60000);
         duracao = `${h}h${m.toString().padStart(2,'0')}m`;
       }
     }
+
+    const alm = _almocoDoPar(g);
+    let almocoCel = '<span style="color:var(--muted)">—</span>';
+    if (alm.sai || alm.ret) {
+      almocoCel = `<div style="color:#ffc23d">🍽️ ${alm.sai ? fmtHora(alm.sai.timestamp) : '—'}</div>` +
+                  `<div style="color:#52b0ff">☕ ${alm.ret ? fmtHora(alm.ret.timestamp) : '—'}</div>` +
+                  (alm.ms ? `<div style="font-size:11px;color:var(--muted)">(${_fmtDurMs(alm.ms)})</div>` : '');
+    }
+    const almSaiId  = alm.sai?.id || '';
+    const almRetId  = alm.ret?.id || '';
+    const almTodos  = (g.almocos || []).map(x => x.id).join(',');
 
     const posto = g.entradas[0]?.posto || g.saidas[0]?.posto || r.posto || '—';
     const nome  = r.colaboradorNome || '—';
@@ -7112,9 +7320,16 @@ function _histRenderTbody() {
       fotoCel = partes.join(' ');
     }
 
+    [alm.sai, alm.ret].forEach((ar, i) => {
+      if (ar && ar.foto) {
+        const b = `<button class="btn-ponto-acao" title="${i === 0 ? 'Ver foto da saída p/ almoço' : 'Ver foto do retorno do almoço'}" onclick="verFotoPontoPorId('${ar.id}')">📷${i === 0 ? '🍽️' : '☕'}</button>`;
+        fotoCel = fotoCel.includes('<button') ? fotoCel + ' ' + b : b;
+      }
+    });
+
     const acoesCel = isAdmin ? `<td class="td-acoes">
-      <button class="btn-ponto-acao" title="Editar horários" onclick="pontoAbrirEdicao('${entId}','${saiId}')">✏️</button>
-      <button class="btn-ponto-acao btn-ponto-excluir-linha" title="Excluir registro" onclick="pontoExcluirLinha('${entId}','${saiId}')">🗑️</button>
+      <button class="btn-ponto-acao" title="Editar horários" onclick="pontoAbrirEdicao('${entId}','${saiId}','${almSaiId}','${almRetId}')">✏️</button>
+      <button class="btn-ponto-acao btn-ponto-excluir-linha" title="Excluir registro" onclick="pontoExcluirLinha('${entId}','${saiId}','${almTodos}')">🗑️</button>
     </td>` : '';
 
     rows.push(`<tr>
@@ -7123,6 +7338,7 @@ function _histRenderTbody() {
       <td class="td-posto">${esc(posto)}</td>
       <td class="td-hora" style="color:var(--green)">${entH}</td>
       <td class="td-hora" style="color:var(--red)">${saiH}</td>
+      <td class="td-hora" style="line-height:1.35">${almocoCel}</td>
       <td class="td-hora">${duracao}</td>
       <td class="td-loc">${locCel}</td>
       <td class="td-foto">${fotoCel}</td>
@@ -7130,7 +7346,7 @@ function _histRenderTbody() {
     </tr>`);
   });
 
-  tbody.innerHTML = rows.join('') || `<tr class="empty-row"><td colspan="9" style="text-align:center;padding:40px;color:var(--muted)">📭 Nenhum registro</td></tr>`;
+  tbody.innerHTML = rows.join('') || `<tr class="empty-row"><td colspan="10" style="text-align:center;padding:40px;color:var(--muted)">📭 Nenhum registro</td></tr>`;
 
   // Mostra coluna de ações só para admin
   const thAcoes = document.getElementById('th-acoes');
@@ -7175,6 +7391,8 @@ window.renderHistorico = renderHistorico;
 // ─── MODAL: CORRIGIR REGISTRO DE PONTO (admin) ────────────────────────────────
 let _pontoEditEntradaId = null;
 let _pontoEditSaidaId   = null;
+let _pontoEditAlmSaiId  = null;
+let _pontoEditAlmRetId  = null;
 
 function _pontoTsParaInput(ts) {
   if (!ts) return '';
@@ -7183,9 +7401,11 @@ function _pontoTsParaInput(ts) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function pontoAbrirEdicao(entradaId, saidaId) {
+function pontoAbrirEdicao(entradaId, saidaId, almSaiId, almRetId) {
   _pontoEditEntradaId = entradaId || null;
   _pontoEditSaidaId   = saidaId   || null;
+  _pontoEditAlmSaiId  = almSaiId  || null;
+  _pontoEditAlmRetId  = almRetId  || null;
 
   const regEnt = entradaId ? registros.find(r => r.id === entradaId) : null;
   const regSai = saidaId   ? registros.find(r => r.id === saidaId)   : null;
@@ -7226,6 +7446,25 @@ function pontoAbrirEdicao(entradaId, saidaId) {
     wrapSai.style.display = 'none';
   }
 
+  // ── Almoço (saída/retorno) — só aparece se já existe ou se o colaborador tem almoço habilitado
+  const regAS = almSaiId ? registros.find(r => r.id === almSaiId) : null;
+  const regAR = almRetId ? registros.find(r => r.id === almRetId) : null;
+  const wrapAS = document.getElementById('ponto-modal-almsai-wrap');
+  const wrapAR = document.getElementById('ponto-modal-almret-wrap');
+  const inpAS  = document.getElementById('ponto-modal-almsai');
+  const inpAR  = document.getElementById('ponto-modal-almret');
+  const delAS  = document.getElementById('ponto-modal-almsai-excluir-btn');
+  const delAR  = document.getElementById('ponto-modal-almret-excluir-btn');
+  const permiteAlmoco = !!(base && colabTemAlmoco(base.colaboradorId));
+  const mostrarAS = !!(regAS || (regEnt && permiteAlmoco));
+  const mostrarAR = !!(regAR || mostrarAS);
+  wrapAS.style.display = mostrarAS ? '' : 'none';
+  wrapAR.style.display = mostrarAR ? '' : 'none';
+  inpAS.value = regAS ? _pontoTsParaInput(regAS.timestamp) : '';
+  inpAR.value = regAR ? _pontoTsParaInput(regAR.timestamp) : '';
+  if (delAS) delAS.style.display = regAS ? '' : 'none';
+  if (delAR) delAR.style.display = regAR ? '' : 'none';
+
   document.getElementById('ponto-modal-overlay').style.display = 'flex';
 }
 window.pontoAbrirEdicao = pontoAbrirEdicao;
@@ -7234,6 +7473,8 @@ function pontoFecharModal() {
   document.getElementById('ponto-modal-overlay').style.display = 'none';
   _pontoEditEntradaId = null;
   _pontoEditSaidaId   = null;
+  _pontoEditAlmSaiId  = null;
+  _pontoEditAlmRetId  = null;
 }
 window.pontoFecharModal = pontoFecharModal;
 
@@ -7278,7 +7519,48 @@ async function pontoSalvarEdicao() {
     }
   }
 
-  if (!updates.length && !novaSaida) { pontoFecharModal(); return; }
+  // ── Almoço: corrige horários existentes ou cria o que faltou ──
+  const novosAlmoco = [];
+  const wrapAS = document.getElementById('ponto-modal-almsai-wrap');
+  const wrapAR = document.getElementById('ponto-modal-almret-wrap');
+  const inpAS  = document.getElementById('ponto-modal-almsai');
+  const inpAR  = document.getElementById('ponto-modal-almret');
+  const tsAS = (wrapAS && wrapAS.style.display !== 'none' && inpAS && inpAS.value) ? new Date(inpAS.value).getTime() : null;
+  const tsAR = (wrapAR && wrapAR.style.display !== 'none' && inpAR && inpAR.value) ? new Date(inpAR.value).getTime() : null;
+  const regEntRef = _pontoEditEntradaId ? registros.find(r => r.id === _pontoEditEntradaId) : null;
+  const regASex   = _pontoEditAlmSaiId  ? registros.find(r => r.id === _pontoEditAlmSaiId)  : null;
+  const regARex   = _pontoEditAlmRetId  ? registros.find(r => r.id === _pontoEditAlmRetId)  : null;
+  const regSaiRef = _pontoEditSaidaId   ? registros.find(r => r.id === _pontoEditSaidaId)   : null;
+  const baseAlm   = regEntRef || regASex || regARex || regSaiRef;
+  const tsASfinal = tsAS || (regASex ? regASex.timestamp : null);
+
+  if (tsAR && !tsASfinal) { mostrarSyncToast('❌ Informe também a saída para o almoço', 'red'); return; }
+  if (tsASfinal && tsAR && tsAR <= tsASfinal) { mostrarSyncToast('❌ O retorno do almoço precisa ser depois da saída para o almoço', 'red'); return; }
+  if (regEntRef && tsAS && tsAS < regEntRef.timestamp) { mostrarSyncToast('❌ A saída para o almoço precisa ser depois da entrada', 'red'); return; }
+
+  if (baseAlm) {
+    const mkAlmoco = (tipo, ts) => ({
+      id: uid(),
+      colaboradorId:   baseAlm.colaboradorId,
+      colaboradorNome: baseAlm.colaboradorNome,
+      posto:           baseAlm.posto,
+      tipo,
+      timestamp:       ts,
+      localizacao:     null,
+      foto:            null,
+      corrigidoManualmente: true
+    });
+    if (tsAS) {
+      if (regASex) { if (tsAS !== regASex.timestamp) { regASex.timestamp = tsAS; updates.push(regASex); } }
+      else novosAlmoco.push(mkAlmoco('saida_almoco', tsAS));
+    }
+    if (tsAR) {
+      if (regARex) { if (tsAR !== regARex.timestamp) { regARex.timestamp = tsAR; updates.push(regARex); } }
+      else novosAlmoco.push(mkAlmoco('retorno_almoco', tsAR));
+    }
+  }
+
+  if (!updates.length && !novaSaida && !novosAlmoco.length) { pontoFecharModal(); return; }
 
   try {
     for (const reg of updates) {
@@ -7293,6 +7575,12 @@ async function pontoSalvarEdicao() {
       }
       if (typeof ftCriarSeNecessario === 'function') ftCriarSeNecessario(novaSaida);
     }
+    for (const nr of novosAlmoco) {
+      registros.unshift(nr);
+      if (window._firebaseReady && window._db) {
+        await window._fbSet(window._fbRef(window._db, 'registros/' + nr.id), nr);
+      }
+    }
     localStorage.setItem('ms_registros', JSON.stringify(registros));
     mostrarSyncToast(novaSaida ? '✅ Saída adicionada!' : '✅ Horário(s) corrigido(s)!', 'green');
     pontoFecharModal();
@@ -7306,13 +7594,21 @@ async function pontoSalvarEdicao() {
 window.pontoSalvarEdicao = pontoSalvarEdicao;
 
 async function pontoExcluirRegistro(qual) {
-  const id = qual === 'entrada' ? _pontoEditEntradaId : _pontoEditSaidaId;
+  const mapaIds = {
+    entrada:        _pontoEditEntradaId,
+    saida:          _pontoEditSaidaId,
+    saida_almoco:   _pontoEditAlmSaiId,
+    retorno_almoco: _pontoEditAlmRetId
+  };
+  const rotulos = { entrada: 'ENTRADA', saida: 'SAÍDA', saida_almoco: 'SAÍDA PARA ALMOÇO', retorno_almoco: 'RETORNO DO ALMOÇO' };
+  const rotulosMin = { entrada: 'entrada', saida: 'saída', saida_almoco: 'saída p/ almoço', retorno_almoco: 'retorno do almoço' };
+  const id = mapaIds[qual];
   if (!id) return;
   const reg = registros.find(r => r.id === id);
   if (!reg) return;
 
   pjConfirmar(
-    `Excluir este registro de <strong>${qual === 'entrada' ? 'ENTRADA' : 'SAÍDA'}</strong>?<br>` +
+    `Excluir este registro de <strong>${rotulos[qual] || 'PONTO'}</strong>?<br>` +
     `<strong>${esc(reg.colaboradorNome || '')}</strong> · ${fmtHora(reg.timestamp)}`,
     async () => {
       try {
@@ -7329,7 +7625,7 @@ async function pontoExcluirRegistro(qual) {
         mostrarSyncToast('❌ Erro ao excluir: ' + e.message, 'red');
       }
     },
-    `Excluir ${qual === 'entrada' ? 'entrada' : 'saída'}?`
+    `Excluir ${rotulosMin[qual] || 'registro'}?`
   );
 }
 window.pontoExcluirRegistro = pontoExcluirRegistro;
@@ -7450,7 +7746,8 @@ function exportarHistoricoPDF() {
       saiH:  saiTs != null ? fmtHora(saiTs) : null,
       locEnt: g.entradas[0]?.localizacao || null,
       locSai: (g.saidas[g.saidas.length-1] || g.saidas[0])?.localizacao || null,
-      diffMs: (entTs != null && saiTs != null && saiTs > entTs) ? saiTs - entTs : null,
+      diffMs: (entTs != null && saiTs != null && saiTs > entTs) ? Math.max(0, saiTs - entTs - _almocoDoPar(g).ms) : null,
+      almTxt: _almocoTexto(g),
       tsOrdenar: entTs != null ? entTs : saiTs
     });
   });
@@ -7482,6 +7779,7 @@ function exportarHistoricoPDF() {
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#334155">📍 ${esc(t.posto)}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#15803d;font-weight:600;white-space:nowrap">${t.entH ? '▲ ' + t.entH : '—'}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#b91c1c;font-weight:600;white-space:nowrap">${t.saiH ? '▼ ' + t.saiH : '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#92400e;white-space:nowrap">${t.almTxt ? '🍽️ ' + esc(t.almTxt) : '—'}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#334155;white-space:nowrap">${duracao}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">${loc}</td>
     </tr>`;
@@ -7531,7 +7829,8 @@ function exportarHistoricoPDF() {
         <th>Posto</th>
         <th>Entrada</th>
         <th>Saída</th>
-        <th>Duração</th>
+        <th>Almoço</th>
+        <th>Duração (sem almoço)</th>
         <th>Localização</th>
       </tr>
     </thead>
@@ -7575,19 +7874,21 @@ function exportarHistoricoExcel() {
       saiH:  saiTs != null ? fmtHora(saiTs) : '',
       locEnt: g.entradas[0]?.localizacao || null,
       locSai: (g.saidas[g.saidas.length-1] || g.saidas[0])?.localizacao || null,
-      diffMs: (entTs != null && saiTs != null && saiTs > entTs) ? saiTs - entTs : null,
+      diffMs: (entTs != null && saiTs != null && saiTs > entTs) ? Math.max(0, saiTs - entTs - _almocoDoPar(g).ms) : null,
+      almTxt: _almocoTexto(g),
       tsOrdenar: entTs != null ? entTs : saiTs
     });
   });
   turnos.sort((a,b) => b.tsOrdenar - a.tsOrdenar);
 
-  const header = ['Data','Colaborador','Posto','Entrada','Saída','Duração','Localização Entrada','Localização Saída'];
+  const header = ['Data','Colaborador','Posto','Entrada','Saída','Almoço','Duração (sem almoço)','Localização Entrada','Localização Saída'];
   const rows = turnos.map(t => [
     t.dia,
     t.nome,
     t.posto,
     t.entH,
     t.saiH,
+    t.almTxt || '',
     t.diffMs != null ? `${Math.floor(t.diffMs/3600000)}h${Math.floor((t.diffMs%3600000)/60000).toString().padStart(2,'0')}m` : '',
     t.locEnt ? `${t.locEnt.lat}, ${t.locEnt.lng}` : '',
     t.locSai ? `${t.locSai.lat}, ${t.locSai.lng}` : ''
@@ -7623,8 +7924,8 @@ function calcDashStats() {
   ativos.forEach(c => {
     const ult = ultimoReg(c.id);
     if (!ult) { ausentes++; return; }
-    if (ult.tipo === 'entrada') {
-      // Entrada sem saída = ainda dentro (independente de quando entrou)
+    if (tipoTurnoAberto(ult.tipo)) {
+      // Turno aberto (entrada ou intervalo de almoço) = ainda dentro (independente de quando entrou)
       const delta = agora - ult.timestamp;
       if (delta > OITO_H) { mais8++; dentro++; }
       else dentro++;
@@ -7661,7 +7962,7 @@ function renderDashChart(regHoje) {
   regHoje.forEach(r => {
     const h = new Date(r.timestamp).getHours();
     if (r.tipo === 'entrada') entH[h]++;
-    else saiH[h]++;
+    else if (r.tipo === 'saida') saiH[h]++;
   });
 
   // Só mostra horas com atividade (+ margem)
@@ -7977,10 +8278,12 @@ function renderDashColabs(filtro) {
 
     if (!ult) {
       statusClass = 'status-absent'; tagClass = 'tag-absent'; tagLabel = '⚠ SEM REG.';
-    } else if (ult.tipo === 'entrada') {
-      // Entrada sem saída = DENTRO, independente de quando entrou
+    } else if (tipoTurnoAberto(ult.tipo)) {
+      // Turno aberto (entrada ou almoço) = DENTRO, independente de quando entrou
       hora = fmtHora(ult.timestamp);
-      if ((agora - ult.timestamp) > OITO_H) {
+      if (ult.tipo === 'saida_almoco') {
+        statusClass = 'status-warn'; tagClass = 'tag-warn'; tagLabel = '🍽️ DENTRO (ALMOÇO)';
+      } else if ((agora - ult.timestamp) > OITO_H) {
         statusClass = 'status-warn'; tagClass = 'tag-warn'; tagLabel = '⏱ +8H';
       } else {
         statusClass = 'status-ok'; tagClass = 'tag-in'; tagLabel = '▲ DENTRO';
@@ -8066,7 +8369,7 @@ function renderDashboard() {
   s.ativos.forEach(c => {
     const ult = ultimoReg(c.id);
     if (!ult) { semPonto.push({ c, ult: null }); return; }
-    if (ult.tipo === 'entrada') {
+    if (tipoTurnoAberto(ult.tipo)) {
       dentro.push({ c, ult });
     } else if (ult.timestamp >= HOJEts) {
       finalizaram.push({ c, ult });
@@ -8166,6 +8469,8 @@ function colabMgrAbrirForm(id) {
     const ativo = c.ativo !== false;
     document.getElementById('cf-ativo').checked = ativo;
     document.getElementById('cf-ativo-label').textContent = ativo ? 'Ativo' : 'Inativo';
+    document.getElementById('cf-almoco').checked = c.almoco === true;
+    colabMgrAtualizarLabelAlmoco();
     // Usuário vinculado?
     const user = usuarios.find(u => u.colaboradorId === id || u.nome === c.nome);
     document.getElementById('cf-login').value = user ? (user.login || '') : '';
@@ -8185,6 +8490,8 @@ function colabMgrAbrirForm(id) {
     document.getElementById('cf-role').value  = 'usuario';
     document.getElementById('cf-ativo').checked = true;
     document.getElementById('cf-ativo-label').textContent = 'Ativo';
+    document.getElementById('cf-almoco').checked = false;
+    colabMgrAtualizarLabelAlmoco();
     document.getElementById('cf-senha-wrap').querySelector('label').textContent = '🔒 Senha';
   }
 
@@ -8248,6 +8555,7 @@ async function colabMgrSalvar() {
   const senha = document.getElementById('cf-senha').value.trim();
   const role  = document.getElementById('cf-role').value;
   const ativo = document.getElementById('cf-ativo').checked;
+  const almoco = document.getElementById('cf-almoco').checked;
 
   // Validação
   let ok = true;
@@ -8287,7 +8595,7 @@ async function colabMgrSalvar() {
       // Editar colaborador existente
       const idx = colaboradores.findIndex(x => x.id === _colabMgrEditandoId);
       if (idx > -1) {
-        const atualizado = { ...colaboradores[idx], nome, posto, tel, obs, ativo, role };
+        const atualizado = { ...colaboradores[idx], nome, posto, tel, obs, ativo, role, almoco };
         colaboradores[idx] = atualizado;
         localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
         if (window._firebaseReady && window._db) {
@@ -8299,7 +8607,7 @@ async function colabMgrSalvar() {
     } else {
       // Novo colaborador
       const novoId = uid();
-      const novo = { id: novoId, nome, posto, tel, obs, ativo };
+      const novo = { id: novoId, nome, posto, tel, obs, ativo, almoco };
       if (window._firebaseReady && window._db) {
         // Firebase disponível: salva direto; o listener onValue atualiza o array automaticamente
         await window._fbSet(window._fbRef(window._db, 'colaboradores/' + novoId), novo);
@@ -8358,6 +8666,31 @@ async function colabMgrSalvarUsuario(colabId, nomeColab, login, senha, role) {
 }
 
 // ─── Toggle ativo/inativo ─────────────────────────────────────────────────────
+function colabMgrAtualizarLabelAlmoco() {
+  const chk = document.getElementById('cf-almoco');
+  const lb  = document.getElementById('cf-almoco-label');
+  if (chk && lb) lb.textContent = chk.checked ? 'Bate ponto de almoço (saída e retorno)' : 'Apenas entrada e saída';
+}
+window.colabMgrAtualizarLabelAlmoco = colabMgrAtualizarLabelAlmoco;
+
+// ─── Habilita/desabilita o ponto de almoço do colaborador (botão no card) ────
+async function colabMgrToggleAlmoco(id) {
+  const idx = colaboradores.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  colaboradores[idx].almoco = colaboradores[idx].almoco === true ? false : true;
+  localStorage.setItem('ms_colaboradores', JSON.stringify(colaboradores));
+  if (window._firebaseReady && window._db) {
+    try {
+      await window._fbUpdate(window._fbRef(window._db, 'colaboradores/' + id), { almoco: colaboradores[idx].almoco });
+    } catch(e) { mostrarSyncToast('⚠️ Erro ao sincronizar: ' + e.message, 'gold'); }
+  }
+  renderColabPonto();
+  colabMgrRenderGrid();
+  const on = colaboradores[idx].almoco === true;
+  mostrarSyncToast(on ? '🍽️ Ponto de almoço habilitado' : '⏱️ Agora apenas entrada e saída', on ? 'green' : 'gold');
+}
+window.colabMgrToggleAlmoco = colabMgrToggleAlmoco;
+
 async function colabMgrToggleAtivo(id) {
   const idx = colaboradores.findIndex(x => x.id === id);
   if (idx < 0) return;
@@ -8502,6 +8835,7 @@ function colabMgrRenderGrid() {
         <div class="colab-card-info">
           <div class="colab-card-nome">${esc(c.nome)}</div>
           <div class="colab-card-posto">📍 ${esc(c.posto || '—')}</div>
+          <div style="font-size:11px;color:${c.almoco === true ? 'var(--accent)' : 'var(--muted)'}">${c.almoco === true ? '🍽️ Ponto com almoço' : '⏱️ Apenas entrada e saída'}</div>
           ${c.estadoCivil ? `<div style="font-size:11px;color:var(--muted)">👰 ${esc(c.estadoCivil)}</div>` : ''}
           ${(c.rg || c.cpf) ? `<div style="font-size:11px;color:var(--muted)">${c.rg ? 'RG: '+esc(c.rg) : ''}${c.rg && c.cpf ? ' &nbsp;·&nbsp; ' : ''}${c.cpf ? 'CPF: '+esc(c.cpf) : ''}</div>` : ''}
           ${c.nascimento ? `<div style="font-size:11px;color:var(--muted)">🎂 ${esc(c.nascimento)}</div>` : ''}
@@ -8517,6 +8851,7 @@ function colabMgrRenderGrid() {
         <button class="colab-card-btn" onclick="colabMgrAbrirForm('${c.id}')">✏️ Editar</button>
         ${c.posto ? `<button class="colab-card-btn btn-desvincular-posto" data-id="${c.id}" onclick="colabMgrDesvincularPosto('${c.id}')" title="Remover vínculo com posto">📍 Desvincular</button>` : ''}
         <button class="colab-card-btn btn-toggle-ativo" onclick="colabMgrToggleAtivo('${c.id}')">${toggleLabel}</button>
+        <button class="colab-card-btn btn-toggle-almoco" onclick="colabMgrToggleAlmoco('${c.id}')" title="Habilita ou desabilita o ponto de almoço deste colaborador">${c.almoco === true ? '🍽️ Almoço: ON' : '🍽️ Almoço: OFF'}</button>
         <button class="colab-card-btn btn-del" onclick="colabMgrAbrirDel('${c.id}')">🗑️</button>
       </div>
     </div>`;
@@ -11444,9 +11779,8 @@ const NTFY_TOPIC = 'pjms-ponto-2b11066938';
 
 function enviarNtfy(reg) {
   try {
-    const titulo = reg.tipo === 'entrada'
-      ? `✅ Entrada — ${reg.colaboradorNome || ''}`
-      : `🚪 Saída — ${reg.colaboradorNome || ''}`;
+    const prefixos = { entrada: '✅ Entrada', saida: '🚪 Saída', saida_almoco: '🍽️ Saída p/ almoço', retorno_almoco: '☕ Retorno do almoço' };
+    const titulo = `${prefixos[reg.tipo] || '🚪 Saída'} — ${reg.colaboradorNome || ''}`;
     const corpo = (reg.posto ? `📍 ${reg.posto} · ` : '') + fmtHora(reg.timestamp);
 
     fetch('https://ntfy.sh/', {
@@ -11457,7 +11791,7 @@ function enviarNtfy(reg) {
         title:    titulo,
         message:  corpo,
         priority: 4,
-        tags:     reg.tipo === 'entrada' ? ['white_check_mark'] : ['door']
+        tags:     reg.tipo === 'entrada' ? ['white_check_mark'] : (TIPOS_ALMOCO.includes(reg.tipo) ? ['fork_and_knife'] : ['door'])
       })
     }).catch(e => console.warn('[ntfy]', e.message));
   } catch (e) {

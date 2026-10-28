@@ -46,8 +46,13 @@ function iniciarEscutaFirebase() {
     // Ignora itens com mais de 60 segundos (histórico antigo ao iniciar o SW)
     if (Date.now() - item.ts > 60000) return;
 
-    const isEntrada = item.tipo === 'entrada';
-    const titulo    = isEntrada ? `✅ Entrada — ${item.nome}` : `🚪 Saída — ${item.nome}`;
+    const prefixos = {
+      entrada:        '✅ Entrada',
+      saida:          '🚪 Saída',
+      saida_almoco:   '🍽️ Saída p/ almoço',
+      retorno_almoco: '☕ Retorno do almoço'
+    };
+    const titulo    = `${prefixos[item.tipo] || '🚪 Saída'} — ${item.nome}`;
     const corpo     = item.posto
       ? `📍 ${item.posto}  ·  ${item.hora}`
       : item.hora || '';
