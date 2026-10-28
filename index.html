@@ -3569,6 +3569,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
   box-shadow: inset 0 2px 0 #ffffff33, 0 2px 0 var(--b-edge), 0 5px 10px -2px #000a; }
 .btn-ponto.btn-almoco:disabled { transform:none !important; filter: grayscale(.5); font-size: 16px;
   box-shadow: inset 0 2px 0 #ffffff22, 0 5px 0 var(--b-edge); }
+.ponto-btns.com-almoco { grid-template-columns: 1fr; }
 .feedback.saida_almoco, .feedback.retorno_almoco { background:#2b1f05; border:2px solid #ffb30055; }
 .feedback.saida_almoco .feedback-title, .feedback.retorno_almoco .feedback-title { color:#ffc23d; }
 
@@ -4406,12 +4407,12 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
           <button class="btn-ponto btn-entrada" onclick="baterPonto('entrada')">
             <span class="icon">🟢</span> ENTRADA
           </button>
-          <button class="btn-ponto btn-saida" onclick="baterPonto('saida')">
-            <span class="icon">🔴</span> SAÍDA
-          </button>
           <!-- Almoço: só aparece quando o administrador habilita no cadastro do colaborador -->
           <button class="btn-ponto btn-almoco" id="btn-almoco" style="display:none" onclick="baterPontoAlmoco()">
             <span class="icon">🍽️</span> <span id="btn-almoco-txt">ALMOÇO</span>
+          </button>
+          <button class="btn-ponto btn-saida" onclick="baterPonto('saida')">
+            <span class="icon">🔴</span> SAÍDA
           </button>
         </div>
 
@@ -6090,8 +6091,10 @@ function estadoAlmoco(colabId) {
 function atualizarBtnAlmoco() {
   const btn = document.getElementById('btn-almoco');
   if (!btn) return;
-  if (!selectedColab || !colabTemAlmoco(selectedColab.id)) { btn.style.display = 'none'; return; }
+  const grade = document.getElementById('ponto-btns');
+  if (!selectedColab || !colabTemAlmoco(selectedColab.id)) { btn.style.display = 'none'; if (grade) grade.classList.remove('com-almoco'); return; }
   btn.style.display = '';
+  if (grade) grade.classList.add('com-almoco');
   const txt  = document.getElementById('btn-almoco-txt');
   const icon = btn.querySelector('.icon');
   const st   = estadoAlmoco(selectedColab.id);
