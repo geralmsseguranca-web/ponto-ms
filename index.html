@@ -3570,6 +3570,17 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
 .btn-ponto.btn-almoco:disabled { transform:none !important; filter: grayscale(.5); font-size: 16px;
   box-shadow: inset 0 2px 0 #ffffff22, 0 5px 0 var(--b-edge); }
 .ponto-btns.com-almoco { grid-template-columns: 1fr; }
+/* Destaque 3D do PRÓXIMO passo do turno (entrada → almoço → saída) */
+.btn-entrada { --glow:#00ff8899; } .btn-saida { --glow:#ff4d6a99; }
+.btn-ponto.btn-almoco { --glow:#ffb30099; } .btn-ponto.btn-almoco.retorno { --glow:#2f8bff99; }
+.btn-ponto.destaque-3d:not(:disabled) { transform: translateY(-5px) scale(1.02); filter: brightness(1.12) saturate(1.15);
+  z-index: 2; animation: pjDestaque 1.5s ease-in-out infinite; }
+.btn-ponto.destaque-3d:active:not(:disabled) { transform: translateY(6px); animation: none; filter: none; }
+.btn-ponto.apagado:not(.destaque-3d) { opacity: .6; filter: saturate(.55); transform: scale(.97); }
+@keyframes pjDestaque {
+  0%, 100% { box-shadow: inset 0 2px 0 #ffffff66, 0 13px 0 var(--b-edge), 0 28px 38px -8px var(--glow), 0 0 0 0 var(--glow); }
+  50%      { box-shadow: inset 0 2px 0 #ffffff66, 0 13px 0 var(--b-edge), 0 34px 48px -6px var(--glow), 0 0 0 7px transparent; }
+}
 .feedback.saida_almoco, .feedback.retorno_almoco { background:#2b1f05; border:2px solid #ffb30055; }
 .feedback.saida_almoco .feedback-title, .feedback.retorno_almoco .feedback-title { color:#ffc23d; }
 
@@ -6088,7 +6099,29 @@ function estadoAlmoco(colabId) {
   return { tipo: 'saida_almoco', ok: true };
 }
 
-function atualizarBtnAlmoco() {
+// Qual é o próximo passo do turno: 'entrada' | 'almoco' | 'saida'
+function proximoPasso(colabId) {
+  const ult = ultimoReg(colabId);
+  if (!ult || !tipoTurnoAberto(ult.tipo)) return 'entrada';
+  if (ult.tipo === 'saida_almoco') return 'almoco'; // falta o retorno
+  if (colabTemAlmoco(colabId) && !almocoJaRegistradoNoTurno(colabId)) return 'almoco';
+  return 'saida';
+}
+function atualizarDestaquePasso() {
+  const mapa = {
+    entrada: document.querySelector('.btn-ponto.btn-entrada'),
+    saida:   document.querySelector('.btn-ponto.btn-saida'),
+    almoco:  document.getElementById('btn-almoco')
+  };
+  const proximo = selectedColab ? proximoPasso(selectedColab.id) : null;
+  Object.entries(mapa).forEach(([k, b]) => {
+    if (!b) return;
+    b.classList.toggle('destaque-3d', k === proximo);
+    b.classList.toggle('apagado', !!proximo && k !== proximo);
+  });
+}
+function atualizarBtnAlmoco() { _atualizarBtnAlmocoInterno(); atualizarDestaquePasso(); }
+function _atualizarBtnAlmocoInterno() {
   const btn = document.getElementById('btn-almoco');
   if (!btn) return;
   const grade = document.getElementById('ponto-btns');
