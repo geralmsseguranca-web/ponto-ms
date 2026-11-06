@@ -5461,7 +5461,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
         <span class="check">✅</span>
       </div>
     </div>
-    <button class="btn-camera" id="btn-camera-action" onclick="iniciarCameraAutomatica()">🔁 Tentar novamente</button>
+    <div id="face-aviso" role="alert" style="display:none;margin:0 auto 14px;max-width:300px;padding:10px 12px;border-radius:12px;background:#e8273f22;border:1px solid #e8273f88;color:#ffb3bd;font-size:13px;line-height:1.4;text-align:center"></div>
+    <button class="btn-camera" id="btn-camera-action" onclick="tentarFacialNovamente()">🔁 Tentar novamente</button>
     <br/>
     <button class="btn-cancel" onclick="closeFaceModal()">← Voltar</button>
   </div>
@@ -6553,12 +6554,45 @@ function openFaceModal() {
   iniciarCameraAutomatica();
 }
 
-function closeFaceModal() {
+function closeFaceModal(concluido) {
   clearTimeout(_camAutoTimer);
+  const cancelouSemFacial = !concluido && camState !== 'done';
   stopCam();
   document.getElementById('face-overlay').style.display = 'none';
   camState = 'idle';
   pendingTipo = null;
+  pendingFotoPonto = null;
+  if (cancelouSemFacial) {
+    // Cancelou/voltou sem concluir a facial → NADA é registrado
+    pjAlert('⚠️ Ponto NÃO registrado!\n\nA facial é obrigatória para bater o ponto. Toque em Entrada ou Saída novamente e refaça a facial.');
+  }
+}
+
+// ─── Aviso de falha da facial dentro do modal + botão de refazer ──────────────
+function mostrarAvisoFacial(msg) {
+  stopCam();
+  clearTimeout(_camAutoTimer);
+  camState = 'falhou';
+  pendingFotoPonto = null;
+  document.getElementById('cam-video').style.display = 'none';
+  document.getElementById('scan-line').style.display = 'none';
+  document.getElementById('face-success').style.display = 'none';
+  document.getElementById('camera-wrap').className = 'camera-wrap';
+  const ph = document.getElementById('cam-placeholder');
+  ph.style.display = 'flex';
+  ph.innerHTML = '<span class="face-icon">⚠️</span><p style="color:var(--red)">Facial não realizada</p>';
+  const av = document.getElementById('face-aviso');
+  av.textContent = msg;
+  av.style.display = 'block';
+  const btn = document.getElementById('btn-camera-action');
+  btn.style.display = '';
+  btn.disabled = false;
+  btn.className = 'btn-camera';
+}
+
+function tentarFacialNovamente() {
+  resetCamera();
+  iniciarCameraAutomatica();
 }
 
 function resetCamera() {
@@ -6571,6 +6605,8 @@ function resetCamera() {
   document.getElementById('scan-line').style.display = 'none';
   document.getElementById('face-success').style.display = 'none';
   document.getElementById('camera-wrap').className = 'camera-wrap';
+  const avReset = document.getElementById('face-aviso');
+  if (avReset) avReset.style.display = 'none';
   const btn = document.getElementById('btn-camera-action');
   // Botão manual só aparece se a câmera falhar (fallback) — fluxo normal é 100% automático
   btn.style.display = 'none';
@@ -6610,10 +6646,8 @@ async function iniciarCameraAutomatica() {
     // Pequena pausa para a câmera focar/estabilizar antes de capturar sozinha
     _camAutoTimer = setTimeout(() => { if (camState === 'streaming') capturarEVerificar(); }, 1200);
   } catch {
-    // Sem permissão/câmera indisponível → modo simulado, também automático
-    document.getElementById('cam-placeholder').innerHTML = '<span class="face-icon">👤</span><p style="color:var(--muted);font-size:12px">Câmera indisponível<br>Modo simulado — sem foto</p>';
-    camState = 'streaming';
-    _camAutoTimer = setTimeout(() => { if (camState === 'streaming') capturarEVerificar(); }, 900);
+    // Sem permissão/câmera indisponível → NÃO registra. Facial é obrigatória.
+    mostrarAvisoFacial('Não foi possível acessar a câmera. Permita o uso da câmera no navegador e refaça a facial — sem ela o ponto não é registrado.');
   }
 }
 
@@ -6621,6 +6655,10 @@ async function iniciarCameraAutomatica() {
 function capturarEVerificar() {
   // Captura a foto real do momento exato da verificação automática
   pendingFotoPonto = capturarFotoAtual();
+  if (!pendingFotoPonto) {
+    mostrarAvisoFacial('Não foi possível capturar seu rosto. Posicione o rosto na câmera e refaça a facial — sem ela o ponto não é registrado.');
+    return;
+  }
 
   camState = 'scanning';
   document.getElementById('camera-wrap').classList.add('scanning');
@@ -6636,7 +6674,7 @@ function capturarEVerificar() {
     document.getElementById('camera-wrap').className = 'camera-wrap done';
     _camAutoTimer = setTimeout(() => {
       registrarPonto();
-      closeFaceModal();
+      closeFaceModal(true);
     }, 900);
   }, 2400);
 }
@@ -6702,6 +6740,11 @@ async function limparFotosAntigas() {
 
 // ─── REGISTRAR PONTO ──────────────────────────────────────────────────────────
 function registrarPonto() {
+  // TRAVA DO SISTEMA: sem foto da facial não existe registro de ponto
+  if (!pendingFotoPonto || typeof pendingFotoPonto !== 'string' || pendingFotoPonto.indexOf('data:image') !== 0) {
+    pjAlert('⚠️ Ponto NÃO registrado!\n\nA facial é obrigatória. Refaça o procedimento.');
+    return false;
+  }
   // Posto: 1º o selecionado na tela, 2º o posto padrão do colaborador, 3º ''
   const postoSel     = (document.getElementById('ponto-posto-select').value || '').trim();
   const postoColab   = (selectedColab.posto || '').trim();
@@ -6715,7 +6758,7 @@ function registrarPonto() {
     tipo:            pendingTipo,
     timestamp:       Date.now(),
     localizacao:     pendingLocalizacao || null,
-    foto:            pendingFotoPonto || null // foto real capturada da câmera no momento do ponto
+    foto:            pendingFotoPonto // foto real capturada da câmera no momento do ponto
   };
 
   registros.unshift(reg);
