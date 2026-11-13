@@ -6544,8 +6544,19 @@ async function baterPonto(tipo) {
 let camStream = null;
 let camState  = 'idle';
 let _camAutoTimer = null;
+// Controle de sessão da facial: cada abertura/cancelamento/nova tentativa invalida
+// qualquer callback assíncrono (permissão da câmera, timers) de uma sessão anterior.
+let _camSessao        = 0;
+let _faceAberta       = false;
+let _facialConcluida  = false; // só vira true quando o ponto FOI de fato registrado
+let _faceHistPush     = false; // true enquanto há uma entrada de histórico criada pelo modal
+let _ignorePop        = 0;     // popstates gerados por nós mesmos (history.back) a ignorar
 
 function openFaceModal() {
+  _faceAberta      = true;
+  _facialConcluida = false;
+  // Botão "voltar" do Android: cria uma entrada de histórico para o modal capturá-lo
+  try { history.pushState({ pjFace: 1 }, ''); _faceHistPush = true; } catch (e) { _faceHistPush = false; }
   document.getElementById('face-tipo-label').textContent = TIPO_REGISTRAR_LABEL[pendingTipo] || '🔴 Registrar SAÍDA';
   document.getElementById('face-nome-label').textContent = selectedColab.nome;
   document.getElementById('face-overlay').style.display = 'flex';
@@ -6555,13 +6566,22 @@ function openFaceModal() {
 }
 
 function closeFaceModal(concluido) {
+  _camSessao++;                       // mata timers/callbacks pendentes desta facial
   clearTimeout(_camAutoTimer);
-  const cancelouSemFacial = !concluido && camState !== 'done';
+  // Só é "concluída" se o ponto realmente foi registrado (verde + registrarPonto ok)
+  const cancelouSemFacial = !(concluido === true && _facialConcluida);
   stopCam();
   document.getElementById('face-overlay').style.display = 'none';
   camState = 'idle';
+  _faceAberta      = false;
+  _facialConcluida = false;
+  if (_faceHistPush) {            // fechou por outro caminho: remove a entrada de histórico do modal
+    _faceHistPush = false;
+    if (history.state && history.state.pjFace) { _ignorePop++; history.back(); }
+  }
   pendingTipo = null;
   pendingFotoPonto = null;
+  pendingLocalizacao = null;
   if (cancelouSemFacial) {
     // Cancelou/voltou sem concluir a facial → NADA é registrado
     pjAlert('⚠️ Ponto NÃO registrado!\n\nA facial é obrigatória para bater o ponto. Toque em Entrada ou Saída novamente e refaça a facial.');
@@ -6570,6 +6590,7 @@ function closeFaceModal(concluido) {
 
 // ─── Aviso de falha da facial dentro do modal + botão de refazer ──────────────
 function mostrarAvisoFacial(msg) {
+  _camSessao++;
   stopCam();
   clearTimeout(_camAutoTimer);
   camState = 'falhou';
@@ -6596,6 +6617,7 @@ function tentarFacialNovamente() {
 }
 
 function resetCamera() {
+  _camSessao++;
   clearTimeout(_camAutoTimer);
   camState = 'idle';
   pendingFotoPonto = null; // nova tentativa de ponto → descarta foto anterior
@@ -6636,23 +6658,40 @@ function capturarFotoAtual() {
 
 // ─── Liga a câmera automaticamente ao abrir o modal, sem exigir toque ─────────
 async function iniciarCameraAutomatica() {
+  const sessao = _camSessao;
   try {
-    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    // Se a pessoa cancelou/voltou enquanto a permissão estava pendente: desliga a câmera e aborta
+    if (sessao !== _camSessao || !_faceAberta) {
+      stream.getTracks().forEach(t => t.stop());
+      return;
+    }
+    camStream = stream;
+    // Câmera interrompida no meio (outro app, permissão revogada) → facial não vale
+    stream.getVideoTracks().forEach(t => t.addEventListener('ended', () => {
+      if (sessao === _camSessao && camState !== 'done') {
+        mostrarAvisoFacial('A câmera foi interrompida antes de concluir. Refaça a facial — sem ela o ponto não é registrado.');
+      }
+    }));
     const vid = document.getElementById('cam-video');
     vid.srcObject = camStream;
     vid.style.display = 'block';
     document.getElementById('cam-placeholder').style.display = 'none';
     camState = 'streaming';
     // Pequena pausa para a câmera focar/estabilizar antes de capturar sozinha
-    _camAutoTimer = setTimeout(() => { if (camState === 'streaming') capturarEVerificar(); }, 1200);
+    _camAutoTimer = setTimeout(() => {
+      if (sessao === _camSessao && camState === 'streaming') capturarEVerificar(sessao);
+    }, 1200);
   } catch {
+    if (sessao !== _camSessao) return; // modal já foi fechado/reiniciado
     // Sem permissão/câmera indisponível → NÃO registra. Facial é obrigatória.
     mostrarAvisoFacial('Não foi possível acessar a câmera. Permita o uso da câmera no navegador e refaça a facial — sem ela o ponto não é registrado.');
   }
 }
 
 // ─── Captura a foto e conclui a verificação/registro, sem interação do usuário ─
-function capturarEVerificar() {
+function capturarEVerificar(sessao) {
+  if (sessao !== _camSessao || !_faceAberta) return;
   // Captura a foto real do momento exato da verificação automática
   pendingFotoPonto = capturarFotoAtual();
   if (!pendingFotoPonto) {
@@ -6665,6 +6704,13 @@ function capturarEVerificar() {
   document.getElementById('scan-line').style.display = 'block';
 
   _camAutoTimer = setTimeout(() => {
+    if (sessao !== _camSessao || !_faceAberta) return;
+    // A câmera precisa ter permanecido ativa até o fim da verificação
+    const camViva = camStream && camStream.getVideoTracks().some(t => t.readyState === 'live');
+    if (!camViva) {
+      mostrarAvisoFacial('A facial não foi concluída. Refaça a facial — sem ela o ponto não é registrado.');
+      return;
+    }
     camState = 'done';
     stopCam();
     document.getElementById('scan-line').style.display = 'none';
@@ -6673,11 +6719,32 @@ function capturarEVerificar() {
     document.getElementById('face-success').style.display = 'flex';
     document.getElementById('camera-wrap').className = 'camera-wrap done';
     _camAutoTimer = setTimeout(() => {
-      registrarPonto();
-      closeFaceModal(true);
+      if (sessao !== _camSessao || !_faceAberta) return; // cancelou durante o ✅ → nada é registrado
+      if (registrarPonto()) {
+        _facialConcluida = true;
+        closeFaceModal(true);
+      } else {
+        mostrarAvisoFacial('Não foi possível registrar o ponto. Refaça a facial.');
+      }
     }, 900);
   }, 2400);
 }
+
+// Botão "voltar" do Android/navegador com a facial aberta = cancelar (nada é registrado)
+window.addEventListener('popstate', () => {
+  if (_ignorePop > 0) { _ignorePop--; return; }
+  if (_faceAberta) {
+    _faceHistPush = false; // a entrada já foi consumida pelo botão voltar
+    closeFaceModal();      // sem concluir → mostra o aviso e não registra
+  }
+});
+
+// App em segundo plano / troca de aba no meio da facial → interrompe e exige refazer
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && _faceAberta && camState !== 'done' && camState !== 'falhou') {
+    mostrarAvisoFacial('A facial foi interrompida. Refaça a facial — sem ela o ponto não é registrado.');
+  }
+});
 
 function stopCam() {
   if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
@@ -6740,9 +6807,14 @@ async function limparFotosAntigas() {
 
 // ─── REGISTRAR PONTO ──────────────────────────────────────────────────────────
 function registrarPonto() {
-  // TRAVA DO SISTEMA: sem foto da facial não existe registro de ponto
+  // TRAVAS DO SISTEMA: só registra com facial concluída, modal ativo, tipo e colaborador válidos
+  if (!_faceAberta || camState !== 'done' || !pendingTipo || !selectedColab) {
+    console.warn('registrarPonto bloqueado: facial não concluída');
+    return false;
+  }
+  // Sem foto da facial não existe registro de ponto
   if (!pendingFotoPonto || typeof pendingFotoPonto !== 'string' || pendingFotoPonto.indexOf('data:image') !== 0) {
-    pjAlert('⚠️ Ponto NÃO registrado!\n\nA facial é obrigatória. Refaça o procedimento.');
+    console.warn('registrarPonto bloqueado: sem foto');
     return false;
   }
   // Posto: 1º o selecionado na tela, 2º o posto padrão do colaborador, 3º ''
@@ -6801,6 +6873,7 @@ function registrarPonto() {
   document.getElementById('ponto-btns').style.display   = 'none';
   document.getElementById('posto-selector').style.display = 'none';
   renderColabPonto();
+  return true;
 }
 
 // ─── FEEDBACK BANNER ──────────────────────────────────────────────────────────
