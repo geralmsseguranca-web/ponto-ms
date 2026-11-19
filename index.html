@@ -6182,6 +6182,15 @@ function temTurnoAberto(colabId) {
   return !!(ult && tipoTurnoAberto(ult.tipo));
 }
 
+// Posto em que o turno aberto do colaborador foi iniciado (posto da ENTRADA).
+// Enquanto o turno estiver aberto, saída e almoço só podem ser batidos nesse posto.
+// Retorna '' quando não há turno aberto (todos os postos livres) ou a entrada não tem posto.
+function postoDoTurnoAberto(colabId) {
+  const ult = ultimoReg(colabId);
+  if (!ult || !tipoTurnoAberto(ult.tipo)) return '';
+  return String(ult.posto || '').trim();
+}
+
 // ─── COOLDOWN ENTRADA e SAÍDA (1 hora) ────────────────────────────────────────
 const COOLDOWN_ENTRADA_MS = 60 * 60 * 1000;
 const COOLDOWN_SAIDA_MS   = 60 * 60 * 1000;
@@ -6538,6 +6547,20 @@ async function baterPonto(tipo) {
     return;
   }
 
+  // Saída/almoço só no MESMO posto da entrada do turno aberto
+  if (tipo !== 'entrada') {
+    const postoTurno = postoDoTurnoAberto(selectedColab.id);
+    if (postoTurno && postoTurno !== String(postoEscolhido).trim()) {
+      const selTurno = document.getElementById('ponto-posto-select');
+      if (selTurno) { selTurno.value = postoTurno; atualizarBotaoPosto(); }
+      await pjAlert(
+        `Você iniciou este turno no posto <strong>${esc(postoTurno)}</strong>.<br><br>A saída (e o almoço) só podem ser registrados nesse mesmo posto. Depois que a saída for feita, os demais postos ficam liberados novamente.`,
+        { html: true, tipo: 'aviso', titulo: 'Posto diferente da entrada', icone: '📍' }
+      );
+      return;
+    }
+  }
+
   pendingTipo = tipo;
   pendingLocalizacao = null;
 
@@ -6850,6 +6873,14 @@ function registrarPonto() {
   const postoSel     = (document.getElementById('ponto-posto-select').value || '').trim();
   const postoColab   = (selectedColab.posto || '').trim();
   const postoFinal   = postoSel || postoColab;
+  // Saída/almoço só no mesmo posto da entrada do turno aberto
+  if (pendingTipo !== 'entrada') {
+    const postoTurno = postoDoTurnoAberto(selectedColab.id);
+    if (postoTurno && postoTurno !== String(postoFinal).trim()) {
+      console.warn('registrarPonto bloqueado: posto diferente da entrada');
+      return false;
+    }
+  }
   // Trava por GPS também aqui: fora do posto cadastrado não existe registro de ponto
   if (!validarLocalPosto(postoFinal, pendingLocalizacao).ok) {
     console.warn('registrarPonto bloqueado: fora do posto');
@@ -7056,6 +7087,10 @@ function entrarSistema(usuario) {
   selectedColab = null;
   document.getElementById('ponto-btns').style.display   = 'none';
   document.getElementById('posto-selector').style.display = 'none';
+
+  // Sempre começa na aba "Bater Ponto": sem isso, quem entra depois de um admin
+  // herdava a última aba aberta por ele (ex.: Gestão) mesmo sem ter acesso a ela.
+  goHome();
 
   // Admin: ativa notificações de ponto batido (pede permissão + acorda o SW)
   if (isAdmin) pushInicializarNotificacoesAdmin();
