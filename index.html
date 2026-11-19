@@ -3359,6 +3359,12 @@ input.ftv-select[type="date"]::-webkit-calendar-picker-indicator { filter: inver
   transition: all .15s; flex-shrink: 0;
 }
 .gestao-posto-del:hover { background: var(--red-bg); }
+.gestao-posto-gps {
+  background: none; border: 1px solid #00d4ff55; color: var(--accent);
+  border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer;
+  transition: all .15s; flex-shrink: 0;
+}
+.gestao-posto-gps:hover { background: #00d4ff18; }
 
 /* ═══ GESTÃO — SEÇÃO MOTIVOS ═══ */
 .gestao-motivo-tag {
@@ -5508,6 +5514,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent) !importa
 let colaboradores = [];
 let registros     = [];
 let postos        = [];
+let postosGeo     = {}; // { nomeDoPosto: { lat, lng, raio } } — GPS cadastrado pelo administrador
 let usuarios      = (function(){
   try { return JSON.parse(localStorage.getItem('ms_usuarios')) || []; } catch { return []; }
 })();
@@ -5789,6 +5796,7 @@ function loadData() {
     try { registros    = JSON.parse(localStorage.getItem('ms_registros'))||[]; }     catch { registros=[]; }
     try { usuarios     = JSON.parse(localStorage.getItem('ms_usuarios'))||[]; }      catch { usuarios=[]; }
     try { postos       = JSON.parse(localStorage.getItem('ms_postos'))||[]; }        catch { postos=[]; }
+    try { postosGeo    = JSON.parse(localStorage.getItem('ms_postos_geo'))||{}; }    catch { postosGeo={}; }
     window._colaboradoresGlobal = colaboradores;
     window._usuariosGlobal = usuarios;
     populatePostoSelects();
@@ -5873,7 +5881,18 @@ function loadData() {
         .map(p => typeof p === 'string' ? p : (p && typeof p.nome === 'string' ? p.nome : ''))
         .filter(Boolean);
       localStorage.setItem('ms_postos', JSON.stringify(postos));
+      // GPS do posto (lat/lng/raio) vem junto no mesmo nó "postos"
+      const geo = {};
+      brutos.forEach(p => {
+        if (p && typeof p === 'object' && typeof p.nome === 'string' && p.nome &&
+            isFinite(parseFloat(p.lat)) && isFinite(parseFloat(p.lng))) {
+          geo[p.nome.trim()] = { lat: parseFloat(p.lat), lng: parseFloat(p.lng), raio: parseInt(p.raio, 10) || 100 };
+        }
+      });
+      postosGeo = geo;
+      localStorage.setItem('ms_postos_geo', JSON.stringify(geo));
       populatePostoSelects();
+      try { gcRenderPostos(); } catch (e) {}
     });
 
     // Listener FT
@@ -5902,6 +5921,7 @@ function loadData() {
     try { registros    = JSON.parse(localStorage.getItem('ms_registros'))||[]; }     catch { registros=[]; }
     try { usuarios     = JSON.parse(localStorage.getItem('ms_usuarios'))||[]; }      catch { usuarios=[]; }
     try { postos       = JSON.parse(localStorage.getItem('ms_postos'))||[]; }        catch { postos=[]; }
+    try { postosGeo    = JSON.parse(localStorage.getItem('ms_postos_geo'))||{}; }    catch { postosGeo={}; }
     if (!usuarios.length) seedAdminUser();
     populatePostoSelects();
     renderColabPonto();
@@ -6430,7 +6450,7 @@ function obterLocalizacao() {
     navigator.geolocation.getCurrentPosition(
       pos => resolve({ lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6), precisao: Math.round(pos.coords.accuracy) }),
       () => resolve(null),
-      { timeout: 8000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   });
 }
@@ -6535,6 +6555,15 @@ async function baterPonto(tipo) {
       locEl.textContent = '⚠️ Localização não disponível';
       locEl.style.color = 'var(--gold)';
     }
+  }
+
+  // Trava por GPS: se o posto tem localização cadastrada, só bate dentro do raio
+  const _vPosto = validarLocalPosto(postoEscolhido, pendingLocalizacao);
+  if (!_vPosto.ok) {
+    pendingTipo = null;
+    pendingLocalizacao = null;
+    await bloquearForaDoPosto(postoEscolhido, _vPosto);
+    return;
   }
 
   openFaceModal();
@@ -6821,6 +6850,11 @@ function registrarPonto() {
   const postoSel     = (document.getElementById('ponto-posto-select').value || '').trim();
   const postoColab   = (selectedColab.posto || '').trim();
   const postoFinal   = postoSel || postoColab;
+  // Trava por GPS também aqui: fora do posto cadastrado não existe registro de ponto
+  if (!validarLocalPosto(postoFinal, pendingLocalizacao).ok) {
+    console.warn('registrarPonto bloqueado: fora do posto');
+    return false;
+  }
 
   const reg = {
     id: uid(),
@@ -10924,8 +10958,12 @@ function gcRenderPostos() {
       <div style="flex:1;min-width:0">
         <div class="gestao-posto-nome">${esc(nome)}</div>
         <div class="gestao-posto-meta">${colabPorPosto(nome)} colaborador(es)</div>
+        ${postosGeo[nome]
+          ? `<div class="gestao-posto-meta" style="color:var(--green);margin-top:2px">📡 GPS ativo · raio ${postosGeo[nome].raio} m</div>`
+          : `<div class="gestao-posto-meta" style="color:var(--gold);margin-top:2px">⚠️ Sem GPS — ponto liberado em qualquer lugar</div>`}
         ${nomesHtml}
       </div>
+      <button class="gestao-posto-gps" data-posto="${esc(nome)}" onclick="gcGeoAbrir(this.dataset.posto)" title="Definir localização GPS do posto">📡 GPS</button>
       <button class="gestao-posto-del" data-posto="${esc(nome)}" onclick="gcExcluirPosto(this.dataset.posto)" title="Excluir posto">🗑️</button>
     </div>`;
   }).join('');
@@ -10948,6 +10986,8 @@ async function gcExcluirPosto(nome) {
     .map(p => typeof p === 'string' ? p : (p && typeof p.nome === 'string' ? p.nome : ''))
     .filter(p => p && p !== nome);
   localStorage.setItem('ms_postos', JSON.stringify(postos));
+  delete postosGeo[nome];
+  localStorage.setItem('ms_postos_geo', JSON.stringify(postosGeo));
 
   // Desvincula os colaboradores deste posto para ele não reaparecer na lista
   if (vinculados.length) {
@@ -10958,7 +10998,7 @@ async function gcExcluirPosto(nome) {
   let erroFb = false;
   if (window._firebaseReady && window._db) {
     try {
-      await window._fbSet(window._fbRef(window._db, 'postos'), postos.length ? postos.map(p => ({ nome: p })) : null);
+      await window._fbSet(window._fbRef(window._db, 'postos'), postos.length ? postosParaFirebase() : null);
       for (const c of vinculados) {
         await window._fbUpdate(window._fbRef(window._db, 'colaboradores/' + c.id), { posto: '' });
       }
@@ -10989,7 +11029,7 @@ async function gcAdicionarPosto() {
   postos = [...set];
   localStorage.setItem('ms_postos', JSON.stringify(postos));
   if (window._firebaseReady && window._db) {
-    await window._fbSet(window._fbRef(window._db, 'postos'), postos.map(p => ({ nome: p })));
+    await window._fbSet(window._fbRef(window._db, 'postos'), postosParaFirebase());
   }
   inp.value = '';
   gcRenderPostos();
@@ -10998,6 +11038,165 @@ async function gcAdicionarPosto() {
   mostrarSyncToast('📍 Posto adicionado!', 'green');
 }
 window.gcAdicionarPosto = gcAdicionarPosto;
+
+// ─── GPS DOS POSTOS (geofence) ──────────────────────────────────────────
+// Cada posto pode ter uma localização (lat/lng) e um raio em metros, definidos
+// pelo administrador. Com GPS cadastrado, o colaborador só consegue bater o
+// ponto estando dentro do raio; fora dele o ponto é bloqueado e o admin é avisado.
+function postosParaFirebase() {
+  return postos.map(p => {
+    const nome = typeof p === 'string' ? p : (p && p.nome) || '';
+    const g = postosGeo[nome];
+    return g ? { nome, lat: g.lat, lng: g.lng, raio: g.raio } : { nome };
+  });
+}
+
+async function gcPersistirPostos() {
+  localStorage.setItem('ms_postos', JSON.stringify(postos));
+  localStorage.setItem('ms_postos_geo', JSON.stringify(postosGeo));
+  if (window._firebaseReady && window._db) {
+    await window._fbSet(window._fbRef(window._db, 'postos'), postos.length ? postosParaFirebase() : null);
+  }
+}
+
+function distanciaMetros(lat1, lng1, lat2, lng2) {
+  const R = 6371000, rad = x => x * Math.PI / 180;
+  const dLat = rad(lat2 - lat1), dLng = rad(lng2 - lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Retorna { ok, semGps?, motivo?, dist?, raio? }
+function validarLocalPosto(nomePosto, loc) {
+  const g = postosGeo[String(nomePosto || '').trim()];
+  if (!g) return { ok: true, semGps: true };           // posto sem GPS cadastrado: não trava
+  if (!loc) return { ok: false, motivo: 'sem_gps', raio: g.raio };
+  const dist = Math.round(distanciaMetros(parseFloat(loc.lat), parseFloat(loc.lng), g.lat, g.lng));
+  const tolerancia = Math.min(parseInt(loc.precisao, 10) || 0, 50); // margem pela imprecisão do GPS
+  return { ok: (dist - tolerancia) <= g.raio, motivo: 'fora', dist, raio: g.raio };
+}
+
+async function bloquearForaDoPosto(nomePosto, v) {
+  const colabNome = selectedColab ? selectedColab.nome : '';
+  enviarAlertaForaPosto(colabNome, nomePosto, v);
+  if (v.motivo === 'sem_gps') {
+    await pjAlert(
+      `Não foi possível obter a sua localização.<br><br>Ative o <strong>GPS</strong> do aparelho e permita o acesso à localização para bater o ponto no posto <strong>${esc(nomePosto)}</strong>.<br><br>O administrador foi notificado.`,
+      { html: true, tipo: 'erro', titulo: 'Localização necessária', icone: '📡' }
+    );
+  } else {
+    await pjAlert(
+      `Não é possível bater o ponto: você está <strong>fora do posto de serviço</strong> <strong>${esc(nomePosto)}</strong>.<br><br>Distância aproximada: <strong>${v.dist} m</strong> (limite: ${v.raio} m).<br>Vá até o posto e tente novamente.<br><br>O administrador foi notificado.`,
+      { html: true, tipo: 'erro', titulo: 'Fora do posto de serviço', icone: '📍' }
+    );
+  }
+}
+
+// Avisa o administrador (push_queue → Service Worker, e ntfy.sh em 2º plano)
+const _alertaForaTs = {};
+function enviarAlertaForaPosto(colabNome, nomePosto, v) {
+  const chave = colabNome + '|' + nomePosto;
+  if (Date.now() - (_alertaForaTs[chave] || 0) < 60000) return; // no máx. 1 aviso/min por colaborador+posto
+  _alertaForaTs[chave] = Date.now();
+  const hora = fmtHora(Date.now());
+  const id = uid();
+  try {
+    if (window._firebaseReady && window._db) {
+      window._fbSet(window._fbRef(window._db, 'push_queue/' + id), {
+        ts: Date.now(), tipo: 'fora_posto', nome: colabNome, posto: nomePosto, hora,
+        motivo: v.motivo || 'fora', dist: v.dist || 0, raio: v.raio || 0
+      }).then(() => {
+        setTimeout(() => { window._fbRemove(window._fbRef(window._db, 'push_queue/' + id)).catch(()=>{}); }, 120000);
+      }).catch(e => console.warn('[alerta fora do posto]', e.message));
+    }
+  } catch (e) { console.warn('[alerta fora do posto]', e.message); }
+  try {
+    const corpo = v.motivo === 'sem_gps'
+      ? `📍 ${nomePosto} · sem localização (GPS desligado/negado) · ${hora}`
+      : `📍 ${nomePosto} · a ${v.dist} m do posto (limite ${v.raio} m) · ${hora}`;
+    fetch('https://ntfy.sh/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic: NTFY_TOPIC,
+        title: `🚨 ${colabNome} tentou bater ponto fora do posto`,
+        message: corpo, priority: 5, tags: ['rotating_light']
+      })
+    }).catch(e => console.warn('[ntfy]', e.message));
+  } catch (e) {}
+}
+
+// ── Janela do admin: definir GPS do posto ──
+function gcGeoAbrir(nome) {
+  gcGeoFechar();
+  const g = postosGeo[nome] || {};
+  const ov = document.createElement('div');
+  ov.id = 'gc-geo-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(3,8,20,.8);display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto';
+  ov.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;width:100%;max-width:420px;display:grid;gap:12px">
+      <div style="font-family:var(--font-head);font-size:18px;color:var(--text)">📡 GPS do posto</div>
+      <div style="font-size:13px;color:var(--muted)">${esc(nome)}</div>
+      <button class="gc-btn-save" id="gc-geo-aqui" type="button">📍 Usar minha localização atual</button>
+      <div class="gc-field"><label class="gc-label">Latitude</label>
+        <input id="gc-geo-lat" class="gc-input" type="text" inputmode="decimal" placeholder="-22.431234" value="${g.lat ?? ''}" autocomplete="off"/></div>
+      <div class="gc-field"><label class="gc-label">Longitude</label>
+        <input id="gc-geo-lng" class="gc-input" type="text" inputmode="decimal" placeholder="-46.958123" value="${g.lng ?? ''}" autocomplete="off"/></div>
+      <div class="gc-field"><label class="gc-label">Raio permitido (metros)</label>
+        <input id="gc-geo-raio" class="gc-input" type="number" min="20" max="5000" value="${g.raio || 100}"/></div>
+      <div id="gc-geo-msg" style="font-size:12px;color:var(--muted)">Dica: você pode colar "latitude, longitude" copiado do Google Maps no campo Latitude.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="gc-btn-save" id="gc-geo-salvar" type="button" style="flex:1">Salvar</button>
+        ${g.lat !== undefined ? '<button class="gestao-posto-del" id="gc-geo-remover" type="button">Remover GPS</button>' : ''}
+        <button class="gestao-posto-gps" id="gc-geo-cancelar" type="button">Cancelar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+  const msg = t => { const m = document.getElementById('gc-geo-msg'); if (m) m.textContent = t; };
+  document.getElementById('gc-geo-cancelar').onclick = gcGeoFechar;
+  document.getElementById('gc-geo-aqui').onclick = async () => {
+    msg('📡 Obtendo localização...');
+    const loc = await obterLocalizacao();
+    if (!loc) { msg('⚠️ Não foi possível obter a localização. Permita o acesso ao GPS ou digite as coordenadas.'); return; }
+    document.getElementById('gc-geo-lat').value = loc.lat;
+    document.getElementById('gc-geo-lng').value = loc.lng;
+    msg(`✅ Localização capturada (±${loc.precisao} m). Confira o raio e salve.`);
+  };
+  document.getElementById('gc-geo-salvar').onclick = () => gcGeoSalvar(nome);
+  const rm = document.getElementById('gc-geo-remover');
+  if (rm) rm.onclick = () => gcGeoRemover(nome);
+}
+function gcGeoFechar() {
+  const ov = document.getElementById('gc-geo-overlay');
+  if (ov) ov.remove();
+}
+async function gcGeoSalvar(nome) {
+  let latTxt = document.getElementById('gc-geo-lat').value.trim();
+  let lngTxt = document.getElementById('gc-geo-lng').value.trim();
+  if (latTxt.includes(',') && !lngTxt) { const pt = latTxt.split(','); latTxt = pt[0].trim(); lngTxt = (pt[1] || '').trim(); }
+  const lat = parseFloat(latTxt.replace(',', '.')), lng = parseFloat(lngTxt.replace(',', '.'));
+  const raio = parseInt(document.getElementById('gc-geo-raio').value, 10);
+  const msg = t => { const m = document.getElementById('gc-geo-msg'); if (m) { m.textContent = t; m.style.color = 'var(--red)'; } };
+  if (!isFinite(lat) || lat < -90  || lat > 90)  return msg('⚠️ Latitude inválida.');
+  if (!isFinite(lng) || lng < -180 || lng > 180) return msg('⚠️ Longitude inválida.');
+  if (!isFinite(raio) || raio < 20 || raio > 5000) return msg('⚠️ Informe um raio entre 20 e 5000 metros.');
+  postosGeo[nome] = { lat: +lat.toFixed(6), lng: +lng.toFixed(6), raio };
+  // garante que o posto exista na lista oficial (pode vir só dos colaboradores)
+  const nomes = postos.map(p => typeof p === 'string' ? p : (p && p.nome) || '');
+  if (!nomes.includes(nome)) postos = [...nomes.filter(Boolean), nome];
+  try { await gcPersistirPostos(); } catch (e) { console.warn('[gcGeoSalvar]', e.message); mostrarSyncToast('⚠️ GPS salvo neste aparelho, mas não sincronizou com o servidor', 'gold'); }
+  gcGeoFechar();
+  gcRenderPostos();
+  mostrarSyncToast('📡 GPS do posto salvo!', 'green');
+}
+async function gcGeoRemover(nome) {
+  delete postosGeo[nome];
+  try { await gcPersistirPostos(); } catch (e) { console.warn('[gcGeoRemover]', e.message); }
+  gcGeoFechar();
+  gcRenderPostos();
+  mostrarSyncToast('📡 GPS do posto removido', 'red');
+}
+window.gcGeoAbrir = gcGeoAbrir;
 
 // ─── Motivos ────────────────────────────────────────────────────────────
 const GC_MOTIVOS_DEFAULT = ['Plantão Normal','Atestado','Afastamento','Cobertura de Férias','Suspensão','Bico Fixo','Folga do Vigia','Falta Justificada','Falta Injustificada','Atraso','Outro'];
