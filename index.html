@@ -11197,6 +11197,10 @@ async function gcGeoRemover(nome) {
   mostrarSyncToast('📡 GPS do posto removido', 'red');
 }
 window.gcGeoAbrir = gcGeoAbrir;
+// baterPonto()/registrarPonto() ficam fora deste bloco: precisam enxergar estas funções
+window.validarLocalPosto     = validarLocalPosto;
+window.bloquearForaDoPosto   = bloquearForaDoPosto;
+window.enviarAlertaForaPosto = enviarAlertaForaPosto;
 
 // ─── Motivos ────────────────────────────────────────────────────────────
 const GC_MOTIVOS_DEFAULT = ['Plantão Normal','Atestado','Afastamento','Cobertura de Férias','Suspensão','Bico Fixo','Folga do Vigia','Falta Justificada','Falta Injustificada','Atraso','Outro'];
