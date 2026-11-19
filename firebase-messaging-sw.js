@@ -46,6 +46,24 @@ function iniciarEscutaFirebase() {
     // Ignora itens com mais de 60 segundos (histórico antigo ao iniciar o SW)
     if (Date.now() - item.ts > 60000) return;
 
+    // Tentativa de bater ponto fora do posto de serviço
+    if (item.tipo === 'fora_posto') {
+      const detalhe = item.motivo === 'sem_gps'
+        ? 'sem localização (GPS desligado/negado)'
+        : `a ${item.dist} m do posto (limite ${item.raio} m)`;
+      self.registration.showNotification(`🚨 ${item.nome} tentou bater ponto fora do posto`, {
+        body:    `📍 ${item.posto}  ·  ${detalhe}  ·  ${item.hora}`,
+        icon:    './icon-192.png',
+        badge:   './badge-72.png',
+        tag:     'fora-posto-' + chave,
+        vibrate: [300, 150, 300, 150, 300],
+        renotify: true,
+        requireInteraction: true,
+        data:    { url: self.location.origin }
+      });
+      return;
+    }
+
     const prefixos = {
       entrada:        '✅ Entrada',
       saida:          '🚪 Saída',
