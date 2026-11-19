@@ -5933,9 +5933,16 @@ function populatePostoSelects() {
   const sel = document.getElementById('ponto-posto-select');
   if (!sel) return;
   const atualVal = sel.value;
-  const lista = listaPostosLimpa();
+  const lista = listaPostosLimpa(true);
   sel.innerHTML = '<option value="">-- Selecione o posto --</option>'
     + lista.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  // Colaborador selecionado com turno aberto em posto excluído: mantém esse posto como opção
+  const _pTurno = selectedColab ? postoDoTurnoAberto(selectedColab.id) : '';
+  if (_pTurno && !lista.includes(_pTurno)) {
+    const op = document.createElement('option');
+    op.value = _pTurno; op.textContent = _pTurno;
+    sel.appendChild(op);
+  }
   if (atualVal) sel.value = atualVal;
   atualizarBotaoPosto();
 }
@@ -6040,14 +6047,16 @@ function selecionarPostoPicker(nome) {
   fecharPostoPicker();
 }
 
-function listaPostosLimpa() {
+function listaPostosLimpa(semRegistros) {
   const doCadastro = postos.map(p => typeof p === 'object' ? (p.nome||'') : String(p||''));
   const dosColabs  = colaboradores.map(c => c.posto||'');
   // Inclui também os postos vindos dos registros de ponto, garantindo que o posto
   // onde o colaborador efetivamente bateu entrada apareça como opção selecionável
   // (mesmo que não esteja cadastrado em "Postos"), evitando divergência entre
   // o que aparece na tela inicial e o que está no histórico.
-  const dosRegistros = registros.map(r => r.posto||'');
+  // semRegistros=true (tela de Bater Ponto): só postos cadastrados — um posto excluído
+  // na Gestão não pode voltar por causa de registros antigos no histórico.
+  const dosRegistros = semRegistros ? [] : registros.map(r => r.posto||'');
   const todos = [];
   doCadastro.concat(dosColabs).concat(dosRegistros).forEach(v => {
     String(v).split(',').forEach(s => { const t = s.trim(); if(t) todos.push(t); });
@@ -6438,6 +6447,13 @@ function selectColab(c) {
     // Se o colaborador está "DENTRO", usa o posto do registro de entrada
     // (onde ele bateu o ponto), para a saída ser registrada no mesmo posto.
     const ult = ultimoReg(selectedColab.id);
+    // Turno aberto num posto que já foi excluído do cadastro: mantém só esse posto como
+    // opção extra, senão o colaborador não conseguiria dar a saída (que exige o mesmo posto).
+    if (ult && tipoTurnoAberto(ult.tipo) && ult.posto && ![...sel.options].some(o => o.value === ult.posto)) {
+      const op = document.createElement('option');
+      op.value = ult.posto; op.textContent = ult.posto;
+      sel.appendChild(op);
+    }
     sel.value = (ult && tipoTurnoAberto(ult.tipo) && ult.posto) ? ult.posto : (selectedColab.posto || '');
     atualizarBotaoPosto();
     postoSel.style.display  = 'block';
